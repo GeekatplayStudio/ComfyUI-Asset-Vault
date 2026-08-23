@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Trash2, Pencil } from 'lucide-react'
+import { Trash2, Pencil, ExternalLink } from 'lucide-react'
 import { thumbnailUrl } from '../../services/api.js'
 import { presentAsset } from './AssetCard.jsx'
 import InlinePlayer, { isPlayable } from '../common/InlinePlayer.jsx'
@@ -29,7 +29,8 @@ function RowThumb({ uid, alt, noThumb }) {
 
 function AssetListRow(props) {
   const {
-    item, scope, selected, checked, onSelect, onOpen, onRename, onDelete, onContextMenu
+    item, scope, selected, checked, onSelect, onOpen, onRename, onDelete,
+    onOpenExternal, onContextMenu
   } = props
   const p = presentAsset(item, scope)
 
@@ -81,6 +82,17 @@ function AssetListRow(props) {
             label={'Play ' + p.title}
             onActivate={() => setPlaying(true)}
           />
+        ) : null}
+        {onOpenExternal ? (
+          <button
+            type="button"
+            className="gp-btn gp-btn--ghost gp-btn--sm gp-btn--icon"
+            aria-label={'Open ' + p.title + ' in ComfyUI'}
+            title="Open in ComfyUI"
+            onClick={(e) => { e.stopPropagation(); onOpenExternal(item) }}
+          >
+            <ExternalLink className="gp-btn__icon" aria-hidden="true" />
+          </button>
         ) : null}
         {onRename ? (
           <button

@@ -141,6 +141,20 @@ you seeing it first:
 6. Space is checked **before** anything starts, so a workflow that needs more than you have free
    fails loudly, up front — not halfway through a 40 GB download.
 
+**Open in ComfyUI** takes a workflow straight into ComfyUI. If ComfyUI is not running the app
+offers to start it — naming the exact launcher it found on your machine — waits for the port,
+then opens the workflow.
+
+One honest limitation, established by reading the frontend this install actually serves rather
+than assuming: **ComfyUI 1.49.6 has no deep link for your own saved workflows.** Its only
+workflow URL parameter targets templates bundled with node packages. So on a library like this
+one, 147 of 211 workflows open directly, and the remaining 64 open ComfyUI with the filename to
+pick from its Workflows sidebar. The app tells you which case you are in instead of handing you
+a link that quietly does nothing.
+
+Starting ComfyUI and copying a file into your install are **separate, explicit consents** —
+clicking Open never does either on its own.
+
 ### Generated outputs
 
 Indexes images, video, audio, 3D models and text from `output/`, extracts the embedded
@@ -449,6 +463,13 @@ browser cannot forge, every file operation is confined to configured roots and a
 IDs rather than paths, and the MCP server's most dangerous capability — full delete access — ships
 with an audit trail, a batch cap, and a read-only kill switch.
 
+As of 2.1.0 **every finding in that report is closed**, including the Medium and Low items: an SSE
+subscriber cap, an install-validation gate on the updater path, decompression-bomb limits on image
+decoding, an MCP session cap, a request-body size limit, and an SSRF guard on the Ollama URL that
+still allows a LAN host but refuses names and public addresses. Dependency floors were raised and
+`python-multipart` removed outright — it was unused and carried nine advisories. Each fix replaced
+its `xfail` marker with a permanent regression test.
+
 ---
 
 ## Documentation
@@ -481,8 +502,9 @@ Engineering references, for anyone building on top of this:
 Tracked honestly rather than hidden — current status in
 **[docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)** and **[docs/QA_REPORT.md](docs/QA_REPORT.md)**:
 
-- A handful of Medium/Low-severity security hardening items remain open (tracked as `xfail` tests,
-  each with a written finding and an owner).
+- ComfyUI 1.49.6 exposes no deep link for user-saved workflows, so **Open in ComfyUI** opens 147 of
+  211 workflows directly and opens ComfyUI with the filename for the rest. The app says which case
+  applies rather than handing over a link that does nothing.
 - Video-thumbnail frame extraction currently requires a user-installed `ffmpeg` on `PATH`; without
   it, videos show a placeholder plus their metadata.
 - Official ComfyUI example templates (the ones bundled with ComfyUI itself) are catalogued

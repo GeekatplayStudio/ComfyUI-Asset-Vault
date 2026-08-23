@@ -163,6 +163,81 @@ def error_response(code: str, message: str, request: Request | None = None, *,
 # ASGI middleware (pure ASGI: no BaseHTTPMiddleware, so SSE streams unbuffered)
 # ---------------------------------------------------------------------------
 
+#: BUILD_PLAN 7.12 / SECURITY_REVIEW S-07.  No v1 endpoint has a legitimate body
+#: anywhere near this size.  The one that comes closest is the 3D-model poster at
+#: ``POST /files/thumbnail/rendered``: ``thumb_service.MAX_RENDERED_BYTES`` is
+#: 4 MB of PNG, which base64 inflates to roughly 5.4 MB inside a JSON envelope.
+#: 8 MB clears that with room to spare and still refuses the 32 MB body that
+#: previously reached Pydantic fully buffered.
+MAX_BODY_BYTES = 8 * 1024 * 1024
+
+
+class BodySizeLimitMiddleware:
+    """Refuse an oversized request body before it is buffered or parsed.
+
+    An over-large ``Content-Length`` is answered without reading a single byte.
+    A chunked body that declares no length is counted as it arrives and aborted
+    the moment it crosses the budget, so "omit the header" is not a bypass.
+    """
+
+    def __init__(self, app, max_bytes: int = MAX_BODY_BYTES) -> None:
+        self.app = app
+        self.max_bytes = int(max_bytes)
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        declared: int | None = None
+        for key, value in scope.get("headers") or ():
+            if key == b"content-length":
+                try:
+                    declared = int(value)
+                except (TypeError, ValueError):
+                    declared = None
+                break
+        if declared is not None and declared > self.max_bytes:
+            await self._refuse(scope, send, declared)
+            return
+
+        seen = 0
+
+        async def counted_receive():
+            nonlocal seen
+            message = await receive()
+            if message.get("type") == "http.request":
+                seen += len(message.get("body") or b"")
+                if seen > self.max_bytes:
+                    # A Starlette HTTPException, not an ApiError: FastAPI's body
+                    # reader re-raises HTTPException unchanged and rewrites every
+                    # other exception into a generic 400.  The handler below maps
+                    # 413 back onto PAYLOAD_TOO_LARGE.
+                    raise StarletteHTTPException(
+                        status_code=ERROR_STATUS["PAYLOAD_TOO_LARGE"],
+                        detail=(f"The request body is larger than "
+                                f"{self.max_bytes // (1024 * 1024)} MB."))
+            return message
+
+        await self.app(scope, counted_receive, send)
+
+    async def _refuse(self, scope, send, declared: int) -> None:
+        rid = str((scope.get("state") or {}).get("request_id") or uuid.uuid4().hex)
+        body = envelope(
+            "PAYLOAD_TOO_LARGE",
+            f"The request body is larger than {self.max_bytes // (1024 * 1024)} MB.",
+            rid, details={"content_length": declared, "max_bytes": self.max_bytes})
+        response = JSONResponse(status_code=ERROR_STATUS["PAYLOAD_TOO_LARGE"],
+                                content=body,
+                                headers={"X-API-Version": API_VERSION,
+                                         "X-Request-Id": rid})
+        await response(scope, receive_nothing, send)
+
+
+async def receive_nothing() -> dict:
+    """An empty ASGI receive: the refused body is never read off the wire."""
+    return {"type": "http.request", "body": b"", "more_body": False}
+
+
 class RequestContextMiddleware:
     """Attach ``X-Request-Id`` / ``X-API-Version`` / ``Server-Timing`` to every
     response and expose the request id on ``request.state`` for the handlers."""
@@ -249,6 +324,9 @@ async def _unhandled_handler(request: Request, exc: Exception) -> JSONResponse:
 
 
 def install(app: FastAPI) -> None:
+    # Added first so it ends up *inside* RequestContextMiddleware: the refusal
+    # still carries X-Request-Id and Server-Timing like every other response.
+    app.add_middleware(BodySizeLimitMiddleware)
     app.add_middleware(RequestContextMiddleware)
     app.add_exception_handler(ApiError, _api_error_handler)
     app.add_exception_handler(AppError, _app_error_handler)

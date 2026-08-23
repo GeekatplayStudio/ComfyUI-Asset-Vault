@@ -11,7 +11,7 @@ from ...core import db as dbmod
 from ...core import progress
 from ...core.errors import ConflictError, NotConfigured
 from ...indexing.service import PHASES, get_indexer
-from ..deps import Page, page_params, sse_response, sse_stream
+from ..deps import Page, page_params, require_stream_capacity, sse_response, sse_stream
 from ..middleware import ApiError
 from ..schemas.common import BASE_ERRORS, MUTATION_ERRORS, error_responses
 from ..schemas.indexing import (
@@ -115,6 +115,7 @@ def index_status() -> dict:
             summary="Server-Sent Events for scan progress")
 async def index_stream(request: Request, job_id: int | None = Query(None)):
     indexer = get_indexer()
+    require_stream_capacity(indexer.bus)
     return sse_response(sse_stream(indexer.subscribe(), request, job_id=job_id,
                                    close_on_done=job_id is not None))
 

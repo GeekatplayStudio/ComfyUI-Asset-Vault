@@ -29,11 +29,16 @@ from app.jobs import video_frame
 
 from ..config import THUMB_DIR
 from ..core import db as dbmod
+from ..core import imaging
 from ..core.errors import NotFoundError
 from ..core.fingerprint import path_hash
 from ..core.pathsafe import long_path
 
 log = logging.getLogger(__name__)
+
+#: SECURITY_REVIEW S-05: applied at import so the budget is in force before the
+#: first ``Image.open`` on a file the vault did not write.
+imaging.apply_budget()
 
 SIZES = (160, 320, 640)
 QUALITY = 82
@@ -170,7 +175,7 @@ class ThumbService:
         written = 0
         for size in SIZES:
             try:
-                with Image.open(io.BytesIO(raw)) as im:
+                with Image.open(io.BytesIO(raw), formats=imaging.open_formats(("PNG",))) as im:
                     if im.format != "PNG":
                         raise ValueError("The payload is not a PNG.")
                     im.load()
@@ -362,7 +367,12 @@ class ThumbService:
         src_path = info.get("path")
         if src_path and info.get("media") == "image":
             try:
-                with Image.open(long_path(str(src_path))) as im:
+                with Image.open(long_path(str(src_path)),
+                                formats=imaging.open_formats()) as im:
+                    if imaging.exceeds_budget(im.size):
+                        raise ValueError(
+                            f"{im.size[0]}x{im.size[1]} is over the "
+                            f"{imaging.MAX_IMAGE_PIXELS} pixel budget")
                     if im.format == "JPEG":
                         im.draft("RGB", (size * 2, size * 2))
                     im.load()
@@ -377,7 +387,8 @@ class ThumbService:
             frame = video_frame.extract_frame(str(src_path), size * 2)
             if frame:
                 try:
-                    with Image.open(io.BytesIO(frame)) as im:
+                    with Image.open(io.BytesIO(frame),
+                                    formats=imaging.open_formats(imaging.FRAME_FORMATS)) as im:
                         im.load()
                         img = im.convert("RGB")
                         img.thumbnail((size, size), Image.LANCZOS)

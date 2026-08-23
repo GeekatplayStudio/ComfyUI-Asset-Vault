@@ -446,12 +446,8 @@ def test_ordinary_names_are_accepted(name: str) -> None:
     validate_filename(name)
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "DEFECT: validate_filename enforces no length limit, so a component longer "
-    "than the NTFS 255-character maximum is accepted and only fails later as a "
-    "raw OSError from mkdir/rename. The API schema caps rename at 255, but "
-    "file_ops.create_folder and the workflow-save route pass unbounded path "
-    "components straight in. Owner: backend-core"))
+# Fixed: pathsafe.MAX_COMPONENT_CHARS.  A failure here means the length limit was
+# removed and an over-long component can again reach mkdir/rename as a raw OSError.
 def test_names_over_the_filesystem_limit_are_rejected() -> None:
     """A single path component may not exceed 255 characters on NTFS.  Catching
     that here keeps it a clean 422 with a message the user can act on, instead of

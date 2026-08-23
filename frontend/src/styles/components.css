@@ -226,6 +226,10 @@ button.gp-chip--selected:hover{background:var(--gp-selected-strong);border-color
 .gp-card__corner{position:absolute;top:var(--gp-s-3);right:var(--gp-s-3);display:flex;gap:var(--gp-s-2)}
 .gp-card__check{position:absolute;top:var(--gp-s-3);left:var(--gp-s-3);opacity:0;transition:opacity var(--gp-tr-micro)}
 .gp-card:is(:hover,:focus-within,.gp-card--selected) .gp-card__check{opacity:1}
+/* Card action: same reveal-on-hover contract as the checkbox, opposite corner. */
+.gp-card__action{position:absolute;bottom:var(--gp-s-3);right:var(--gp-s-3);opacity:0;background:var(--gp-bg-200);transition:opacity var(--gp-tr-micro)}
+.gp-card:is(:hover,:focus-within) .gp-card__action{opacity:1}
+.gp-card__action:focus-visible{opacity:1}
 .gp-card__body{display:flex;flex-direction:column;gap:var(--gp-s-2);padding:var(--gp-s-4);min-height:var(--gp-grid-meta-h);border-top:1px solid var(--gp-line-100)}
 .gp-card__title{font-size:var(--gp-fs-12);font-weight:var(--gp-fw-500);line-height:var(--gp-lh-tight);color:var(--gp-fg-100);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
 .gp-card__meta{display:flex;align-items:center;gap:var(--gp-s-3);font-size:var(--gp-fs-10);color:var(--gp-meta)}

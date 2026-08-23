@@ -16,7 +16,7 @@ export default function AssetGrid(props) {
   const {
     items, groups, scope, mode, tile, groupKeyOf,
     selection, focusUid, onSelect, onOpen, onToggleCheck,
-    onRename, onDelete, loading, empty, scrollRef: externalRef
+    onRename, onDelete, onOpenExternal, loading, empty, scrollRef: externalRef
   } = props
 
   const internalRef = useRef(null)
@@ -89,6 +89,7 @@ export default function AssetGrid(props) {
                         onOpen={onOpen}
                         onRename={onRename}
                         onDelete={onDelete}
+                        onOpenExternal={onOpenExternal}
                       />
                     ) : (
                       <AssetCard
@@ -101,6 +102,7 @@ export default function AssetGrid(props) {
                         onSelect={onSelect}
                         onOpen={onOpen}
                         onToggleCheck={onToggleCheck}
+                        onOpenExternal={onOpenExternal}
                       />
                     )
                   ))}

@@ -24,7 +24,7 @@ from ...core.errors import AppError
 from ...enable import download as enable_download
 from ...enable.service import build_report, get_enable_service
 from ...enable.service import recheck as enable_recheck
-from ..deps import sse_response, sse_stream
+from ..deps import require_stream_capacity, sse_response, sse_stream
 from ..middleware import ApiError, normalize_code
 from ..schemas.common import BASE_ERRORS, MUTATION_ERRORS, error_responses
 from ..schemas.enable import (
@@ -111,7 +111,9 @@ def enable_cancel(body: EnableCancelRequest) -> dict:
 @router.get("/stream", include_in_schema=True, responses=BASE_ERRORS,
             summary="Live fetch progress (SSE): phase, progress, item, done")
 async def enable_stream(request: Request):
-    return sse_response(sse_stream(get_enable_service().subscribe(), request))
+    service = get_enable_service()
+    require_stream_capacity(service.bus)
+    return sse_response(sse_stream(service.subscribe(), request))
 
 
 @router.get("/quarantine", response_model=EnableQuarantine, responses=BASE_ERRORS,

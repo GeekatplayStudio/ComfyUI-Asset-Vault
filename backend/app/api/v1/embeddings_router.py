@@ -8,7 +8,7 @@ from fastapi import APIRouter, Query, Request
 
 from ...core.errors import FeatureUnavailable
 from ...jobs.embed_service import get_embed_service
-from ..deps import sse_response, sse_stream
+from ..deps import require_stream_capacity, sse_response, sse_stream
 from ..middleware import ApiError
 from ..schemas.common import BASE_ERRORS, MUTATION_ERRORS, error_responses
 from ..schemas.jobs import (
@@ -128,4 +128,6 @@ def rebuild_embeddings(body: EmbeddingsRebuildRequest) -> dict:
                        **BASE_ERRORS},
             summary="Server-Sent Events for embedding index progress")
 async def embeddings_stream(request: Request):
-    return sse_response(sse_stream(get_embed_service().subscribe(), request))
+    service = get_embed_service()
+    require_stream_capacity(service.bus)
+    return sse_response(sse_stream(service.subscribe(), request))

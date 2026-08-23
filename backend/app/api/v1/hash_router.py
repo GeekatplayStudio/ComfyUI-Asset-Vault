@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request
 
 from ...core import config_service
 from ...jobs.hash_service import get_hash_service
-from ..deps import check_uids, sse_response, sse_stream
+from ..deps import check_uids, require_stream_capacity, sse_response, sse_stream
 from ..middleware import ApiError
 from ..schemas.common import BASE_ERRORS, MUTATION_ERRORS
 from ..schemas.jobs import (
@@ -116,7 +116,9 @@ def hash_status() -> dict:
                        **BASE_ERRORS},
             summary="Server-Sent Events for hashing progress")
 async def hash_stream(request: Request):
-    return sse_response(sse_stream(get_hash_service().subscribe(), request))
+    service = get_hash_service()
+    require_stream_capacity(service.bus)
+    return sse_response(sse_stream(service.subscribe(), request))
 
 
 @router.post("/settings", response_model=HashSettingsResponse,

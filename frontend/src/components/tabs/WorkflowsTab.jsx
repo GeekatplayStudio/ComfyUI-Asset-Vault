@@ -8,6 +8,7 @@ import GridToolbar, { SelectionActions } from '../grid/GridToolbar.jsx'
 import EmptyState from '../common/EmptyState.jsx'
 import Button from '../common/Button.jsx'
 import FileOpsModal from '../modals/FileOpsModal.jsx'
+import OpenInComfyUIDialog from '../modals/OpenInComfyUIDialog.jsx'
 import { useVault } from '../../state/VaultContext.jsx'
 import { SORTS, GROUPS } from '../../state/actions.js'
 
@@ -18,6 +19,7 @@ import { SORTS, GROUPS } from '../../state/actions.js'
 export default function WorkflowsTab({ onStatus, onOpenUid, onLightbox, registerApi }) {
   const { state, dispatch } = useVault()
   const [op, setOp] = useState(null)
+  const [openInComfy, setOpenInComfy] = useState(null)
 
   const open = useCallback((item) => onLightbox(item.uid), [onLightbox])
 
@@ -41,6 +43,12 @@ export default function WorkflowsTab({ onStatus, onOpenUid, onLightbox, register
     (s) => api.workflows({ ...view.filters, group: 'base_model', limit: 1 }, s),
     { epoch: state.dataEpoch }
   )
+
+  /* The row and card action only ever opens the dialog; the dialog is where the
+     plan is shown and where starting ComfyUI is confirmed by its exact path. */
+  const openExternal = useCallback((item) => {
+    setOpenInComfy({ uid: item.uid, name: item.name || item.title })
+  }, [])
 
   const requestOp = useCallback((kind, uids) => {
     const targets = uids ? items.filter((i) => uids.includes(i.uid)) : selectedItems
@@ -130,9 +138,15 @@ export default function WorkflowsTab({ onStatus, onOpenUid, onLightbox, register
         onToggleCheck={toggleCheck}
         onRename={(item) => requestOp('rename', [item.uid])}
         onDelete={(item) => requestOp('delete', [item.uid])}
+        onOpenExternal={openExternal}
         loading={list.loading}
         empty={empty}
       />
+
+      {openInComfy ? (
+        <OpenInComfyUIDialog uid={openInComfy.uid} name={openInComfy.name}
+          onClose={() => setOpenInComfy(null)} />
+      ) : null}
 
       {op ? (
         <FileOpsModal op={op.kind} items={op.items} scope="workflows"

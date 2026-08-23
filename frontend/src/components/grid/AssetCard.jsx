@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import {
   Box, Package, Puzzle, Workflow, Image as ImageIcon, Film, Music, Boxes,
-  FileText, Star, AlertTriangle
+  FileText, Star, AlertTriangle, ExternalLink
 } from 'lucide-react'
 import { thumbnailUrl } from '../../services/api.js'
 import InlinePlayer, { isPlayable } from '../common/InlinePlayer.jsx'
@@ -223,7 +223,8 @@ function Thumb({ uid, tier, alt, placeholderIcon: Icon, inferred, noThumb }) {
 
 function AssetCard(props) {
   const {
-    item, scope, tier, selected, onOpen, onSelect, onContextMenu, checked, onToggleCheck
+    item, scope, tier, selected, onOpen, onSelect, onContextMenu, checked,
+    onToggleCheck, onOpenExternal
   } = props
   const p = presentAsset(item, scope)
 
@@ -273,6 +274,19 @@ function AssetCard(props) {
           mediaKind={item.media_kind}
           label={'Play ' + p.title}
         />
+      ) : null}
+      {/* Sits over the thumbnail rather than inside it: the thumbnail is
+          itself a button, and a button inside a button is not a control. */}
+      {onOpenExternal ? (
+        <button
+          type="button"
+          className="gp-card__action gp-btn gp-btn--ghost gp-btn--sm gp-btn--icon"
+          aria-label={'Open ' + p.title + ' in ComfyUI'}
+          title="Open in ComfyUI"
+          onClick={(e) => { e.stopPropagation(); onOpenExternal(item) }}
+        >
+          <ExternalLink className="gp-btn__icon" aria-hidden="true" />
+        </button>
       ) : null}
       </div>
       <label className="gp-card__check gp-check" onClick={(e) => e.stopPropagation()}>

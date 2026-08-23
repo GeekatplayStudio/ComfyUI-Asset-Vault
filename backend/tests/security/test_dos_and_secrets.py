@@ -219,11 +219,8 @@ def test_a_png_declaring_900_megapixels_is_refused_by_pillow(tmp_path):
         image.load()
 
 
-@pytest.mark.xfail(reason="SECURITY_REVIEW S-05: Image.MAX_IMAGE_PIXELS is left "
-                          "at Pillow's default, so a 324-byte PNG declaring "
-                          "160 Mpx decodes into ~480 MB before the thumbnail is "
-                          "made",
-                   strict=False)
+# S-05 fixed.  A failure here means the explicit pixel budget was dropped and a
+# few hundred bytes of PNG can allocate hundreds of megabytes again.
 def test_the_thumbnail_pipeline_caps_source_pixels():
     from PIL import Image
 
@@ -232,6 +229,35 @@ def test_the_thumbnail_pipeline_caps_source_pixels():
     assert Image.MAX_IMAGE_PIXELS is not None
     assert Image.MAX_IMAGE_PIXELS <= 80_000_000, (
         "the source pixel budget must be set explicitly, not inherited")
+
+
+def test_both_image_open_sites_pass_a_format_allowlist(app_dir):
+    """Without ``formats=`` a byte sniff routes an output file into the PSD,
+    FITS or raw-codec plugins - decoders the vault has no use for."""
+    for rel in ("jobs/thumb_service.py", "parsers/image_meta.py"):
+        text = (app_dir / rel).read_text(encoding="utf-8")
+        opens = text.count("Image.open(")
+        assert opens and text.count("formats=") >= opens, rel
+
+
+def test_an_over_budget_header_is_refused_before_the_decode(tmp_path):
+    """Executed: the header is read, the pixels never are."""
+    from PIL import Image
+
+    from app.core import imaging
+    from app.parsers import image_meta
+
+    bomb = _declared_size_png(tmp_path / "wide.png", 10_000, 9_000)
+    assert bomb.stat().st_size < 2048
+    assert imaging.exceeds_budget((10_000, 9_000))
+    meta = image_meta.OutputMeta()
+    image_meta.read_image(bomb, meta)
+    assert meta.error_code, "an over-budget image must be recorded, not decoded"
+    assert "budget" in (meta.error_message or "")
+    assert meta.has_metadata is False
+    # And a format outside the allowlist is not routed to its plugin at all.
+    assert "PSD" not in imaging.open_formats()
+    assert Image.MAX_IMAGE_PIXELS == imaging.MAX_IMAGE_PIXELS
 
 
 def test_a_bomb_never_turns_a_thumbnail_request_into_a_5xx(indexed_client,
@@ -267,16 +293,47 @@ def test_the_thumbnail_size_parameter_is_clamped(indexed_client):
 # Request and stream limits
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="SECURITY_REVIEW S-07: no Content-Length cap exists, so "
-                          "a multi-megabyte body is fully buffered and parsed "
-                          "before Pydantic rejects it",
-                   strict=False)
+# S-07 fixed by BodySizeLimitMiddleware.  A failure here means the cap is gone
+# and a multi-megabyte body is buffered and parsed again before rejection.
 def test_an_oversized_request_body_is_rejected_before_it_is_parsed(client):
     payload = json.dumps({"uid": "model:1", "new_name": "A" * (32 * 1024 * 1024)})
     response = client.post("/api/v1/fileops/rename", content=payload,
                            headers={"Content-Type": "application/json"})
     assert response.status_code == 413
     assert response.json()["error"]["code"] == "PAYLOAD_TOO_LARGE"
+
+
+def test_the_body_cap_is_not_bypassed_by_omitting_content_length(client):
+    """A chunked body carries no length, so the bytes are counted as they land."""
+    def chunks():
+        payload = (b'{"uid":"model:1","new_name":"' + b"A" * (12 * 1024 * 1024)
+                   + b'"}')
+        for start in range(0, len(payload), 65536):
+            yield payload[start:start + 65536]
+
+    response = client.post("/api/v1/fileops/rename", content=chunks(),
+                           headers={"Content-Type": "application/json"})
+    assert response.status_code == 413
+    assert response.json()["error"]["code"] == "PAYLOAD_TOO_LARGE"
+
+
+def test_the_body_cap_also_covers_the_mcp_endpoint(client):
+    """``mcp_post`` reads the whole body itself, outside any Pydantic model."""
+    payload = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                          "params": {"pad": "A" * (32 * 1024 * 1024)}})
+    response = client.post("/api/v1/mcp", content=payload,
+                           headers={"Content-Type": "application/json"})
+    assert response.status_code == 413
+    assert response.json()["error"]["code"] == "PAYLOAD_TOO_LARGE"
+
+
+def test_the_body_cap_leaves_room_for_the_largest_legitimate_body():
+    """The 3D-model poster is the biggest real body: 4 MB of PNG, base64'd."""
+    from app.api.middleware import MAX_BODY_BYTES
+    from app.jobs.thumb_service import ThumbService
+
+    assert MAX_BODY_BYTES >= ThumbService.MAX_RENDERED_BYTES * 4 // 3 + 1024
+    assert MAX_BODY_BYTES <= 16 * 1024 * 1024
 
 
 def test_an_oversized_body_at_least_fails_closed(client):
@@ -312,15 +369,43 @@ def test_the_progress_bus_drops_a_slow_subscriber_rather_than_growing(app_dir):
     assert "overflow" in source, "a saturated subscriber must be dropped"
 
 
-@pytest.mark.xfail(reason="SECURITY_REVIEW S-03: ProgressBus._subs is unbounded, "
-                          "so nothing caps how many SSE streams may be opened",
-                   strict=False)
+# S-03 fixed.  A failure here means the SSE subscriber cap was removed and
+# ``ProgressBus._subs`` can grow without bound again.
 def test_the_sse_subscriber_count_is_capped():
     from app.core import progress
 
     assert any("MAX_SUBSCRIBERS" in name or "MAX_SUBS" in name
                for name in dir(progress)), (
         "BUILD_PLAN 7.12 requires an SSE subscriber cap")
+    assert 0 < progress.MAX_SUBSCRIBERS <= 128
+
+
+def test_the_bus_refuses_the_subscription_past_the_cap():
+    """Executed, not read: the cap holds at the bus and at the router."""
+    import asyncio
+
+    from app.api.deps import require_stream_capacity
+    from app.api.middleware import ApiError
+    from app.core import progress
+
+    async def drive() -> None:
+        bus = progress.ProgressBus("cap-probe")
+        # A subscriber only registers on its first step, so step each one.
+        held = [bus.subscribe() for _ in range(progress.MAX_SUBSCRIBERS)]
+        tasks = [asyncio.ensure_future(anext(g)) for g in held]
+        await asyncio.sleep(0.05)
+        assert bus.subscriber_count == progress.MAX_SUBSCRIBERS
+        assert not bus.has_capacity()
+        with pytest.raises(ApiError) as caught:
+            require_stream_capacity(bus)
+        assert caught.value.http_status == 503
+        with pytest.raises(progress.SubscriberLimitError):
+            await anext(bus.subscribe())
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    asyncio.run(drive())
 
 
 # ---------------------------------------------------------------------------
@@ -344,15 +429,61 @@ def test_only_five_modules_may_reach_the_network(app_dir):
                              "services/ollama_service.py"], users
 
 
-@pytest.mark.xfail(reason="SECURITY_REVIEW S-08: /system/ollama/test and the "
-                          "ollama_url config key accept any absolute URL, so the "
-                          "backend can be made to issue an arbitrary GET",
-                   strict=False)
+# S-08 fixed by ``core/urlsafe.py``.  A failure here means the backend can be
+# steered into an arbitrary outbound GET again - and /ai/describe would follow
+# it with the owner's prompts.
 def test_the_ollama_endpoint_only_accepts_a_loopback_url(client):
     client.patch("/api/v1/system/config", json={"ollama_enabled": True})
     response = client.post("/api/v1/system/ollama/test",
                            json={"url": "http://169.254.169.254"})
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize("url", [
+    "http://169.254.169.254",            # the cloud metadata address
+    "http://8.8.8.8:11434",              # a public address
+    "https://evil.test/api",             # any name at all - DNS is not trusted
+    "http://ollama.internal:11434",
+    "http://user:pw@127.0.0.1:11434",    # credentials in the authority
+    "http://127.0.0.1:11434/api/tags",   # a path, not a base URL
+    "file:///C:/Windows/win.ini",
+    "http://[fe80::1]:11434",            # IPv6 link-local
+    "http://0.0.0.0:11434",
+])
+def test_no_endpoint_accepts_a_non_local_ollama_address(client, url):
+    """Both the probe and the persisted config key are refused."""
+    assert client.post("/api/v1/system/ollama/test",
+                       json={"url": url}).status_code == 422, url
+    assert client.patch("/api/v1/system/config",
+                        json={"ollama_url": url}).status_code == 422, url
+    stored = client.get("/api/v1/system/config").json().get("ollama_url")
+    assert stored != url
+
+
+@pytest.mark.parametrize("url", [
+    "http://localhost:11434", "http://127.0.0.1:11434", "http://[::1]:11434",
+    "http://192.168.1.10:11434", "http://10.1.2.3:11434", "http://172.16.0.9:11434",
+])
+def test_a_lan_ollama_is_still_accepted(client, url):
+    """The owner may legitimately run Ollama on another machine on their LAN."""
+    assert client.patch("/api/v1/system/config",
+                        json={"ollama_url": url}).status_code == 200, url
+
+
+def test_the_service_refuses_a_non_local_url_that_reached_the_database(client):
+    """Second gate: a value that bypassed the schema still sends nothing."""
+    import asyncio
+
+    from app.services.ollama_service import OllamaService
+
+    client.patch("/api/v1/system/config", json={"ollama_enabled": True})
+    service = OllamaService("http://169.254.169.254")
+    ok, reason = asyncio.run(service.check_connection())
+    assert ok is False
+    assert "not a local or private-network address" in reason
+    answer = asyncio.run(service.generate("a prompt that must not leave the box"))
+    assert answer["ok"] is False
+    assert answer["text"] is None
 
 
 def test_the_embedding_model_url_is_not_settable_through_the_api(client):
@@ -395,18 +526,15 @@ def test_pyyaml_floor_is_at_or_above_6_0_1(repo_root):
     assert _version(_requirements(repo_root)["pyyaml"]) >= (6, 0, 1)
 
 
-@pytest.mark.xfail(reason="SECURITY_REVIEW S-09: the pillow floor >=10.3 admits "
-                          "builds with 17 later CVEs reachable through "
-                          "Image.open on files the vault does not control",
-                   strict=False)
+# S-09 fixed: the floor is >=12.3.0.  A failure here means the floor was lowered
+# again and a fresh install may land on a Pillow with 17 known CVEs.
 def test_pillow_floor_excludes_known_cves(repo_root):
     floor = _requirements(repo_root)["pillow"]
     assert _version(floor)[:2] >= (12, 3), f"pillow floor is {floor}"
 
 
-@pytest.mark.xfail(reason="SECURITY_REVIEW S-09: python-multipart is unused and "
-                          "its >=0.0.6 floor admits nine CVEs",
-                   strict=False)
+# S-09 fixed: python-multipart was removed as unused.  A failure here means it
+# came back - re-check that nothing actually parses a form before pinning it.
 def test_python_multipart_is_not_pinned_at_a_vulnerable_floor(repo_root):
     requirements = _requirements(repo_root)
     assert ("python-multipart" not in requirements

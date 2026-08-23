@@ -19,6 +19,7 @@ from fastapi import Query, Request
 from fastapi.responses import StreamingResponse
 
 from ..core import db as dbmod
+from ..core import progress
 from .middleware import ApiError, field_error
 
 # ---------------------------------------------------------------------------
@@ -281,6 +282,21 @@ async def sse_stream(source: AsyncIterator[tuple[str, dict]], request: Request, 
         aclose = getattr(source, "aclose", None)
         if aclose is not None:
             await aclose()
+
+
+def require_stream_capacity(bus) -> None:
+    """SECURITY_REVIEW S-03: refuse a new SSE subscription past the bus cap.
+
+    Checked here rather than inside the generator because the status code has to
+    be decided before the response headers go out; ``ProgressBus.subscribe`` keeps
+    its own hard cap so the limit holds even if a caller skips this.
+    """
+    if not bus.has_capacity():
+        raise ApiError("FEATURE_UNAVAILABLE",
+                       "Too many live progress streams are open. Close one tab "
+                       "and try again.",
+                       details={"channel": getattr(bus, "name", None),
+                                "max_subscribers": progress.MAX_SUBSCRIBERS})
 
 
 def sse_response(generator: AsyncIterator[bytes]) -> StreamingResponse:

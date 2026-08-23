@@ -386,10 +386,8 @@ def test_rate_limiting_is_enforced_per_session(mcp):
     assert limited, f"no rate limit after {RATE_LIMIT_CALLS + 5} tool calls"
 
 
-@pytest.mark.xfail(reason="SECURITY_REVIEW S-06: SessionStore has no cap, so a "
-                          "client can mint unlimited sessions and reset the "
-                          "per-session rate limit at will",
-                   strict=False)
+# S-06 fixed by ``SessionStore`` MAX_SESSIONS + least-recently-seen eviction.
+# A failure here means the store is unbounded again.
 def test_session_creation_is_capped(naked_client):
     from app.mcp.protocol import SESSIONS
 
@@ -397,6 +395,19 @@ def test_session_creation_is_capped(naked_client):
     for _ in range(250):
         Mcp(naked_client).initialize()
     assert SESSIONS.count() - start < 250
+
+
+def test_the_session_store_never_grows_past_its_cap(client):
+    """Executed: 300 initialize calls, and the table stays at the ceiling."""
+    from app.mcp.protocol import MAX_SESSIONS, SESSIONS
+
+    live = [Mcp(client) for _ in range(300)]
+    for mcp_client in live:
+        mcp_client.initialize()
+    assert SESSIONS.count() <= MAX_SESSIONS
+    # The most recent session is the one that survived, so a working client is
+    # never evicted by a flood that arrived before it.
+    assert SESSIONS.get(live[-1].session) is not None
 
 
 def test_no_tool_performs_network_egress_on_the_agents_behalf(app_dir):

@@ -357,6 +357,40 @@ def collect_mappings(tree: ast.Module) -> tuple[dict[str, str | None], dict[str,
     return mapping, display, refs
 
 
+def collect_exported_dicts(tree: ast.Module) -> dict[str, list[tuple[str, str | None]]]:
+    """Every module-level ``NAME = {...}`` dict, flattened to node_id/class pairs.
+
+    QA-3.  ``collect_mappings`` only absorbs a dict once it can see it merged into
+    ``NODE_CLASS_MAPPINGS`` *in the same module*.  The common packaging idiom puts
+    the dicts in ``nodes_a.py`` under a name of the author's choosing and merges
+    them in ``__init__.py``, which left the registered node_id behind: the classes
+    were still recovered structurally (S5) but keyed on the Python class name.  A
+    workflow references ``class_type``, which is the node_id, so a package indexed
+    that way looks like a set of missing dependencies.  This exposes the table the
+    importing module needs to finish the job.
+    """
+    tables: dict[str, tuple[list[tuple[str, str | None]], list[str]]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and isinstance(node.value, ast.Dict):
+                    tables.setdefault(target.id, _dict_entries(node.value))
+        elif (isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name)
+                and isinstance(node.value, ast.Dict)):
+            tables.setdefault(node.target.id, _dict_entries(node.value))
+
+    def expand(name: str, depth: int = 0) -> list[tuple[str, str | None]]:
+        if depth > 4 or name not in tables:
+            return []
+        pairs, refs = tables[name]
+        out = list(pairs)
+        for ref in refs:
+            out += expand(ref, depth + 1)
+        return out
+
+    return {name: expand(name) for name in tables}
+
+
 def collect_imports(tree: ast.Module) -> tuple[dict[str, tuple[str, int]], list[tuple[str, int]]]:
     """name -> (module, level) plus the modules that re-export the mappings."""
     names: dict[str, tuple[str, int]] = {}
@@ -629,10 +663,13 @@ def extract_package(pkg_dir: Path, *, pkg_root: Path | None = None,
     # --- S1 / S2 / S4 / S5 over every module --------------------------------
     display_names: dict[str, str] = {}
     struct_by_name: dict[str, NodeClass] = {}
+    unresolved: dict[Path, list[str]] = {}
     for f, tree in trees.items():
         rel = os.path.relpath(str(f), str(pkg_root))
         source_label = rel if label_source else None
         mapping, display, refs = collect_mappings(tree)
+        if refs:
+            unresolved[f] = refs
         display_names.update(display)
         for node_id, cls_name in mapping.items():
             strategy = "S1" if not refs else "S2"
@@ -642,6 +679,35 @@ def extract_package(pkg_dir: Path, *, pkg_root: Path | None = None,
             res.add(nc, "S4", source_label)
         for nc in collect_structural(tree, rel):
             struct_by_name[nc.class_name or nc.node_id] = nc
+
+    # --- S2 across a module boundary (QA-3) ---------------------------------
+    # ``NODE_CLASS_MAPPINGS.update(MAPPINGS_A)`` where MAPPINGS_A was imported
+    # from a sibling module: resolve the name through the import table and read
+    # the dict out of the module that defines it.
+    exported_cache: dict[Path, dict[str, list[tuple[str, str | None]]]] = {}
+
+    def _exported(path: Path) -> dict[str, list[tuple[str, str | None]]]:
+        table = exported_cache.get(path)
+        if table is None:
+            tree = trees.get(path) or parse_source(path)
+            table = collect_exported_dicts(tree) if tree is not None else {}
+            exported_cache[path] = table
+        return table
+
+    for f, refs in unresolved.items():
+        imported, _reexports = collect_imports(trees[f])
+        source_label = os.path.relpath(str(f), str(pkg_root)) if label_source else None
+        for ref in dict.fromkeys(refs):
+            where = imported.get(ref)
+            if where is None:
+                continue
+            target = _resolve_module(f.parent, where[0], where[1], pkg_root)
+            if target is None:
+                continue
+            rel = os.path.relpath(str(target), str(pkg_root))
+            for node_id, cls_name in _exported(target).get(ref, ()):
+                res.add(NodeClass(node_id=node_id, class_name=cls_name,
+                                  source_file=rel), "S2", source_label)
 
     # --- S3: follow re-exports outside the walked set ------------------------
     seen_files = set(trees)

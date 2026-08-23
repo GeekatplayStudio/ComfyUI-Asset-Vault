@@ -498,6 +498,15 @@ Rules:
   values** — the deliberate exception to the no-argument-logging rule below, which still
   applies to read tools. The owner reads that log in Settings → Activity, over the read-only
   `GET /api/v1/mcp/audit` (API_CONTRACT §21); no route can edit or delete a row.
+* **No process may be started from MCP, ever.** Two REST routes can start a program — the
+  ComfyUI updater and the ComfyUI launcher behind the open-workflow route (API_CONTRACT §19) —
+  and neither is exposed as a tool, in either direction, in any mode. Both require a
+  confirmation field that repeats the resolved absolute path of the executable, and no
+  agent-supplied confirmation can be trusted to be a person. The C5 grant is deliberately a
+  grant over the *library*: an agent may destroy and restore vault data, which is recoverable
+  and audited, and may not run code on the owner's machine, which is neither. The same rule
+  covers the one write into the ComfyUI installation (copying a workflow into the user
+  workflows folder), which is likewise REST-only.
 * **No network egress on behalf of the agent.** Tools never trigger a Civitai/GitHub/Ollama call; they report cached state only. An agent cannot use the vault as an SSRF pivot.
 * **Rate limiting:** 120 tool calls/minute per session; over → `isError:true` with `retry_after_ms` (not a JSON-RPC error, so the agent can back off gracefully).
 * Logging: every tool call logs `{session, tool, arg_keys, elapsed_ms, result_bytes, is_error}` — **argument values are not logged** (prompts may be sensitive).

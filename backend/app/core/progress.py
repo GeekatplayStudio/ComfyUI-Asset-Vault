@@ -16,6 +16,16 @@ from typing import Any
 MAX_QUEUE = 1000
 COALESCE_INTERVAL = 0.1  # seconds -> <=10 Hz
 
+#: BUILD_PLAN 7.12 / SECURITY_REVIEW S-03.  Every subscriber holds a queue of up
+#: to ``MAX_QUEUE + 8`` events and every published event fans out across the whole
+#: list, so an unbounded ``_subs`` is both a memory and a CPU amplifier.  A single
+#: desktop UI opens at most a handful of streams; 32 per channel is generous.
+MAX_SUBSCRIBERS = 32
+
+
+class SubscriberLimitError(RuntimeError):
+    """Raised when a bus already carries ``MAX_SUBSCRIBERS`` live consumers."""
+
 
 class ProgressBus:
     """One bus per stream channel (``index``, ``hash``, ``embed``)."""
@@ -81,6 +91,10 @@ class ProgressBus:
         loop = asyncio.get_running_loop()
         q: asyncio.Queue = asyncio.Queue(maxsize=MAX_QUEUE + 8)
         with self._lock:
+            if len(self._subs) >= MAX_SUBSCRIBERS:
+                raise SubscriberLimitError(
+                    f"The '{self.name}' progress stream already has "
+                    f"{MAX_SUBSCRIBERS} listeners.")
             self._subs.append((loop, q))
         try:
             while True:
@@ -99,6 +113,11 @@ class ProgressBus:
     def subscriber_count(self) -> int:
         with self._lock:
             return len(self._subs)
+
+    def has_capacity(self) -> bool:
+        """Cheap pre-check so a router can answer 503 before the stream opens."""
+        with self._lock:
+            return len(self._subs) < MAX_SUBSCRIBERS
 
 
 _buses: dict[str, ProgressBus] = {}
