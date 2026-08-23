@@ -1,0 +1,55 @@
+{
+  "prompt": {
+    "1": {
+      "class_type": "CheckpointLoaderSimple",
+      "inputs": {
+        "ckpt_name": "sd_xl_base_1.0.safetensors"
+      }
+    },
+    "7:4": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "text": "a quiet harbour at dawn",
+        "clip": [
+          "1",
+          1
+        ]
+      }
+    },
+    "7:9": {
+      "class_type": "KSampler",
+      "inputs": {
+        "seed": 12345,
+        "steps": 20,
+        "cfg": 7.0,
+        "sampler_name": "euler",
+        "scheduler": "normal",
+        "denoise": 1.0,
+        "model": [
+          "1",
+          0
+        ],
+        "positive": [
+          "7:4",
+          0
+        ],
+        "negative": [
+          "7:4",
+          0
+        ],
+        "latent_image": [
+          "7:8",
+          0
+        ]
+      }
+    },
+    "7:8": {
+      "class_type": "EmptyLatentImage",
+      "inputs": {
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1
+      }
+    }
+  }
+}

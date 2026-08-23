@@ -1,0 +1,1172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Geekatplay Asset Vault — Design System Preview</title>
+<link rel="icon" href="src/assets/brand/favicon.svg">
+<link rel="stylesheet" href="src/styles/tokens.css">
+<link rel="stylesheet" href="src/styles/base.css">
+<link rel="stylesheet" href="src/styles/layout.css">
+<link rel="stylesheet" href="src/styles/components.css">
+<link rel="stylesheet" href="src/styles/utilities.css">
+<style>
+/* ---------------------------------------------------------------------------
+   PREVIEW-ONLY styles. Not shipped, not counted against the 60 KB budget.
+   Two jobs:
+   (a) page chrome for the catalogue itself;
+   (b) .pv-hover / .pv-active / .pv-focus mirror the real :hover / :active /
+       :focus-visible declarations so a static screenshot can show them.
+       Every value below is a token — no colour literals here either.
+   --------------------------------------------------------------------------- */
+body{overflow:auto}
+.pv{max-width:1320px;margin:0 auto;padding:var(--gp-s-8) var(--gp-s-7) var(--gp-s-9)}
+.pv-head{display:flex;align-items:flex-end;gap:var(--gp-s-6);margin-bottom:var(--gp-s-7);
+  padding-bottom:var(--gp-s-6);border-bottom:1px solid var(--gp-line-200)}
+.pv-sec{margin:var(--gp-s-9) 0 0}
+.pv-sec>h2{display:flex;align-items:center;gap:var(--gp-s-4);margin-bottom:var(--gp-s-3);
+  font-size:var(--gp-fs-18);font-weight:var(--gp-fw-600)}
+.pv-sec>h2::after{content:"";flex:1 1 auto;height:1px;background:var(--gp-line-100)}
+.pv-note{font-size:var(--gp-fs-11);color:var(--gp-text-meta);margin-bottom:var(--gp-s-5);max-width:80ch}
+.pv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:var(--gp-s-6)}
+.pv-box--wide{grid-column:1/-1}
+.pv-box--half{grid-column:span 2}
+.pv-box{background:var(--gp-bg-200);border:1px solid var(--gp-line-100);
+  border-radius:var(--gp-r-2);padding:var(--gp-s-5);overflow:hidden}
+.pv-box>h3{font-size:var(--gp-fs-10);letter-spacing:.12em;text-transform:uppercase;
+  color:var(--gp-text-meta);margin-bottom:var(--gp-s-4);font-weight:var(--gp-fw-600)}
+.pv-strip{display:flex;flex-wrap:wrap;align-items:center;gap:var(--gp-s-4)}
+.pv-stack{display:flex;flex-direction:column;gap:var(--gp-s-4)}
+.pv-tag{font-family:var(--gp-font-mono);font-size:var(--gp-fs-10);color:var(--gp-text-disabled);
+  display:block;margin-bottom:var(--gp-s-2)}
+.pv-stage{position:relative;overflow:hidden;border:1px solid var(--gp-line-200);
+  border-radius:var(--gp-r-2);background:var(--gp-surface-canvas)}
+.pv-stage .gp-overlay,.pv-stage .gp-lightbox{position:absolute;animation:none}
+.pv-stage .gp-toaster{position:absolute;bottom:var(--gp-s-5)}
+.pv-stage .gp-tooltip{position:absolute;animation:none}
+.pv-swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:var(--gp-s-4)}
+.pv-sw{border:1px solid var(--gp-line-100);border-radius:var(--gp-r-1);overflow:hidden}
+.pv-sw__chip{height:44px}
+.pv-sw__name{padding:var(--gp-s-3);font-family:var(--gp-font-mono);font-size:var(--gp-fs-10);
+  color:var(--gp-text-meta);background:var(--gp-surface-canvas)}
+.pv-shell{height:560px;border:1px solid var(--gp-line-200);border-radius:var(--gp-r-2);overflow:hidden}
+
+/* --- forced pseudo-states (mirror components.css exactly) ----------------- */
+.pv-focus{box-shadow:var(--gp-focus-ring);border-radius:var(--gp-r-1);position:relative;z-index:1}
+.gp-btn.pv-hover{background:var(--gp-surface-raised-2);border-color:var(--gp-line-ctl-hover)}
+.gp-btn.pv-active{background:var(--gp-active)}
+.gp-btn--primary.pv-hover{background:var(--gp-brand-100);border-color:var(--gp-brand-200)}
+.gp-btn--primary.pv-active{background:var(--gp-brand-400)}
+.gp-btn--ai.pv-hover{background:var(--gp-vio-400-hover);border-color:var(--gp-vio-200)}
+.gp-btn--ghost.pv-hover{background:var(--gp-hover);color:var(--gp-text-primary)}
+.gp-btn--danger.pv-hover{background:var(--gp-danger-solid-hover);border-color:var(--gp-danger)}
+.gp-btn--danger-ghost.pv-hover{background:var(--gp-danger-ghost);border-color:var(--gp-danger)}
+.gp-btn--danger.pv-focus{box-shadow:var(--gp-focus-ring-danger)}
+.gp-chip.pv-hover{background:var(--gp-hover);color:var(--gp-text-primary);border-color:var(--gp-line-ctl-hover)}
+.gp-chip--selected.pv-hover{background:var(--gp-selected-strong);border-color:var(--gp-brand-200)}
+.gp-tab.pv-hover{background:var(--gp-hover);color:var(--gp-text-primary)}
+.gp-card.pv-hover{border-color:var(--gp-line-300);background:var(--gp-surface-raised-2)}
+.gp-card.pv-focus{box-shadow:var(--gp-focus-ring)}
+.gp-row.pv-hover{background:var(--gp-hover)}
+.gp-row.pv-focus{box-shadow:var(--gp-focus-ring-inset)}
+.gp-tree__row.pv-hover{background:var(--gp-hover);color:var(--gp-text-primary)}
+.gp-input.pv-hover,.gp-search__input.pv-hover{border-color:var(--gp-line-ctl-hover)}
+.gp-input.pv-focus,.gp-search__input.pv-focus,.gp-textarea.pv-focus{border-color:var(--gp-brand-200);box-shadow:var(--gp-focus-ring)}
+.gp-menu__item.pv-hover{background:var(--gp-hover);color:var(--gp-text-primary)}
+.gp-menu__item--danger.pv-hover{background:var(--gp-danger-ghost)}
+.gp-segment__item.pv-hover{background:var(--gp-hover);color:var(--gp-text-primary)}
+.gp-suggest__item.pv-hover{background:var(--gp-hover);color:var(--gp-text-primary)}
+.gp-check__box.pv-focus{box-shadow:var(--gp-focus-ring)}
+.gp-toggle__track.pv-focus{box-shadow:var(--gp-focus-ring)}
+.gp-resizer.pv-hover{background:var(--gp-local-line)}
+.gp-dropzone.pv-hover{border-color:var(--gp-brand-200);background:var(--gp-local-ghost);color:var(--gp-local-fg)}
+.pv-sw--000{background:var(--gp-bg-000)}
+.pv-ratio{font-family:var(--gp-font-mono);font-variant-numeric:tabular-nums lining-nums}
+</style>
+</head>
+<body>
+
+<svg class="gp-u-hidden" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs>
+<symbol id="i-search" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14" stroke-linecap="round"/></symbol>
+<symbol id="i-x" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+<symbol id="i-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></symbol>
+<symbol id="i-chev-r" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5 10.5 8 6 12.5"/></symbol>
+<symbol id="i-chev-d" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6 8 10.5 12.5 6"/></symbol>
+<symbol id="i-chev-l" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.5 5.5 8 10 12.5"/></symbol>
+<symbol id="i-folder" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.75 4.25h4l1.4 1.6h7.1v7.4H1.75z"/></symbol>
+<symbol id="i-cube" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M8 1.6 14 5v6L8 14.4 2 11V5z"/><path d="M2 5l6 3.4L14 5M8 8.4v6"/></symbol>
+<symbol id="i-image" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.5"/><circle cx="5.6" cy="6.3" r="1.1"/><path d="m2.4 12 3.7-3.6 3 2.6 2.3-1.9 2.2 2"/></symbol>
+<symbol id="i-flow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.6" y="2.2" width="5" height="4" rx="1"/><rect x="9.4" y="9.8" width="5" height="4" rx="1"/><path d="M6.6 4.2h3.4v7.6H9.4"/></symbol>
+<symbol id="i-node" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="4" r="2"/><path d="M6 4h4M5.4 5.4l5.2 5.2"/></symbol>
+<symbol id="i-alert" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2.4 14.6 13.6H1.4z" stroke-linejoin="round"/><path d="M8 6.6v3"/><circle cx="8" cy="11.6" r=".85" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-info" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.4"/><path d="M8 7.4v4"/><circle cx="8" cy="4.9" r=".85" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-trash" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2.6 4.2h10.8M6.2 4.2V2.6h3.6v1.6M4 4.2l.7 9h6.6l.7-9M6.6 6.8v4M9.4 6.8v4"/></symbol>
+<symbol id="i-star" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.7 10 6l4.7.5-3.5 3.2 1 4.6L8 12l-4.2 2.3 1-4.6L1.3 6.5 6 6z"/></symbol>
+<symbol id="i-copy" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5.4" y="5.4" width="8.2" height="8.2" rx="1.4"/><path d="M10.6 5.4V3.8a1.4 1.4 0 0 0-1.4-1.4H3.8a1.4 1.4 0 0 0-1.4 1.4v5.4a1.4 1.4 0 0 0 1.4 1.4h1.6"/></symbol>
+<symbol id="i-sparkle" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.4 9.3 5.3 13.2 6.6 9.3 7.9 8 11.8 6.7 7.9 2.8 6.6 6.7 5.3z"/><path d="M12.9 10.2l.6 1.7 1.7.6-1.7.6-.6 1.7-.6-1.7-1.7-.6 1.7-.6z"/></symbol>
+<symbol id="i-hash" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6.2 1.8 4.6 14.2M11.4 1.8 9.8 14.2M2.2 5.4h11.6M1.9 10.6h11.6"/></symbol>
+<symbol id="i-grid" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></symbol>
+<symbol id="i-list" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 4h12M2 8h12M2 12h12"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M13.6 8a5.6 5.6 0 1 1-1.9-4.2"/><path d="M13.8 1.8v3.4h-3.4"/></symbol>
+<symbol id="i-gear" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.3"/><path d="M8 1.4v1.8M8 12.8v1.8M14.6 8h-1.8M3.2 8H1.4M12.7 3.3l-1.3 1.3M4.6 11.4l-1.3 1.3M12.7 12.7l-1.3-1.3M4.6 4.6 3.3 3.3"/></symbol>
+<symbol id="i-inbox" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M1.8 9.2 3.6 2.8h8.8l1.8 6.4v4H1.8z"/><path d="M1.8 9.2h3.4l.9 1.8h3.8l.9-1.8h3.4"/></symbol>
+</defs></svg>
+
+<main class="pv">
+
+<!-- ================================================================ HEADER -->
+<header class="pv-head">
+  <img src="src/assets/brand/wordmark.svg" alt="Geekatplay Asset Vault" width="232" height="34">
+  <div class="gp-u-col gp-u-gap-2">
+    <div class="gp-u-fs-18 gp-u-fw-600">Design System Preview</div>
+    <div class="gp-u-fs-11 gp-u-meta">Studio Graphite + Signal Amber · every component, every state · v2.0</div>
+  </div>
+</header>
+
+<!-- ================================================================ PALETTE -->
+<section class="pv-sec">
+  <h2>1 · Palette</h2>
+  <p class="pv-note">Warm graphite surfaces — never blue-black. One warm brand accent (Geekatplay Amber), one cool
+     secondary (Vault Violet). <strong>Cyan is retired and appears nowhere.</strong></p>
+  <div class="pv-swatches">
+    <div class="pv-sw"><div class="pv-sw__chip gp-u-bg-inset"></div><div class="pv-sw__name">bg-inset</div></div>
+    <div class="pv-sw"><div class="pv-sw__chip pv-sw--000"></div><div class="pv-sw__name">bg-000</div></div>
+    <div class="pv-sw"><div class="pv-sw__chip gp-u-bg-canvas"></div><div class="pv-sw__name">bg-200</div></div>
+    <div class="pv-sw"><div class="pv-sw__chip gp-u-bg-raised"></div><div class="pv-sw__name">bg-300</div></div>
+    <div class="pv-sw"><div class="pv-sw__chip gp-u-ph-local"></div><div class="pv-sw__name">placeholder-local</div></div>
+    <div class="pv-sw"><div class="pv-sw__chip gp-u-ph-inferred"></div><div class="pv-sw__name">placeholder-inferred</div></div>
+  </div>
+  <div class="pv-strip gp-u-mt-5">
+    <span class="gp-badge gp-badge--brand gp-badge--lg">amber = local &amp; verified</span>
+    <span class="gp-badge gp-badge--ai gp-badge--lg">violet = inferred</span>
+    <span class="gp-badge gp-badge--ok gp-badge--lg">ok</span>
+    <span class="gp-badge gp-badge--warn gp-badge--lg">warn</span>
+    <span class="gp-badge gp-badge--danger gp-badge--lg">danger</span>
+    <span class="gp-badge gp-badge--info gp-badge--lg">info</span>
+  </div>
+</section>
+
+<!-- ============================================================ THE SHELL -->
+<section class="pv-sec">
+  <h2>2 · App shell</h2>
+  <p class="pv-note">Reference <em>structure</em> (left tree · top toolbar · centre grid · right DETAILS · status bar),
+     original Geekatplay identity. Geometry straight from the tokens: topbar 52, status 28, rail 264, details 340.
+     Tile width is <code>--gp-grid-size</code> — one variable write drives the size slider.</p>
+
+  <div class="pv-shell">
+  <div class="gp-shell">
+
+    <div class="gp-topbar">
+      <div class="gp-topbar__brand">
+        <div class="gp-brand">
+          <span class="gp-brand__mark"><svg><use href="#i-cube"/></svg></span>
+          <span class="gp-brand__text">
+            <span class="gp-brand__word">GEEKATPLAY</span>
+            <span class="gp-brand__sub">ASSET VAULT</span>
+          </span>
+        </div>
+      </div>
+      <div class="gp-topbar__divider"></div>
+      <nav class="gp-tabs gp-topbar__tabs">
+        <button class="gp-tab gp-tab--active" aria-selected="true"><svg><use href="#i-cube"/></svg>Models<span class="gp-tab__count">231</span></button>
+        <button class="gp-tab"><svg><use href="#i-node"/></svg>Nodes<span class="gp-tab__count">1581</span></button>
+        <button class="gp-tab"><svg><use href="#i-flow"/></svg>Workflows<span class="gp-tab__count">48</span></button>
+        <button class="gp-tab"><svg><use href="#i-image"/></svg>Outputs<span class="gp-tab__count">3569</span></button>
+      </nav>
+      <div class="gp-topbar__search">
+        <div class="gp-search">
+          <svg class="gp-search__icon"><use href="#i-search"/></svg>
+          <input class="gp-search__input" type="search" placeholder="Search models, nodes, workflows, outputs…" value="flux lora">
+          <button class="gp-search__clear" aria-label="Clear search"><svg width="12" height="12"><use href="#i-x"/></svg></button>
+        </div>
+      </div>
+      <label class="gp-toggle gp-toggle--ai">
+        <input class="gp-toggle__input" type="checkbox" checked>
+        <span class="gp-toggle__track"><span class="gp-toggle__thumb"></span></span>
+        <span class="gp-toggle__label">Smart</span>
+      </label>
+      <div class="gp-topbar__spacer"></div>
+      <div class="gp-topbar__actions">
+        <button class="gp-btn gp-btn--icon" aria-label="Reindex"><svg class="gp-btn__icon"><use href="#i-refresh"/></svg></button>
+        <button class="gp-btn gp-btn--icon" aria-label="Settings"><svg class="gp-btn__icon"><use href="#i-gear"/></svg></button>
+        <button class="gp-btn gp-btn--primary"><svg class="gp-btn__icon"><use href="#i-hash"/></svg><span class="gp-btn__label">Hash vault</span></button>
+      </div>
+    </div>
+
+    <aside class="gp-rail">
+      <div class="gp-rail__header">
+        <span class="gp-rail__title">Groups · folder</span>
+        <button class="gp-btn gp-btn--ghost gp-btn--sm gp-btn--icon" aria-label="Change grouping"><svg class="gp-btn__icon"><use href="#i-chev-d"/></svg></button>
+      </div>
+      <div class="gp-rail__body">
+        <div class="gp-rail__section">
+          <div class="gp-rail__section-head"><span>Library</span></div>
+          <div class="gp-tree">
+            <div class="gp-tree__node">
+              <button class="gp-tree__row gp-tree__row--selected" aria-selected="true">
+                <span class="gp-tree__twisty gp-tree__twisty--open"><svg><use href="#i-chev-r"/></svg></span>
+                <svg class="gp-tree__icon"><use href="#i-folder"/></svg>
+                <span class="gp-tree__label">checkpoints</span>
+                <span class="gp-tree__count">21</span>
+              </button>
+              <div class="gp-tree__children">
+                <button class="gp-tree__row"><span class="gp-tree__twisty gp-tree__twisty--leaf"></span><svg class="gp-tree__icon"><use href="#i-folder"/></svg><span class="gp-tree__label">sdxl</span><span class="gp-tree__count">4</span></button>
+                <button class="gp-tree__row"><span class="gp-tree__twisty gp-tree__twisty--leaf"></span><svg class="gp-tree__icon"><use href="#i-folder"/></svg><span class="gp-tree__label">flux</span><span class="gp-tree__count">7</span></button>
+              </div>
+            </div>
+            <button class="gp-tree__row"><span class="gp-tree__twisty"><svg><use href="#i-chev-r"/></svg></span><svg class="gp-tree__icon"><use href="#i-folder"/></svg><span class="gp-tree__label">diffusion_models</span><span class="gp-tree__count">61</span></button>
+            <button class="gp-tree__row"><span class="gp-tree__twisty"><svg><use href="#i-chev-r"/></svg></span><svg class="gp-tree__icon"><use href="#i-folder"/></svg><span class="gp-tree__label">loras</span><span class="gp-tree__count">59</span></button>
+            <button class="gp-tree__row"><span class="gp-tree__twisty gp-tree__twisty--leaf"></span><svg class="gp-tree__icon"><use href="#i-folder"/></svg><span class="gp-tree__label">text_encoders</span><span class="gp-tree__count">18</span></button>
+            <button class="gp-tree__row"><span class="gp-tree__twisty gp-tree__twisty--leaf"></span><svg class="gp-tree__icon"><use href="#i-folder"/></svg><span class="gp-tree__label">vae</span><span class="gp-tree__count">12</span></button>
+          </div>
+        </div>
+        <div class="gp-rail__section">
+          <div class="gp-rail__section-head"><span>Albums</span><span class="gp-tree__count">3</span></div>
+          <div class="gp-tree">
+            <button class="gp-tree__row"><span class="gp-tree__twisty gp-tree__twisty--leaf"></span><svg class="gp-tree__icon"><use href="#i-star"/></svg><span class="gp-tree__label">Favourites</span><span class="gp-tree__count">14</span></button>
+            <button class="gp-tree__row"><span class="gp-tree__twisty gp-tree__twisty--leaf"></span><svg class="gp-tree__icon"><use href="#i-inbox"/></svg><span class="gp-tree__label">To triage</span><span class="gp-tree__count">6</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="gp-rail__footer">
+        <span class="gp-rail__footer-name">Vladimir Chopine</span>
+        <span class="gp-rail__footer-ver">v2.0</span>
+      </div>
+    </aside>
+
+    <div class="gp-resizer gp-resizer--left" role="separator" aria-orientation="vertical" tabindex="0"></div>
+
+    <div class="gp-main">
+      <div class="gp-toolbar">
+        <div class="gp-toolbar__group">
+          <span class="gp-toolbar__label">Group</span>
+          <span class="gp-selectwrap">
+            <select class="gp-select gp-input--sm"><option>Folder</option><option>Base model</option><option>Role</option></select>
+            <svg class="gp-selectwrap__caret"><use href="#i-chev-d"/></svg>
+          </span>
+        </div>
+        <div class="gp-toolbar__group">
+          <span class="gp-toolbar__label">Sort</span>
+          <span class="gp-selectwrap">
+            <select class="gp-select gp-input--sm"><option>Name</option><option>Size</option><option>Modified</option></select>
+            <svg class="gp-selectwrap__caret"><use href="#i-chev-d"/></svg>
+          </span>
+        </div>
+        <div class="gp-toolbar__spacer"></div>
+        <div class="gp-sliderwrap">
+          <input class="gp-slider" type="range" min="120" max="420" value="180" aria-label="Tile size">
+          <span class="gp-sliderwrap__value">180</span>
+        </div>
+        <div class="gp-segment">
+          <button class="gp-segment__item gp-segment__item--active" aria-pressed="true" aria-label="Grid"><svg><use href="#i-grid"/></svg></button>
+          <button class="gp-segment__item" aria-label="List"><svg><use href="#i-list"/></svg></button>
+        </div>
+      </div>
+
+      <div class="gp-facetbar">
+        <button class="gp-chip gp-chip--selected" aria-pressed="true">FLUX.1<span class="gp-chip__count">34</span></button>
+        <button class="gp-chip">SDXL<span class="gp-chip__count">51</span></button>
+        <button class="gp-chip">WAN<span class="gp-chip__count">22</span></button>
+        <button class="gp-chip gp-chip--inferred"><span class="gp-inferred">Unknown</span><span class="gp-chip__count">9</span></button>
+        <span class="gp-divider gp-divider--v"></span>
+        <button class="gp-chip gp-chip--mono">fp8<span class="gp-chip__count">28</span></button>
+        <button class="gp-chip gp-chip--mono">bf16<span class="gp-chip__count">61</span></button>
+        <button class="gp-chip gp-chip--danger">not_a_model<span class="gp-chip__count">1</span></button>
+      </div>
+
+      <div class="gp-main__body">
+        <div class="gp-group-head">
+          <span class="gp-group-head__label">Checkpoints</span>
+          <span class="gp-group-head__count">21</span>
+          <span class="gp-group-head__bytes">181.2 GB</span>
+          <span class="gp-group-head__rule"></span>
+        </div>
+        <div class="gp-grid">
+          <article class="gp-card gp-card--selected">
+            <div class="gp-card__thumb">
+              <div class="gp-card__placeholder"><svg><use href="#i-cube"/></svg></div>
+              <div class="gp-card__badges"><span class="gp-badge gp-badge--base gp-badge--overlay">FLUX.1</span></div>
+              <div class="gp-card__corner"><span class="gp-badge gp-badge--hash-unhashed gp-badge--overlay">unhashed</span></div>
+            </div>
+            <div class="gp-card__body">
+              <div class="gp-card__title">flux1-dev-fp8.safetensors</div>
+              <div class="gp-card__meta"><span>16.1 GB</span><span class="gp-card__meta-sep">·</span><span>fp8</span><span class="gp-card__meta-sep">·</span><span>11.9B</span></div>
+            </div>
+          </article>
+          <article class="gp-card">
+            <div class="gp-card__thumb">
+              <div class="gp-card__placeholder gp-card__placeholder--inferred"><svg><use href="#i-cube"/></svg></div>
+              <div class="gp-card__badges"><span class="gp-badge gp-badge--base gp-badge--ai gp-badge--overlay"><span class="gp-inferred">SDXL</span></span></div>
+            </div>
+            <div class="gp-card__body">
+              <div class="gp-card__title">mystery_merge_v4.safetensors</div>
+              <div class="gp-card__meta"><span>6.4 GB</span><span class="gp-card__meta-sep">·</span><span class="gp-inferred">conf .62</span></div>
+            </div>
+          </article>
+          <article class="gp-card">
+            <div class="gp-card__thumb"><div class="gp-card__placeholder"><svg><use href="#i-cube"/></svg></div>
+              <div class="gp-card__corner"><span class="gp-badge gp-badge--hash-done gp-badge--overlay">hashed</span></div></div>
+            <div class="gp-card__body">
+              <div class="gp-card__title">sd_xl_base_1.0.safetensors</div>
+              <div class="gp-card__meta"><span>6.9 GB</span><span class="gp-card__meta-sep">·</span><span>fp16</span></div>
+            </div>
+          </article>
+          <article class="gp-card gp-card--error">
+            <div class="gp-card__thumb"><img class="gp-card__media" src="src/assets/brand/placeholder-broken.svg" alt="">
+              <div class="gp-card__corner"><span class="gp-badge gp-badge--integrity-not-a-model gp-badge--overlay">not a model</span></div></div>
+            <div class="gp-card__body">
+              <div class="gp-card__title">flux2-vae-new.safetensors</div>
+              <div class="gp-card__meta gp-u-danger"><span>HTML disguised as a model</span></div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="gp-resizer gp-resizer--right" role="separator" aria-orientation="vertical" tabindex="0"></div>
+
+    <aside class="gp-details">
+      <div class="gp-details__header">
+        <div class="gp-details__eyebrow">Model · checkpoint</div>
+        <div class="gp-details__title">flux1-dev-fp8.safetensors</div>
+        <div class="pv-strip gp-u-mt-4">
+          <span class="gp-badge gp-badge--base">FLUX.1</span>
+          <span class="gp-badge gp-badge--precision">fp8</span>
+          <span class="gp-badge gp-badge--conf-declared">declared</span>
+        </div>
+      </div>
+      <div class="gp-details__body">
+        <section class="gp-details__section">
+          <div class="gp-details__section-head"><span>Technical</span></div>
+          <div class="gp-meta">
+            <div class="gp-meta__row"><span class="gp-meta__key">base model</span><span class="gp-meta__leader"></span><span class="gp-meta__val gp-meta__val--local">FLUX.1</span></div>
+            <div class="gp-meta__row"><span class="gp-meta__key">params (primary)</span><span class="gp-meta__leader"></span><span class="gp-meta__val gp-meta__val--num">11.9 B</span></div>
+            <div class="gp-meta__row"><span class="gp-meta__key">tensors</span><span class="gp-meta__leader"></span><span class="gp-meta__val gp-meta__val--num">1,442</span></div>
+            <div class="gp-meta__row"><span class="gp-meta__key">prediction</span><span class="gp-meta__leader"></span><span class="gp-meta__val">flow</span></div>
+            <div class="gp-meta__row"><span class="gp-meta__key">resolution hint</span><span class="gp-meta__leader"></span><span class="gp-meta__val gp-inferred">1024x1024</span></div>
+            <div class="gp-meta__row"><span class="gp-meta__key">license</span><span class="gp-meta__leader"></span><span class="gp-meta__val gp-meta__val--empty">—</span></div>
+          </div>
+        </section>
+        <section class="gp-details__section">
+          <div class="gp-details__section-head"><span>Components</span></div>
+          <div class="gp-meter">
+            <div class="gp-meter__seg gp-meter__seg--1"></div>
+            <div class="gp-meter__seg gp-meter__seg--2"></div>
+            <div class="gp-meter__seg gp-meter__seg--3"></div>
+          </div>
+          <div class="gp-meter-legend">
+            <span class="gp-meter-legend__item"><span class="gp-meter-legend__swatch gp-meter-legend__swatch--1"></span>unet 70.5%</span>
+            <span class="gp-meter-legend__item"><span class="gp-meter-legend__swatch gp-meter-legend__swatch--2"></span>text_encoder 29.0%</span>
+            <span class="gp-meter-legend__item">vae 0.5%</span>
+          </div>
+        </section>
+        <section class="gp-details__section">
+          <div class="gp-details__section-head"><span>Hash</span></div>
+          <div class="gp-callout">
+            <svg class="gp-callout__icon"><use href="#i-hash"/></svg>
+            <div class="gp-callout__body">
+              <div class="gp-callout__title">Not hashed yet</div>
+              Civitai matching needs a SHA-256. This file is 16.1 GB — about 2 minutes.
+              <div class="gp-callout__actions"><button class="gp-btn gp-btn--sm gp-btn--primary">Hash this model</button></div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div class="gp-details__footer">
+        <button class="gp-btn gp-btn--sm">Rename</button>
+        <button class="gp-btn gp-btn--sm">Move</button>
+        <button class="gp-btn gp-btn--sm gp-btn--danger-ghost"><svg class="gp-btn__icon"><use href="#i-trash"/></svg><span class="gp-btn__label">Delete</span></button>
+      </div>
+    </aside>
+
+    <div class="gp-statusbar">
+      <div class="gp-statusbar__group"><span class="gp-statusbar__dot gp-statusbar__dot--ok"></span><span>Indexed</span></div>
+      <span class="gp-statusbar__sep"></span>
+      <div class="gp-statusbar__group"><span class="gp-statusbar__num">231</span><span>models</span><span class="gp-statusbar__num">1.50 TB</span></div>
+      <span class="gp-statusbar__sep"></span>
+      <div class="gp-statusbar__group"><span class="gp-statusbar__num">1</span><span>selected</span></div>
+      <div class="gp-statusbar__spacer"></div>
+      <div class="gp-statusbar__group gp-perpage">
+        <span class="gp-perpage__label">Per page</span>
+        <span class="gp-selectwrap">
+          <select class="gp-select gp-select--bare"><option>50</option><option selected>100</option><option>200</option><option>500</option></select>
+          <svg class="gp-selectwrap__caret"><use href="#i-chev-d"/></svg>
+        </span>
+      </div>
+    </div>
+
+  </div>
+  </div>
+</section>
+
+<!-- ============================================================== BUTTONS -->
+<section class="pv-sec">
+  <h2>3 · Buttons</h2>
+  <p class="pv-note">Every variant in default / hover / active / focus / disabled / loading. <code>--ai</code> (violet) is
+     reserved for AI actions; <code>--danger</code> is the only solid red and is the only button that swaps to the red focus ring.</p>
+  <div class="pv-grid">
+    <div class="pv-box"><h3>Subtle (default)</h3><div class="pv-stack">
+      <span class="pv-tag">default</span><span><button class="gp-btn">Reindex</button></span>
+      <span class="pv-tag">hover</span><span><button class="gp-btn pv-hover">Reindex</button></span>
+      <span class="pv-tag">active</span><span><button class="gp-btn pv-active">Reindex</button></span>
+      <span class="pv-tag">focus</span><span><button class="gp-btn pv-focus">Reindex</button></span>
+      <span class="pv-tag">disabled</span><span><button class="gp-btn" disabled>Reindex</button></span>
+      <span class="pv-tag">loading</span><span><button class="gp-btn is-loading">Reindex</button></span>
+    </div></div>
+    <div class="pv-box"><h3>Primary (amber)</h3><div class="pv-stack">
+      <span class="pv-tag">default</span><span><button class="gp-btn gp-btn--primary"><svg class="gp-btn__icon"><use href="#i-hash"/></svg><span class="gp-btn__label">Hash vault</span></button></span>
+      <span class="pv-tag">hover</span><span><button class="gp-btn gp-btn--primary pv-hover">Hash vault</button></span>
+      <span class="pv-tag">active</span><span><button class="gp-btn gp-btn--primary pv-active">Hash vault</button></span>
+      <span class="pv-tag">focus</span><span><button class="gp-btn gp-btn--primary pv-focus">Hash vault</button></span>
+      <span class="pv-tag">disabled</span><span><button class="gp-btn gp-btn--primary" disabled>Hash vault</button></span>
+      <span class="pv-tag">loading</span><span><button class="gp-btn gp-btn--primary is-loading">Hash vault</button></span>
+    </div></div>
+    <div class="pv-box"><h3>AI (violet)</h3><div class="pv-stack">
+      <span class="pv-tag">default</span><span><button class="gp-btn gp-btn--ai"><svg class="gp-btn__icon"><use href="#i-sparkle"/></svg><span class="gp-btn__label">Enable Smart</span></button></span>
+      <span class="pv-tag">hover</span><span><button class="gp-btn gp-btn--ai pv-hover">Enable Smart</button></span>
+      <span class="pv-tag">focus</span><span><button class="gp-btn gp-btn--ai pv-focus">Enable Smart</button></span>
+      <span class="pv-tag">disabled</span><span><button class="gp-btn gp-btn--ai" disabled>Enable Smart</button></span>
+      <span class="pv-tag">loading</span><span><button class="gp-btn gp-btn--ai is-loading">Enable Smart</button></span>
+    </div></div>
+    <div class="pv-box"><h3>Ghost</h3><div class="pv-stack">
+      <span class="pv-tag">default</span><span><button class="gp-btn gp-btn--ghost">Cancel</button></span>
+      <span class="pv-tag">hover</span><span><button class="gp-btn gp-btn--ghost pv-hover">Cancel</button></span>
+      <span class="pv-tag">focus</span><span><button class="gp-btn gp-btn--ghost pv-focus">Cancel</button></span>
+      <span class="pv-tag">disabled</span><span><button class="gp-btn gp-btn--ghost" disabled>Cancel</button></span>
+      <span class="pv-tag">loading</span><span><button class="gp-btn gp-btn--ghost is-loading">Cancel</button></span>
+    </div></div>
+    <div class="pv-box"><h3>Danger (solid + ghost)</h3><div class="pv-stack">
+      <span class="pv-tag">default</span><span><button class="gp-btn gp-btn--danger"><svg class="gp-btn__icon"><use href="#i-trash"/></svg><span class="gp-btn__label">Delete 12</span></button></span>
+      <span class="pv-tag">hover</span><span><button class="gp-btn gp-btn--danger pv-hover">Delete 12</button></span>
+      <span class="pv-tag">focus (red ring)</span><span><button class="gp-btn gp-btn--danger pv-focus">Delete 12</button></span>
+      <span class="pv-tag">disabled</span><span><button class="gp-btn gp-btn--danger" disabled>Delete 12</button></span>
+      <span class="pv-tag">loading</span><span><button class="gp-btn gp-btn--danger is-loading">Delete 12</button></span>
+      <span class="pv-tag">ghost / ghost hover</span><span class="pv-strip"><button class="gp-btn gp-btn--danger-ghost">Delete</button><button class="gp-btn gp-btn--danger-ghost pv-hover">Delete</button></span>
+    </div></div>
+    <div class="pv-box"><h3>Sizes, icons, groups</h3><div class="pv-stack">
+      <span class="pv-tag">sm / default / lg</span>
+      <span class="pv-strip"><button class="gp-btn gp-btn--sm">Small</button><button class="gp-btn">Default</button><button class="gp-btn gp-btn--lg">Large</button></span>
+      <span class="pv-tag">icon-only</span>
+      <span class="pv-strip">
+        <button class="gp-btn gp-btn--icon gp-btn--sm" aria-label="Refresh"><svg class="gp-btn__icon"><use href="#i-refresh"/></svg></button>
+        <button class="gp-btn gp-btn--icon" aria-label="Settings"><svg class="gp-btn__icon"><use href="#i-gear"/></svg></button>
+        <button class="gp-btn gp-btn--icon gp-btn--lg" aria-label="Copy"><svg class="gp-btn__icon"><use href="#i-copy"/></svg></button>
+        <button class="gp-btn gp-btn--icon" disabled aria-label="Disabled"><svg class="gp-btn__icon"><use href="#i-trash"/></svg></button>
+      </span>
+      <span class="pv-tag">toggle (aria-pressed) / group / block</span>
+      <span class="pv-strip">
+        <button class="gp-btn" aria-pressed="true">Favourites only</button>
+        <span class="gp-btn-group"><button class="gp-btn">Trash</button><button class="gp-btn" aria-pressed="true">Permanent</button></span>
+      </span>
+      <button class="gp-btn gp-btn--block gp-btn--primary">Full width</button>
+    </div></div>
+  </div>
+</section>
+
+<!-- ============================== TABS / SEGMENTS / CHIPS / KBD / RATING -->
+<section class="pv-sec">
+  <h2>4 · Tabs, segments, chips</h2>
+  <div class="pv-grid">
+    <div class="pv-box"><h3>Tabs</h3><nav class="gp-tabs">
+      <button class="gp-tab gp-tab--active" aria-selected="true">Models<span class="gp-tab__count">231</span></button>
+      <button class="gp-tab pv-hover">Nodes<span class="gp-tab__count">1581</span></button>
+      <button class="gp-tab">Workflows<span class="gp-tab__count">48</span></button>
+      <button class="gp-tab" disabled>Outputs<span class="gp-tab__count">0</span></button>
+    </nav></div>
+    <div class="pv-box"><h3>Segmented</h3><div class="pv-stack">
+      <div class="gp-segment">
+        <button class="gp-segment__item gp-segment__item--active" aria-pressed="true"><svg><use href="#i-grid"/></svg>Grid</button>
+        <button class="gp-segment__item pv-hover"><svg><use href="#i-list"/></svg>List</button>
+      </div>
+      <div class="gp-segment">
+        <button class="gp-segment__item gp-segment__item--active">All</button>
+        <button class="gp-segment__item">Missing</button>
+        <button class="gp-segment__item" disabled>Ambiguous</button>
+      </div>
+    </div></div>
+    <div class="pv-box"><h3>Chips — states</h3><div class="pv-strip">
+      <button class="gp-chip">Default<span class="gp-chip__count">12</span></button>
+      <button class="gp-chip pv-hover">Hover<span class="gp-chip__count">12</span></button>
+      <button class="gp-chip gp-chip--selected" aria-pressed="true">Selected<span class="gp-chip__count">34</span></button>
+      <button class="gp-chip gp-chip--selected pv-hover">Sel·hover<span class="gp-chip__count">34</span></button>
+      <button class="gp-chip pv-focus">Focus</button>
+      <button class="gp-chip" disabled>Disabled<span class="gp-chip__count">0</span></button>
+    </div></div>
+    <div class="pv-box"><h3>Chips — semantic</h3><div class="pv-strip">
+      <span class="gp-chip gp-chip--mono">fp8</span>
+      <span class="gp-chip gp-chip--inferred"><span class="gp-inferred">Unknown base</span><span class="gp-chip__count">9</span></span>
+      <span class="gp-chip gp-chip--ok">satisfied<span class="gp-chip__count">12</span></span>
+      <span class="gp-chip gp-chip--warn">stale<span class="gp-chip__count">3</span></span>
+      <span class="gp-chip gp-chip--danger">missing<span class="gp-chip__count">2</span></span>
+      <span class="gp-chip gp-chip--sm">tiny</span>
+      <span class="gp-chip">portrait<button class="gp-chip__remove" aria-label="Remove tag"><svg width="9" height="9"><use href="#i-x"/></svg></button></span>
+    </div></div>
+    <div class="pv-box"><h3>Keyboard hints</h3><div class="pv-strip">
+      <kbd class="gp-kbd">/</kbd><kbd class="gp-kbd">Esc</kbd><kbd class="gp-kbd">↑</kbd><kbd class="gp-kbd">↓</kbd>
+      <kbd class="gp-kbd">Enter</kbd><kbd class="gp-kbd">Del</kbd><kbd class="gp-kbd">Ctrl</kbd><kbd class="gp-kbd">A</kbd>
+    </div></div>
+    <div class="pv-box"><h3>Rating</h3><div class="pv-stack">
+      <span class="gp-rating">
+        <button class="gp-rating__star gp-rating__star--on"><svg><use href="#i-star"/></svg></button>
+        <button class="gp-rating__star gp-rating__star--on"><svg><use href="#i-star"/></svg></button>
+        <button class="gp-rating__star gp-rating__star--on"><svg><use href="#i-star"/></svg></button>
+        <button class="gp-rating__star gp-rating__star--on"><svg><use href="#i-star"/></svg></button>
+        <button class="gp-rating__star"><svg><use href="#i-star"/></svg></button>
+      </span>
+      <span class="gp-rating gp-rating--readonly">
+        <span class="gp-rating__star"><svg><use href="#i-star"/></svg></span>
+        <span class="gp-rating__star"><svg><use href="#i-star"/></svg></span>
+        <span class="gp-rating__star"><svg><use href="#i-star"/></svg></span>
+        <span class="gp-rating__star"><svg><use href="#i-star"/></svg></span>
+        <span class="gp-rating__star"><svg><use href="#i-star"/></svg></span>
+      </span>
+    </div></div>
+  </div>
+</section>
+
+<!-- ================================================================ FORMS -->
+<section class="pv-sec">
+  <h2>5 · Inputs, selects, checks, toggles, sliders</h2>
+  <div class="pv-grid">
+    <div class="pv-box"><h3>Text input</h3><div class="pv-stack">
+      <label class="gp-field"><span class="gp-field__label">ComfyUI path <span class="gp-field__req">*</span></span>
+        <input class="gp-input gp-input--mono" value="O:\ComfyUI">
+        <span class="gp-field__hint">The single source of truth. Persisted in the database.</span></label>
+      <span class="pv-tag">hover</span><input class="gp-input pv-hover" value="Hover">
+      <span class="pv-tag">focus</span><input class="gp-input pv-focus" value="Focus">
+      <span class="pv-tag">disabled</span><input class="gp-input" value="Disabled" disabled>
+      <span class="pv-tag">error</span>
+      <label class="gp-field"><input class="gp-input" aria-invalid="true" value="P:\NotHere">
+        <span class="gp-field__error"><svg><use href="#i-alert"/></svg>Path does not exist or is not readable.</span></label>
+      <span class="pv-tag">placeholder / number</span>
+      <input class="gp-input" placeholder="Add a note…">
+      <input class="gp-input gp-input--num" value="2">
+    </div></div>
+    <div class="pv-box"><h3>Textarea &amp; select</h3><div class="pv-stack">
+      <textarea class="gp-textarea" rows="3">Trained on a private dataset of 1,200 studio portraits.</textarea>
+      <textarea class="gp-textarea" aria-invalid="true" rows="2">Invalid</textarea>
+      <textarea class="gp-textarea" rows="2" disabled>Disabled</textarea>
+      <span class="gp-selectwrap gp-u-w-full"><select class="gp-select"><option>Trash (recoverable)</option><option>Permanent</option></select><svg class="gp-selectwrap__caret"><use href="#i-chev-d"/></svg></span>
+      <span class="gp-selectwrap gp-u-w-full"><select class="gp-select" disabled><option>Disabled select</option></select><svg class="gp-selectwrap__caret"><use href="#i-chev-d"/></svg></span>
+    </div></div>
+    <div class="pv-box"><h3>Search + suggestions</h3><div class="pv-stack">
+      <div class="gp-search"><svg class="gp-search__icon"><use href="#i-search"/></svg>
+        <input class="gp-search__input" placeholder="Search…"><kbd class="gp-kbd gp-search__hint">/</kbd></div>
+      <div class="gp-search"><svg class="gp-search__icon"><use href="#i-search"/></svg>
+        <input class="gp-search__input pv-focus" value="flux lora"><button class="gp-search__clear"><svg width="12" height="12"><use href="#i-x"/></svg></button></div>
+      <div class="gp-search gp-search--busy"><svg class="gp-search__icon"><use href="#i-search"/></svg>
+        <input class="gp-search__input" value="searching…"></div>
+      <div class="gp-search"><svg class="gp-search__icon"><use href="#i-search"/></svg>
+        <input class="gp-search__input" value="Disabled" disabled></div>
+      <div class="gp-suggest gp-u-rel gp-u-mt-4">
+        <button class="gp-suggest__item pv-hover"><svg width="13" height="13"><use href="#i-cube"/></svg>flux1-dev-fp8<span class="gp-suggest__kind">model</span></button>
+        <button class="gp-suggest__item"><svg width="13" height="13"><use href="#i-search"/></svg>FLUX.1<span class="gp-suggest__kind">facet · 34</span></button>
+        <button class="gp-suggest__item gp-suggest__item--active"><svg width="13" height="13"><use href="#i-flow"/></svg>flux_basic<span class="gp-suggest__kind">workflow</span></button>
+      </div>
+    </div></div>
+    <div class="pv-box"><h3>Checkbox &amp; radio</h3><div class="pv-stack">
+      <label class="gp-check"><span class="gp-check__box"><svg><use href="#i-check"/></svg></span><span class="gp-check__label">Unchecked</span></label>
+      <label class="gp-check"><span class="gp-check__box gp-check__box--checked"><svg><use href="#i-check"/></svg></span><span class="gp-check__label">Checked</span></label>
+      <label class="gp-check"><span class="gp-check__box gp-check__box--mixed"></span><span class="gp-check__label">Indeterminate</span></label>
+      <label class="gp-check"><span class="gp-check__box pv-focus"><svg><use href="#i-check"/></svg></span><span class="gp-check__label">Focus</span></label>
+      <label class="gp-check gp-check--disabled"><input class="gp-check__input" type="checkbox" disabled><span class="gp-check__box"></span><span class="gp-check__label">Disabled</span></label>
+      <label class="gp-check gp-check--radio"><span class="gp-check__box gp-check__box--checked"></span><span class="gp-check__label">Radio on</span></label>
+      <label class="gp-check gp-check--radio"><span class="gp-check__box"></span><span class="gp-check__label">Radio off</span></label>
+    </div></div>
+    <div class="pv-box"><h3>Toggles</h3><div class="pv-stack">
+      <label class="gp-toggle"><input class="gp-toggle__input" type="checkbox"><span class="gp-toggle__track"><span class="gp-toggle__thumb"></span></span><span class="gp-toggle__label">Off</span></label>
+      <label class="gp-toggle"><input class="gp-toggle__input" type="checkbox" checked><span class="gp-toggle__track"><span class="gp-toggle__thumb"></span></span><span class="gp-toggle__label">On (local)</span></label>
+      <label class="gp-toggle gp-toggle--ai"><input class="gp-toggle__input" type="checkbox" checked><span class="gp-toggle__track"><span class="gp-toggle__thumb"></span></span><span class="gp-toggle__label">Smart (AI)</span></label>
+      <label class="gp-toggle"><input class="gp-toggle__input" type="checkbox"><span class="gp-toggle__track pv-focus"><span class="gp-toggle__thumb"></span></span><span class="gp-toggle__label">Focus</span></label>
+      <label class="gp-toggle gp-toggle--disabled" title="Smart unavailable — embedding model not installed">
+        <input class="gp-toggle__input" type="checkbox" disabled><span class="gp-toggle__track"><span class="gp-toggle__thumb"></span></span>
+        <span class="gp-toggle__label">Smart — unavailable</span></label>
+    </div></div>
+    <div class="pv-box"><h3>Sliders</h3><div class="pv-stack">
+      <div class="gp-sliderwrap"><input class="gp-slider" type="range" min="120" max="420" value="180"><span class="gp-sliderwrap__value">180</span></div>
+      <div class="gp-sliderwrap"><input class="gp-slider" type="range" min="120" max="420" value="340"><span class="gp-sliderwrap__value">340</span></div>
+      <div class="gp-sliderwrap"><input class="gp-slider" type="range" value="45" disabled><span class="gp-sliderwrap__value">off</span></div>
+    </div></div>
+  </div>
+</section>
+
+<!-- ================================================================ BADGES -->
+<section class="pv-sec">
+  <h2>6 · Badges — the frozen API enums</h2>
+  <p class="pv-note">One class per enum value from <code>API_CONTRACT §16</code>, so <code>ui-dev</code> maps
+     <code>hash.state</code> → <code>gp-badge--hash-{value}</code> with no branching logic.</p>
+  <div class="pv-grid">
+    <div class="pv-box"><h3>hash_state</h3><div class="pv-strip">
+      <span class="gp-badge gp-badge--hash-unhashed">unhashed</span>
+      <span class="gp-badge gp-badge--hash-queued">queued</span>
+      <span class="gp-badge gp-badge--hash-hashing">hashing</span>
+      <span class="gp-badge gp-badge--hash-done">done</span>
+      <span class="gp-badge gp-badge--hash-failed">failed</span>
+      <span class="gp-badge gp-badge--hash-stale">stale</span>
+    </div></div>
+    <div class="pv-box"><h3>integrity</h3><div class="pv-strip">
+      <span class="gp-badge gp-badge--integrity-ok">ok</span>
+      <span class="gp-badge gp-badge--integrity-invalid-header">invalid_header</span>
+      <span class="gp-badge gp-badge--integrity-not-a-model">not_a_model</span>
+      <span class="gp-badge gp-badge--integrity-truncated">truncated</span>
+      <span class="gp-badge gp-badge--integrity-unreadable">unreadable</span>
+      <span class="gp-badge gp-badge--integrity-unsupported-format">unsupported_format</span>
+    </div></div>
+    <div class="pv-box"><h3>dep_status</h3><div class="pv-strip">
+      <span class="gp-badge gp-badge--dep-satisfied">satisfied</span>
+      <span class="gp-badge gp-badge--dep-missing">missing</span>
+      <span class="gp-badge gp-badge--dep-ambiguous">ambiguous</span>
+      <span class="gp-badge gp-badge--dep-unknown">unknown</span>
+    </div></div>
+    <div class="pv-box"><h3>confidence · search_mode</h3><div class="pv-strip">
+      <span class="gp-badge gp-badge--conf-declared">declared</span>
+      <span class="gp-badge gp-badge--conf-registry">registry</span>
+      <span class="gp-badge gp-badge--conf-inferred">inferred</span>
+      <span class="gp-badge gp-badge--mode-lexical">lexical</span>
+      <span class="gp-badge gp-badge--mode-hybrid">hybrid</span>
+    </div></div>
+    <div class="pv-box"><h3>base_model · role · precision · media</h3><div class="pv-strip">
+      <span class="gp-badge gp-badge--base">FLUX.1</span>
+      <span class="gp-badge gp-badge--base">SDXL</span>
+      <span class="gp-badge gp-badge--base gp-badge--ai"><span class="gp-inferred">Unknown</span></span>
+      <span class="gp-badge gp-badge--role">checkpoint</span>
+      <span class="gp-badge gp-badge--role">lora</span>
+      <span class="gp-badge gp-badge--precision">fp8</span>
+      <span class="gp-badge gp-badge--precision">bf16</span>
+      <span class="gp-badge gp-badge--media">video</span>
+    </div></div>
+    <div class="pv-box"><h3>generic + overlay</h3><div class="pv-strip">
+      <span class="gp-badge gp-badge--neutral">neutral</span>
+      <span class="gp-badge gp-badge--brand">local</span>
+      <span class="gp-badge gp-badge--ai">AI</span>
+      <span class="gp-badge gp-badge--ok">ok</span>
+      <span class="gp-badge gp-badge--warn">warn</span>
+      <span class="gp-badge gp-badge--danger">danger</span>
+      <span class="gp-badge gp-badge--info">info</span>
+      <span class="gp-badge gp-badge--lg gp-badge--brand">large</span>
+    </div></div>
+  </div>
+</section>
+
+<!-- ==================================================== AMBER / VIOLET -->
+<section class="pv-sec">
+  <h2>7 · The amber / violet convention</h2>
+  <p class="pv-note"><strong>Amber = verified local data read from the user's files. Violet = AI-inferred or
+     low-confidence data.</strong> Every inferred value carries a leading <code>~</code> from
+     <code>.gp-inferred</code> and must also carry a <code>title</code> naming its source.
+     This is a functional rule, not a decorative one — pick the pair by provenance.</p>
+  <div class="pv-grid">
+    <div class="pv-box"><h3>Meta rows — dotted leader (signature #4)</h3>
+      <div class="gp-meta">
+        <div class="gp-meta__row"><span class="gp-meta__key">base model</span><span class="gp-meta__leader"></span><span class="gp-meta__val gp-meta__val--local">FLUX.1</span></div>
+        <div class="gp-meta__row"><span class="gp-meta__key">architecture</span><span class="gp-meta__leader"></span><span class="gp-meta__val gp-inferred" title="Inferred from tensor prefixes · confidence 0.62">SDXL ControlNet</span></div>
+        <div class="gp-meta__row"><span class="gp-meta__key">params</span><span class="gp-meta__leader"></span><span class="gp-meta__val gp-meta__val--num">11.9 B</span></div>
+        <div class="gp-meta__row"><span class="gp-meta__key">negative prompt</span><span class="gp-meta__leader"></span><span class="gp-meta__val gp-meta__val--empty" title="link_to_non_value_node">—</span></div>
+        <div class="gp-meta__row"><span class="gp-meta__key">integrity</span><span class="gp-meta__leader"></span><span class="gp-meta__val gp-meta__val--danger">not_a_model</span></div>
+        <div class="gp-meta__row"><span class="gp-meta__key">hash</span><span class="gp-meta__leader"></span><span class="gp-meta__val gp-meta__val--ok">5628B30A8E</span></div>
+        <div class="gp-meta__row gp-meta__row--wrap"><span class="gp-meta__key">abs path</span><span class="gp-meta__val gp-u-break-all">O:\ComfyUI\models\checkpoints\flux1-dev-fp8.safetensors</span></div>
+      </div>
+    </div>
+    <div class="pv-box"><h3>Side by side</h3><div class="pv-stack">
+      <div class="gp-u-row gp-u-gap-4"><span class="gp-u-meta gp-u-fs-11">read from file</span><span class="gp-local gp-u-num">FLUX.1</span></div>
+      <div class="gp-u-row gp-u-gap-4"><span class="gp-u-meta gp-u-fs-11">guessed</span><span class="gp-inferred gp-u-num" title="arch_confidence 0.62">FLUX.1</span></div>
+      <hr>
+      <div class="gp-u-row gp-u-gap-4"><span class="gp-badge gp-badge--conf-declared">declared</span><span class="gp-badge gp-badge--conf-inferred">inferred</span></div>
+      <div class="gp-u-row gp-u-gap-4"><span class="gp-badge gp-badge--mode-lexical">lexical</span><span class="gp-badge gp-badge--mode-hybrid">hybrid</span></div>
+      <div class="gp-u-row gp-u-gap-4"><span class="gp-provenance gp-provenance--declared">safetensors header</span><span class="gp-provenance gp-provenance--inferred">Ollama summary</span></div>
+      <div class="gp-progress"><div class="gp-progress__bar"></div></div>
+      <div class="gp-progress gp-progress--ai"><div class="gp-progress__bar"></div></div>
+    </div></div>
+    <div class="pv-box"><h3>Inferred surfaces</h3><div class="pv-stack">
+      <div class="gp-callout gp-callout--ai"><svg class="gp-callout__icon"><use href="#i-sparkle"/></svg>
+        <div class="gp-callout__body"><div class="gp-callout__title">Description generated by Ollama</div>
+        <span class="gp-inferred">Replaces a character in a driving video using WAN 2.2 Animate.</span></div></div>
+      <div class="gp-card gp-card--inferred">
+        <div class="gp-card__thumb gp-card__thumb--wide"><div class="gp-card__placeholder gp-card__placeholder--inferred"><svg><use href="#i-cube"/></svg></div></div>
+        <div class="gp-card__body"><div class="gp-card__title">mystery_merge_v4</div>
+          <div class="gp-card__meta"><span class="gp-inferred">SDXL · conf .62</span></div></div>
+      </div>
+    </div></div>
+  </div>
+</section>
+
+<!-- ===================================================== CARDS / ROWS -->
+<section class="pv-sec">
+  <h2>8 · Cards &amp; list rows</h2>
+  <p class="pv-note">Tile width is <code>--gp-grid-size</code>. Hairline borders, 6&nbsp;px radius, no floating shadows —
+     elevation is reserved for overlays (signatures #2 and #3).</p>
+  <div class="gp-grid gp-u-mb-6">
+    <article class="gp-card"><div class="gp-card__thumb"><div class="gp-card__placeholder"><svg><use href="#i-cube"/></svg></div></div>
+      <div class="gp-card__body"><div class="gp-card__title">default</div><div class="gp-card__meta">6.9 GB · fp16</div></div></article>
+    <article class="gp-card pv-hover"><div class="gp-card__thumb"><div class="gp-card__placeholder"><svg><use href="#i-cube"/></svg></div></div>
+      <div class="gp-card__body"><div class="gp-card__title">hover</div><div class="gp-card__meta">6.9 GB · fp16</div></div></article>
+    <article class="gp-card gp-card--selected"><div class="gp-card__thumb"><div class="gp-card__placeholder"><svg><use href="#i-cube"/></svg></div>
+      <span class="gp-card__check"><span class="gp-check__box gp-check__box--checked"><svg><use href="#i-check"/></svg></span></span></div>
+      <div class="gp-card__body"><div class="gp-card__title">selected</div><div class="gp-card__meta">6.9 GB · fp16</div></div></article>
+    <article class="gp-card pv-focus"><div class="gp-card__thumb"><div class="gp-card__placeholder"><svg><use href="#i-cube"/></svg></div></div>
+      <div class="gp-card__body"><div class="gp-card__title">focus</div><div class="gp-card__meta">6.9 GB · fp16</div></div></article>
+    <article class="gp-card gp-card--missing"><div class="gp-card__thumb"><div class="gp-card__placeholder"><svg><use href="#i-cube"/></svg></div>
+      <div class="gp-card__corner"><span class="gp-badge gp-badge--warn gp-badge--overlay">missing</span></div></div>
+      <div class="gp-card__body"><div class="gp-card__title">missing on disk</div><div class="gp-card__meta">last seen 4 Jul</div></div></article>
+    <article class="gp-card gp-card--error"><div class="gp-card__thumb"><img class="gp-card__media" src="src/assets/brand/placeholder-broken.svg" alt=""></div>
+      <div class="gp-card__body"><div class="gp-card__title">error / integrity</div><div class="gp-card__meta gp-u-danger">not_a_model</div></div></article>
+    <div class="gp-skel-card"><div class="gp-skel gp-skel--thumb"></div>
+      <div class="gp-skel-card__body"><div class="gp-skel gp-skel--title"></div><div class="gp-skel gp-skel--line-sm"></div></div></div>
+    <div class="gp-skel-card"><div class="gp-skel gp-skel--thumb"></div>
+      <div class="gp-skel-card__body"><div class="gp-skel gp-skel--title"></div><div class="gp-skel gp-skel--line-sm"></div></div></div>
+  </div>
+
+  <div class="pv-box">
+    <h3>List rows</h3>
+    <div class="gp-group-head"><span class="gp-group-head__label">FLUX.1</span><span class="gp-group-head__count">34</span><span class="gp-group-head__bytes">402.1 GB</span><span class="gp-group-head__rule"></span></div>
+    <div class="gp-list">
+      <div class="gp-row"><span class="gp-row__thumb gp-u-ph-local"></span><span class="gp-row__name">flux1-dev-fp8.safetensors</span>
+        <span class="gp-badge gp-badge--base">FLUX.1</span><span class="gp-row__cell gp-row__cell--num">16.1 GB</span><span class="gp-badge gp-badge--hash-unhashed">unhashed</span></div>
+      <div class="gp-row pv-hover"><span class="gp-row__thumb gp-u-ph-local"></span><span class="gp-row__name">flux1-schnell.safetensors</span>
+        <span class="gp-badge gp-badge--base">FLUX.1</span><span class="gp-row__cell gp-row__cell--num">23.8 GB</span><span class="gp-badge gp-badge--hash-queued">queued</span>
+        <span class="gp-row__actions"><button class="gp-btn gp-btn--ghost gp-btn--sm gp-btn--icon"><svg class="gp-btn__icon"><use href="#i-trash"/></svg></button></span></div>
+      <div class="gp-row gp-row--selected" aria-selected="true"><span class="gp-row__thumb gp-u-ph-local"></span><span class="gp-row__name">anime_flux_v3.safetensors</span>
+        <span class="gp-badge gp-badge--role">lora</span><span class="gp-row__cell gp-row__cell--num">294 MB</span><span class="gp-badge gp-badge--hash-done">done</span></div>
+      <div class="gp-row pv-focus"><span class="gp-row__thumb gp-u-ph-local"></span><span class="gp-row__name">focus row</span><span class="gp-row__cell gp-row__cell--num">1.2 GB</span></div>
+      <div class="gp-row gp-row--inferred"><span class="gp-row__thumb gp-u-ph-inferred"></span><span class="gp-row__name gp-inferred">mystery_merge_v4.safetensors</span>
+        <span class="gp-badge gp-badge--base gp-badge--ai"><span class="gp-inferred">SDXL</span></span><span class="gp-row__cell gp-row__cell--num">6.4 GB</span></div>
+      <div class="gp-row gp-row--error"><span class="gp-row__thumb gp-u-ph-neutral"></span><span class="gp-row__name">flux2-vae-new.safetensors</span>
+        <span class="gp-badge gp-badge--integrity-not-a-model">not_a_model</span><span class="gp-row__cell gp-row__cell--num">1 KB</span></div>
+      <div class="gp-row gp-row--missing"><span class="gp-row__thumb gp-u-ph-neutral"></span><span class="gp-row__name">deleted_upscaler.pth</span>
+        <span class="gp-row__cell">missing on disk</span><span class="gp-row__cell gp-row__cell--num">—</span></div>
+      <div class="gp-row"><span class="gp-skel gp-skel--chip"></span><span class="gp-row__name"><span class="gp-skel gp-skel--text"></span></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ TABLE -->
+<section class="pv-sec">
+  <h2>9 · Table</h2>
+  <div class="pv-box gp-u-p-0">
+    <table class="gp-table">
+      <thead><tr>
+        <th>Component</th><th>Dtype</th><th class="gp-table__num">Params</th><th class="gp-table__num">Share</th><th>Source</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>unet</td><td>F8_E4M3</td><td class="gp-table__num">11,901,408,320</td><td class="gp-table__num">70.5%</td><td><span class="gp-badge gp-badge--conf-declared">declared</span></td></tr>
+        <tr><td>text_encoder</td><td>F16</td><td class="gp-table__num">4,887,121,408</td><td class="gp-table__num">29.0%</td><td><span class="gp-badge gp-badge--conf-declared">declared</span></td></tr>
+        <tr aria-selected="true"><td>vae</td><td>F16</td><td class="gp-table__num">83,819,683</td><td class="gp-table__num">0.5%</td><td><span class="gp-badge gp-badge--conf-inferred">inferred</span></td></tr>
+        <tr><td class="gp-u-dim">unknown</td><td class="gp-u-dim">—</td><td class="gp-table__num gp-u-dim">—</td><td class="gp-table__num gp-u-dim">—</td><td><span class="gp-badge gp-badge--dep-unknown">unknown</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ====================================================== PROGRESS/STATUS -->
+<section class="pv-sec">
+  <h2>10 · Progress, meters, spinners</h2>
+  <div class="pv-grid">
+    <div class="pv-box"><h3>Determinate</h3><div class="pv-stack">
+      <div class="gp-progress-block">
+        <div class="gp-progress-block__head"><span>Hashing 120 / 231</span><span class="gp-progress-block__num">43.3%</span></div>
+        <div class="gp-progress"><div class="gp-progress__bar" data-pv="43"></div></div>
+        <div class="gp-progress-block__sub">142.7 MB/s · ETA 46 min · 17.1 / 39.4 GB</div>
+      </div>
+      <div class="gp-progress gp-progress--thin"><div class="gp-progress__bar" data-pv="72"></div></div>
+      <div class="gp-progress gp-progress--ok"><div class="gp-progress__bar" data-pv="100"></div></div>
+            <div class="gp-progress gp-progress--danger"><div class="gp-progress__bar" data-pv="18"></div></div>
+      <div class="gp-progress gp-progress--ai"><div class="gp-progress__bar" data-pv="34"></div></div>
+    </div></div>
+    <div class="pv-box"><h3>Indeterminate &amp; spinners</h3><div class="pv-stack">
+      <div class="gp-progress gp-progress--indeterminate"><div class="gp-progress__bar"></div></div>
+      <div class="gp-progress gp-progress--indeterminate gp-progress--ai"><div class="gp-progress__bar"></div></div>
+      <div class="pv-strip"><span class="gp-spinner gp-spinner--sm"></span><span class="gp-spinner"></span><span class="gp-spinner gp-spinner--ai"></span></div>
+    </div></div>
+    <div class="pv-box"><h3>Segmented meter</h3><div class="pv-stack">
+      <div class="gp-meter">
+        <div class="gp-meter__seg gp-meter__seg--1" data-pv="70"></div>
+        <div class="gp-meter__seg gp-meter__seg--2" data-pv="20"></div>
+        <div class="gp-meter__seg gp-meter__seg--3" data-pv="7"></div>
+        <div class="gp-meter__seg gp-meter__seg--5" data-pv="3"></div>
+      </div>
+      <div class="gp-meter-legend">
+        <span class="gp-meter-legend__item"><span class="gp-meter-legend__swatch gp-meter-legend__swatch--1"></span>unet 70.5%</span>
+        <span class="gp-meter-legend__item"><span class="gp-meter-legend__swatch gp-meter-legend__swatch--2"></span>te 29.0%</span>
+        <span class="gp-meter-legend__item">vae 0.5%</span>
+      </div>
+    </div></div>
+    <div class="pv-box"><h3>Health checks</h3>
+      <div class="gp-check-row"><span class="gp-check-row__dot gp-check-row__dot--ok"></span><span class="gp-check-row__id">comfyui_root</span><span class="gp-check-row__msg">O:\ComfyUI</span></div>
+      <div class="gp-check-row"><span class="gp-check-row__dot gp-check-row__dot--warn"></span><span class="gp-check-row__id">embeddings</span><span class="gp-check-row__msg">Model not installed</span></div>
+      <div class="gp-check-row"><span class="gp-check-row__dot gp-check-row__dot--error"></span><span class="gp-check-row__id">integrity</span><span class="gp-check-row__msg">1 model file is not a valid model</span></div>
+      <div class="gp-check-row"><span class="gp-check-row__dot"></span><span class="gp-check-row__id">ollama</span><span class="gp-check-row__msg gp-u-dim">not configured</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================== CALLOUT / TOOLTIP / MENU -->
+<section class="pv-sec">
+  <h2>11 · Callouts, tooltips, menus</h2>
+  <div class="pv-grid">
+    <div class="pv-box"><h3>Callouts</h3><div class="pv-stack">
+      <div class="gp-callout"><svg class="gp-callout__icon"><use href="#i-info"/></svg><div class="gp-callout__body">Neutral note. Hairline, no colour.</div></div>
+      <div class="gp-callout gp-callout--info"><svg class="gp-callout__icon"><use href="#i-info"/></svg><div class="gp-callout__body"><div class="gp-callout__title">Hashing the full vault</div>1.5 TB is roughly a 2.8-hour job. It runs in the background and survives a restart.</div></div>
+      <div class="gp-callout gp-callout--ok"><svg class="gp-callout__icon"><use href="#i-check"/></svg><div class="gp-callout__body">Scan completed — 231 models, 3,569 outputs, 3 errors.</div></div>
+      <div class="gp-callout gp-callout--warn"><svg class="gp-callout__icon"><use href="#i-alert"/></svg><div class="gp-callout__body">Civitai needs a SHA-256 first.</div></div>
+      <div class="gp-callout gp-callout--danger"><svg class="gp-callout__icon"><use href="#i-alert"/></svg><div class="gp-callout__body"><div class="gp-callout__title">FILE_LOCKED</div>ComfyUI may be running. Close it and retry.<div class="gp-callout__actions"><button class="gp-btn gp-btn--sm">Retry</button><button class="gp-btn gp-btn--sm gp-btn--ghost">Skip</button></div></div></div>
+      <div class="gp-callout gp-callout--ai"><svg class="gp-callout__icon"><use href="#i-sparkle"/></svg><div class="gp-callout__body"><div class="gp-callout__title">Smart search unavailable</div>Embedding model not installed. Results fall back to lexical — never an error toast.<div class="gp-callout__actions"><button class="gp-btn gp-btn--sm gp-btn--ai">Download 23 MB model</button></div></div></div>
+    </div></div>
+    <div class="pv-box"><h3>Tooltips</h3><div class="pv-stack">
+      <div class="gp-tooltip gp-u-rel"><div class="gp-tooltip__title">arch_confidence 0.62</div><div class="gp-tooltip__mono">prefixes: model.diffusion_model, first_stage</div></div>
+      <div class="gp-tooltip gp-tooltip--ai gp-u-rel">Inferred by the architecture detector — verify before relying on it.</div>
+      <div class="gp-tooltip gp-tooltip--danger gp-u-rel">Permanent delete cannot be undone.</div>
+    </div></div>
+    <div class="pv-box"><h3>Menu</h3>
+      <div class="gp-menu gp-u-rel">
+        <div class="gp-menu__label">Actions</div>
+        <button class="gp-menu__item"><svg><use href="#i-copy"/></svg><span class="gp-menu__text">Copy path</span><kbd class="gp-kbd gp-menu__kbd">C</kbd></button>
+        <button class="gp-menu__item pv-hover"><svg><use href="#i-folder"/></svg><span class="gp-menu__text">Reveal in Explorer</span></button>
+        <button class="gp-menu__item gp-menu__item--selected"><svg><use href="#i-check"/></svg><span class="gp-menu__text">Group by folder</span></button>
+        <button class="gp-menu__item" aria-disabled="true" disabled><svg><use href="#i-refresh"/></svg><span class="gp-menu__text">Refresh metadata</span></button>
+        <div class="gp-menu__sep"></div>
+        <button class="gp-menu__item gp-menu__item--danger"><svg><use href="#i-trash"/></svg><span class="gp-menu__text">Move to trash</span><kbd class="gp-kbd gp-menu__kbd">Del</kbd></button>
+        <button class="gp-menu__item gp-menu__item--danger pv-hover"><svg><use href="#i-trash"/></svg><span class="gp-menu__text">Delete permanently</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================== TOASTS -->
+<section class="pv-sec">
+  <h2>12 · Toasts</h2>
+  <div class="pv-grid">
+    <div class="pv-box"><h3>All variants</h3><div class="pv-stack">
+      <div class="gp-toast"><svg class="gp-toast__icon"><use href="#i-info"/></svg>
+        <div class="gp-toast__body"><div class="gp-toast__title">Default</div><div class="gp-toast__msg">Amber spine — the recurring motif.</div></div>
+        <button class="gp-toast__close"><svg width="12" height="12"><use href="#i-x"/></svg></button></div>
+      <div class="gp-toast gp-toast--ok"><svg class="gp-toast__icon"><use href="#i-check"/></svg>
+        <div class="gp-toast__body"><div class="gp-toast__title">Moved 12 models</div><div class="gp-toast__msg">to loras\flux</div>
+        <div class="gp-toast__actions"><button class="gp-btn gp-btn--sm gp-btn--ghost">Undo</button></div></div>
+        <button class="gp-toast__close"><svg width="12" height="12"><use href="#i-x"/></svg></button></div>
+      <div class="gp-toast gp-toast--warn"><svg class="gp-toast__icon"><use href="#i-alert"/></svg>
+        <div class="gp-toast__body"><div class="gp-toast__title">3 files skipped</div><div class="gp-toast__msg">FILE_LOCKED — ComfyUI is running.</div></div>
+        <button class="gp-toast__close"><svg width="12" height="12"><use href="#i-x"/></svg></button></div>
+      <div class="gp-toast gp-toast--danger"><svg class="gp-toast__icon"><use href="#i-alert"/></svg>
+        <div class="gp-toast__body"><div class="gp-toast__title">Delete failed</div><div class="gp-toast__msg">PATH_NOT_ALLOWED · request 7f31c2</div></div>
+        <button class="gp-toast__close"><svg width="12" height="12"><use href="#i-x"/></svg></button></div>
+      <div class="gp-toast gp-toast--ai"><svg class="gp-toast__icon"><use href="#i-sparkle"/></svg>
+        <div class="gp-toast__body"><div class="gp-toast__title">Embeddings ready</div><div class="gp-toast__msg">4,238 documents embedded. Smart search is on.</div></div>
+        <button class="gp-toast__close"><svg width="12" height="12"><use href="#i-x"/></svg></button></div>
+    </div></div>
+    <div class="pv-box pv-box--half"><h3>Docked (as shipped)</h3>
+      <div class="pv-stage"><div class="gp-u-p-6 gp-u-fs-11 gp-u-meta">The toaster docks bottom-right, clear of the status bar.</div>
+        <div class="gp-toaster">
+          <div class="gp-toast gp-toast--ok"><svg class="gp-toast__icon"><use href="#i-check"/></svg>
+            <div class="gp-toast__body"><div class="gp-toast__title">12 models moved to trash</div>
+            <div class="gp-toast__actions"><button class="gp-btn gp-btn--sm">Undo</button></div></div>
+            <button class="gp-toast__close"><svg width="12" height="12"><use href="#i-x"/></svg></button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================= MODAL / CONFIRM -->
+<section class="pv-sec">
+  <h2>13 · Modals, confirm dialogs, lightbox</h2>
+  <div class="pv-grid">
+    <div class="pv-box pv-box--half"><h3>Modal</h3>
+      <div class="gp-modal">
+        <div class="gp-modal__header">
+          <div class="gp-modal__titles"><div class="gp-modal__title">Move 12 models</div><div class="gp-modal__sub">Destination must be inside an allowed root.</div></div>
+          <button class="gp-modal__close"><svg width="13" height="13"><use href="#i-x"/></svg></button>
+        </div>
+        <div class="gp-modal__body">
+          <div class="gp-formgrid">
+            <span class="gp-formgrid__label">Root</span>
+            <span class="gp-selectwrap gp-u-w-full"><select class="gp-select"><option>ComfyUI (O:\ComfyUI)</option></select><svg class="gp-selectwrap__caret"><use href="#i-chev-d"/></svg></span>
+            <span class="gp-formgrid__label">Folder</span>
+            <input class="gp-input gp-input--mono" value="loras\flux">
+            <span class="gp-formgrid__label">On conflict</span>
+            <span class="gp-selectwrap gp-u-w-full"><select class="gp-select"><option>Rename</option><option>Skip</option><option>Overwrite</option></select><svg class="gp-selectwrap__caret"><use href="#i-chev-d"/></svg></span>
+          </div>
+        </div>
+        <div class="gp-modal__footer">
+          <label class="gp-check gp-modal__footer-left"><span class="gp-check__box gp-check__box--checked"><svg><use href="#i-check"/></svg></span><span class="gp-check__label">Move sidecar files</span></label>
+          <button class="gp-btn gp-btn--ghost">Cancel</button><button class="gp-btn gp-btn--primary">Move</button>
+        </div>
+      </div>
+    </div>
+    <div class="pv-box pv-box--half"><h3>Confirm — destructive</h3>
+      <div class="gp-modal gp-modal--sm gp-modal--danger">
+        <div class="gp-modal__header"><div class="gp-modal__titles"><div class="gp-modal__title">Delete permanently?</div></div></div>
+        <div class="gp-modal__body">
+          <div class="gp-confirm gp-confirm--danger">
+            <span class="gp-confirm__icon"><svg><use href="#i-alert"/></svg></span>
+            <div class="gp-confirm__body">
+              <p class="gp-confirm__text">3 files, 41.2 GB. This cannot be undone and these models take hours to re-download.</p>
+              <ul class="gp-confirm__list"><li>flux1-dev-fp8.safetensors</li><li>wan2.2_i2v_high_noise.safetensors</li><li>sd_xl_base_1.0.safetensors</li></ul>
+            </div>
+          </div>
+        </div>
+        <div class="gp-modal__footer"><button class="gp-btn gp-btn--ghost">Cancel</button><button class="gp-btn gp-btn--danger">Delete permanently</button></div>
+      </div>
+    </div>
+    <div class="pv-box pv-box--half"><h3>Overlay + scrim (in situ)</h3>
+      <div class="pv-stage">
+        <div class="gp-grid gp-u-p-5">
+          <article class="gp-card"><div class="gp-card__thumb"><div class="gp-card__placeholder"><svg><use href="#i-cube"/></svg></div></div><div class="gp-card__body"><div class="gp-card__title">behind the scrim</div></div></article>
+          <article class="gp-card"><div class="gp-card__thumb"><div class="gp-card__placeholder"><svg><use href="#i-cube"/></svg></div></div><div class="gp-card__body"><div class="gp-card__title">behind the scrim</div></div></article>
+        </div>
+        <div class="gp-overlay">
+          <div class="gp-modal gp-modal--sm">
+            <div class="gp-modal__header"><div class="gp-modal__titles"><div class="gp-modal__title">Rename</div></div></div>
+            <div class="gp-modal__body"><input class="gp-input gp-input--mono" value="flux1-dev-fp8.safetensors"></div>
+            <div class="gp-modal__footer"><button class="gp-btn gp-btn--ghost">Cancel</button><button class="gp-btn gp-btn--primary">Rename</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pv-box gp-u-mt-6 gp-u-p-0">
+    <div class="pv-stage" data-tall="1">
+      <div class="gp-lightbox">
+        <div class="gp-lightbox__bar">
+          <button class="gp-btn gp-btn--ghost gp-btn--icon"><svg class="gp-btn__icon"><use href="#i-x"/></svg></button>
+          <span class="gp-lightbox__name">Anima_00021_.png</span>
+          <span class="gp-lightbox__pos">21 / 3,569</span>
+          <button class="gp-btn gp-btn--sm"><svg class="gp-btn__icon"><use href="#i-copy"/></svg><span class="gp-btn__label">Copy prompt</span></button>
+          <button class="gp-btn gp-btn--sm">Download</button>
+        </div>
+        <div class="gp-lightbox__stage">
+          <img class="gp-lightbox__media" src="src/assets/brand/placeholder-local.svg" alt="" width="320" height="320">
+          <button class="gp-lightbox__nav gp-lightbox__nav--prev"><svg width="16" height="16"><use href="#i-chev-l"/></svg></button>
+          <button class="gp-lightbox__nav gp-lightbox__nav--next"><svg width="16" height="16"><use href="#i-chev-r"/></svg></button>
+        </div>
+        <div class="gp-lightbox__side">
+          <div class="gp-details__section-head"><span>Generation</span></div>
+          <div class="gp-meta gp-u-mb-5">
+            <div class="gp-meta__row"><span class="gp-meta__key">model</span><span class="gp-meta__leader"></span><span class="gp-meta__val">flux1-dev-fp8</span></div>
+            <div class="gp-meta__row"><span class="gp-meta__key">seed</span><span class="gp-meta__leader"></span><span class="gp-meta__val gp-meta__val--num">842119274</span></div>
+            <div class="gp-meta__row"><span class="gp-meta__key">steps · cfg</span><span class="gp-meta__leader"></span><span class="gp-meta__val gp-meta__val--num">20 · 3.5</span></div>
+            <div class="gp-meta__row"><span class="gp-meta__key">sampler</span><span class="gp-meta__leader"></span><span class="gp-meta__val">euler / simple</span></div>
+          </div>
+          <div class="gp-details__section-head"><span>Positive</span></div>
+          <div class="gp-prompt gp-snippet">anime girl standing in <mark>rain</mark>, cinematic<button class="gp-btn gp-btn--ghost gp-btn--sm gp-btn--icon gp-prompt__copy"><svg class="gp-btn__icon"><use href="#i-copy"/></svg></button></div>
+          <div class="gp-details__section-head gp-u-mt-5"><span>Negative</span></div>
+          <div class="gp-prompt gp-prompt--empty">unresolved — link to a non-value node</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================== EMPTY / SKELETON -->
+<section class="pv-sec">
+  <h2>14 · Empty states, skeletons, panels</h2>
+  <div class="pv-grid">
+    <div class="pv-box"><h3>Empty — first run</h3>
+      <div class="gp-empty">
+        <span class="gp-empty__icon"><svg><use href="#i-inbox"/></svg></span>
+        <div class="gp-empty__title">No models indexed</div>
+        <p class="gp-empty__text">Point the vault at your ComfyUI install and run a scan. Nothing is uploaded and nothing is modified.</p>
+        <div class="gp-empty__actions"><button class="gp-btn gp-btn--primary">Run a scan</button><button class="gp-btn gp-btn--ghost">Choose folder</button></div>
+      </div>
+    </div>
+    <div class="pv-box"><h3>Empty — error</h3>
+      <div class="gp-empty gp-empty--error">
+        <span class="gp-empty__icon"><svg><use href="#i-alert"/></svg></span>
+        <div class="gp-empty__title">Could not load models</div>
+        <p class="gp-empty__text">The backend returned <code>DB_LOCKED</code>. Request id <code>7f31c2</code>.</p>
+        <div class="gp-empty__actions"><button class="gp-btn">Retry</button></div>
+      </div>
+    </div>
+    <div class="pv-box"><h3>Empty — AI feature off</h3>
+      <div class="gp-empty gp-empty--ai gp-empty--sm">
+        <span class="gp-empty__icon"><svg><use href="#i-sparkle"/></svg></span>
+        <div class="gp-empty__title">Smart search is off</div>
+        <p class="gp-empty__text">A 23 MB local model enables semantic ranking. It runs on CPU and never leaves your machine.</p>
+        <div class="gp-empty__actions"><button class="gp-btn gp-btn--ai gp-btn--sm">Enable</button></div>
+      </div>
+    </div>
+    <div class="pv-box"><h3>Skeletons</h3><div class="pv-stack">
+      <div class="gp-skel gp-skel--title"></div>
+      <div class="gp-skel gp-skel--text"></div>
+      <div class="gp-skel gp-skel--line-sm"></div>
+      <div class="pv-strip"><span class="gp-skel gp-skel--chip"></span><span class="gp-skel gp-skel--chip"></span><span class="gp-skel gp-skel--chip"></span></div>
+      <div class="gp-skel gp-skel--row"></div>
+      <div class="gp-skel gp-skel--row"></div>
+    </div></div>
+    <div class="pv-box"><h3>Status dots &amp; separators</h3><div class="pv-stack">
+      <span class="gp-u-row gp-u-gap-4 gp-u-fs-11"><span class="gp-statusbar__dot gp-statusbar__dot--ok"></span>ok
+        <span class="gp-statusbar__dot gp-statusbar__dot--busy"></span>busy
+        <span class="gp-statusbar__dot gp-statusbar__dot--warn"></span>warn
+        <span class="gp-statusbar__dot gp-statusbar__dot--error"></span>error
+        <span class="gp-statusbar__dot"></span>idle</span>
+      <span class="gp-divider"></span>
+      <span class="gp-u-row gp-u-gap-4"><span>left</span><span class="gp-divider gp-divider--v"></span><span>right</span></span>
+    </div></div>
+    <div class="pv-box"><h3>Panels &amp; code</h3><div class="pv-stack">
+      <div class="gp-panel">Raised panel — hairline, 6&nbsp;px radius.</div>
+      <div class="gp-panel gp-panel--inset">Inset panel — for read-only data.</div>
+      <code class="gp-code">GET /api/v1/models?base_model=FLUX.1&amp;sort=-size&amp;limit=100</code>
+    </div></div>
+  </div>
+</section>
+
+
+<!-- ==================================================== REMAINING VARIANTS -->
+<section class="pv-sec">
+  <h2>15 &middot; Remaining variants &amp; shell states</h2>
+  <p class="pv-note">Everything in <code>components.css</code> / <code>layout.css</code> not already shown above,
+     so the catalogue covers the full class inventory.</p>
+  <div class="pv-grid">
+    <div class="pv-box"><h3>Explicit invalid modifiers</h3><div class="pv-stack">
+      <input class="gp-input gp-input--invalid" value="gp-input--invalid">
+      <textarea class="gp-textarea gp-textarea--invalid gp-textarea--mono" rows="2">gp-textarea--invalid + --mono</textarea>
+      <span class="gp-selectwrap gp-u-w-full"><select class="gp-select gp-select--invalid"><option>gp-select--invalid</option></select><svg class="gp-selectwrap__caret"><use href="#i-chev-d"/></svg></span>
+      <button class="gp-btn gp-btn--on">gp-btn--on <span class="gp-btn__count">12</span></button>
+    </div></div>
+    <div class="pv-box"><h3>Tree extras</h3>
+      <div class="gp-tree">
+        <button class="gp-tree__row"><span class="gp-tree__twisty gp-tree__twisty--leaf"></span><svg class="gp-tree__icon"><use href="#i-folder"/></svg><span class="gp-tree__label">loras</span><span class="gp-tree__count">59</span><span class="gp-tree__bytes">12.3 GB</span></button>
+        <button class="gp-tree__row gp-tree__row--disabled" disabled><span class="gp-tree__twisty gp-tree__twisty--leaf"></span><svg class="gp-tree__icon"><use href="#i-folder"/></svg><span class="gp-tree__label">unreadable root</span><span class="gp-tree__count">0</span></button>
+      </div>
+    </div>
+    <div class="pv-box"><h3>Row extras &amp; focus-inset</h3>
+      <div class="gp-list">
+        <div class="gp-row"><span class="gp-row__thumb gp-u-ph-local"></span>
+          <span class="gp-u-col gp-u-grow"><span class="gp-row__name">wan22_animate_mix.json</span><span class="gp-row__sub">workflows\video &middot; 84 nodes</span></span>
+          <span class="gp-row__cell gp-row__cell--grow">gp-row__cell--grow</span><span class="gp-row__cell gp-row__cell--num">184 KB</span></div>
+        <button class="gp-row gp-focus-inset pv-focus"><span class="gp-row__name">.gp-focus-inset</span></button>
+      </div>
+    </div>
+    <div class="pv-box pv-box--half"><h3>Menus, toasts, modals</h3><div class="pv-stack">
+      <div class="gp-menu gp-menu--fixed gp-u-rel"><button class="gp-menu__item gp-menu__item--active"><svg><use href="#i-check"/></svg><span class="gp-menu__text">gp-menu__item--active</span></button></div>
+      <div class="gp-toast gp-toast--info"><svg class="gp-toast__icon"><use href="#i-info"/></svg><div class="gp-toast__body"><div class="gp-toast__title">gp-toast--info</div></div><button class="gp-toast__close"><svg width="12" height="12"><use href="#i-x"/></svg></button></div>
+      <div class="gp-modal gp-modal--lg gp-modal--ai"><div class="gp-modal__header"><div class="gp-modal__titles"><div class="gp-modal__title">gp-modal--lg &middot; --ai</div><div class="gp-modal__sub">violet spine for AI flows</div></div></div><div class="gp-modal__body">Body</div></div>
+    </div></div>
+    <div class="pv-box pv-box--half"><h3>Details extras</h3>
+      <div class="gp-details" data-h="230">
+        <div class="gp-details__header gp-details__header--inferred">
+          <div class="gp-details__eyebrow">Workflow &middot; inferred</div>
+          <div class="gp-details__title gp-inferred">wan22_animate_mix</div>
+        </div>
+        <div class="gp-details__body">
+          <div class="gp-details__hero gp-u-ph-inferred"></div>
+          <div class="gp-meta"><div class="gp-meta__row"><span class="gp-meta__key">description</span><span class="gp-meta__leader"></span><span class="gp-meta__val gp-meta__val--inferred">derived</span></div></div>
+          <div class="gp-prompt gp-prompt--negative gp-u-mt-4">gp-prompt--negative</div>
+        </div>
+      </div>
+    </div>
+    <div class="pv-box"><h3>Meter segments 3&ndash;5 &amp; mono badge</h3><div class="pv-stack">
+      <div class="gp-meter"><div class="gp-meter__seg gp-meter__seg--3" data-pv="40"></div><div class="gp-meter__seg gp-meter__seg--4" data-pv="35"></div><div class="gp-meter__seg gp-meter__seg--5" data-pv="25"></div></div>
+      <div class="gp-meter-legend">
+        <span class="gp-meter-legend__item"><span class="gp-meter-legend__swatch gp-meter-legend__swatch--3"></span>seg 3</span>
+        <span class="gp-meter-legend__item"><span class="gp-meter-legend__swatch gp-meter-legend__swatch--4"></span>seg 4</span>
+        <span class="gp-meter-legend__item"><span class="gp-meter-legend__swatch gp-meter-legend__swatch--5"></span>seg 5</span>
+      </div>
+      <span class="gp-badge gp-badge--mono">5628B30A8E</span>
+      <span class="gp-u-ai gp-inferred gp-inferred--nomark">gp-inferred--nomark (no tilde)</span>
+    </div></div>
+  </div>
+
+  <p class="pv-note gp-u-mt-6">Shell states: rail collapsed, details collapsed, both collapsed, plus a resizer mid-drag.</p>
+  <div class="pv-grid">
+    <div class="pv-box gp-u-p-0"><div class="pv-stage" data-shell="1"><div class="gp-shell gp-shell--no-rail">
+      <div class="gp-topbar"><span class="gp-u-fs-11 gp-u-meta">gp-shell--no-rail</span></div>
+      <div class="gp-main"><div class="gp-toolbar"></div><div class="gp-facetbar gp-facetbar--empty"></div><div class="gp-main__body gp-main__body--flush"><div class="gp-empty gp-empty--sm"><div class="gp-empty__title">grid</div></div></div></div>
+      <div class="gp-resizer gp-resizer--right gp-resizer--dragging"></div>
+      <aside class="gp-details"><div class="gp-details__header"><div class="gp-details__title">Details</div></div><div class="gp-details__body"></div></aside>
+      <div class="gp-statusbar"><span class="gp-statusbar__num">231</span></div>
+    </div></div></div>
+    <div class="pv-box gp-u-p-0"><div class="pv-stage" data-shell="1"><div class="gp-shell gp-shell--no-details gp-shell--resizing">
+      <div class="gp-topbar"><span class="gp-u-fs-11 gp-u-meta">gp-shell--no-details + --resizing</span></div>
+      <aside class="gp-rail"><div class="gp-rail__header"><span class="gp-rail__title">Groups</span></div><div class="gp-rail__body"></div><div class="gp-rail__footer"><span class="gp-rail__footer-name">Vladimir Chopine</span><span class="gp-rail__footer-ver">v2.0</span></div></aside>
+      <div class="gp-resizer gp-resizer--left pv-hover"></div>
+      <div class="gp-main"><div class="gp-toolbar"></div><div class="gp-facetbar"></div><div class="gp-main__body"></div></div>
+      <div class="gp-statusbar"><span class="gp-statusbar__num">48</span></div>
+    </div></div></div>
+    <div class="pv-box gp-u-p-0"><div class="pv-stage" data-shell="1"><div class="gp-shell gp-shell--no-rail gp-shell--no-details">
+      <div class="gp-topbar"><span class="gp-u-fs-11 gp-u-meta">both collapsed &middot; virtualised grid</span></div>
+      <div class="gp-main"><div class="gp-toolbar"></div><div class="gp-facetbar"></div>
+        <div class="gp-main__body"><div class="gp-vgrid"><div class="gp-vgrid__spacer" data-h="120">
+          <div class="gp-vgrid__row" data-top="0">
+            <div class="gp-skel-card"><div class="gp-skel gp-skel--thumb"></div><div class="gp-skel-card__body"><div class="gp-skel gp-skel--title"></div></div></div>
+            <div class="gp-skel-card"><div class="gp-skel gp-skel--thumb"></div><div class="gp-skel-card__body"><div class="gp-skel gp-skel--title"></div></div></div>
+          </div></div></div></div>
+      </div>
+      <div class="gp-statusbar"><span class="gp-statusbar__num">3569</span></div>
+    </div></div></div>
+  </div>
+
+  <p class="pv-note gp-u-mt-6">Centred layout (first-launch wizard / fatal error) with the two-column form grid.</p>
+  <div class="pv-box gp-u-p-0"><div class="pv-stage" data-shell="1"><div class="gp-centered"><div class="gp-centered__inner">
+    <div class="gp-modal"><div class="gp-modal__header"><div class="gp-modal__titles"><div class="gp-modal__title">Welcome to the Asset Vault</div><div class="gp-modal__sub">Step 1 of 3 &mdash; point us at your ComfyUI install</div></div></div>
+      <div class="gp-modal__body"><div class="gp-formgrid">
+        <span class="gp-formgrid__label">ComfyUI path</span><input class="gp-input gp-input--mono" value="O:\ComfyUI">
+        <span class="gp-formgrid__label">Smart search</span><label class="gp-toggle gp-toggle--ai"><input class="gp-toggle__input" type="checkbox"><span class="gp-toggle__track"><span class="gp-toggle__thumb"></span></span><span class="gp-toggle__label">Download the 23 MB model later</span></label>
+      </div></div>
+      <div class="gp-modal__footer"><button class="gp-btn gp-btn--ghost">Back</button><button class="gp-btn gp-btn--primary">Scan now</button></div>
+    </div>
+  </div></div></div></div>
+</section>
+
+<!-- ============================================================== CONTRAST -->
+<section class="pv-sec">
+  <h2>16 · Contrast ledger (measured, not estimated)</h2>
+  <p class="pv-note">Computed programmatically from <code>tokens.css</code> (WCAG 2.1 relative-luminance formula), not estimated by eye. Body text ≥ 7:1, interactive ≥ 4.5:1,
+     control boundaries ≥ 3:1. Disabled text is exempt under WCAG 1.4.3 and is the only role allowed below 4.5:1.</p>
+  <div class="pv-box gp-u-p-0">
+    <table class="gp-table gp-table--compact">
+      <thead><tr><th>Pair</th><th>Role</th><th class="gp-table__num">Ratio</th><th class="gp-table__num">Required</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td>fg-100 on bg-200</td><td>body / primary</td><td class="gp-table__num">15.08</td><td class="gp-table__num">7.00</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>fg-200 on bg-200</td><td>body / secondary</td><td class="gp-table__num">8.47</td><td class="gp-table__num">7.00</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>fg-200 on bg-300</td><td>body on a card</td><td class="gp-table__num">7.63</td><td class="gp-table__num">7.00</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>meta on bg-200</td><td>label, count, caption</td><td class="gp-table__num">5.81</td><td class="gp-table__num">4.50</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>meta on bg-400</td><td>label on a badge fill</td><td class="gp-table__num">4.50</td><td class="gp-table__num">4.50</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>local-fg on bg-200</td><td>LOCAL value (amber)</td><td class="gp-table__num">11.02</td><td class="gp-table__num">7.00</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>local-fg on bg-300</td><td>LOCAL value on a card</td><td class="gp-table__num">9.92</td><td class="gp-table__num">7.00</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>local-fg on amber ghost</td><td>LOCAL value in a chip</td><td class="gp-table__num">8.89</td><td class="gp-table__num">7.00</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>brand-200 on bg-200</td><td>accent / interactive</td><td class="gp-table__num">8.14</td><td class="gp-table__num">4.50</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>inferred-fg on bg-200</td><td>INFERRED value (violet)</td><td class="gp-table__num">8.46</td><td class="gp-table__num">7.00</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>inferred-fg on bg-300</td><td>INFERRED value on a card</td><td class="gp-table__num">7.62</td><td class="gp-table__num">7.00</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>inferred-fg on violet ghost</td><td>INFERRED in an AI callout</td><td class="gp-table__num">7.01</td><td class="gp-table__num">7.00</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>fg-on-brand on brand-200</td><td>primary button</td><td class="gp-table__num">8.70</td><td class="gp-table__num">4.50</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>fg-on-brand on brand-400</td><td>primary button :active</td><td class="gp-table__num">4.82</td><td class="gp-table__num">4.50</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>fg-100 on vio-400</td><td>AI button</td><td class="gp-table__num">7.09</td><td class="gp-table__num">4.50</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>fg-100 on danger-solid</td><td>destructive button</td><td class="gp-table__num">6.09</td><td class="gp-table__num">4.50</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>danger-100 on bg-200</td><td>error text</td><td class="gp-table__num">8.73</td><td class="gp-table__num">7.00</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>ok-100 / warn-100 / info-100 on bg-200</td><td>status text</td><td class="gp-table__num">10.10</td><td class="gp-table__num">7.00</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>line-ctl on bg-200</td><td>control boundary (1.4.11)</td><td class="gp-table__num">3.99</td><td class="gp-table__num">3.00</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>line-ctl on bg-300</td><td>control boundary on a card</td><td class="gp-table__num">3.59</td><td class="gp-table__num">3.00</td><td><span class="gp-badge gp-badge--ok">pass</span></td></tr>
+        <tr><td>fg-400 on bg-200</td><td>disabled text only</td><td class="gp-table__num">2.76</td><td class="gp-table__num">&mdash;</td><td><span class="gp-badge gp-badge--neutral">exempt</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="gp-u-mt-6 gp-u-fs-11 gp-u-meta gp-u-row gp-u-between gp-u-hairline-t gp-u-p-5">
+  <span>Geekatplay — Vladimir Chopine · Asset Vault v2.0</span>
+  <span class="gp-u-num">tokens.css · base.css · layout.css · components.css · utilities.css</span>
+</footer>
+
+</main>
+
+<script>
+/* Preview-only: apply the runtime-computed values (progress widths, meter
+   segment shares, virtual-grid offsets) that ui-dev writes at runtime.
+   None of this ships. */
+document.querySelectorAll('[data-pv]').forEach(function(el){
+  var v = el.getAttribute('data-pv') + '%';
+  if (el.classList.contains('gp-progress__bar')) el.parentElement.style.setProperty('--gp-progress', v);
+  else el.style.width = v;
+});
+document.querySelectorAll('.pv-stage[data-tall]').forEach(function(el){ el.style.height = '520px'; });
+document.querySelectorAll('.pv-stage[data-shell]').forEach(function(el){ el.style.height = '300px'; });
+document.querySelectorAll('[data-h]').forEach(function(el){ el.style.height = el.getAttribute('data-h') + 'px'; });
+document.querySelectorAll('[data-top]').forEach(function(el){ el.style.top = el.getAttribute('data-top') + 'px'; });
+document.querySelectorAll('.pv-stage').forEach(function(el){ if(!el.style.height) el.style.height = '260px'; });
+document.querySelectorAll('.gp-meter__seg:not([data-pv])').forEach(function(el,i){ el.style.width = [70,29,1][i%3] + '%'; });
+document.querySelectorAll('.gp-suggest.gp-u-rel,.gp-tooltip.gp-u-rel,.gp-menu.gp-u-rel').forEach(function(el){ el.style.position='relative'; el.style.inset='auto'; });
+document.querySelectorAll('.gp-skel--text').forEach(function(el){ if(!el.style.width) el.style.width='70%'; });
+</script>
+</body>
+</html>

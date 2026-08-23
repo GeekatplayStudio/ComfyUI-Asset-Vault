@@ -1,0 +1,37 @@
+# --- Python ---------------------------------------------------------------
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# --- Node / frontend --------------------------------------------------------
+frontend/node_modules/
+frontend/dist/
+npm-debug.log*
+
+# --- Runtime data (personal ComfyUI index — never committed) ---------------
+backend/data/
+!backend/data/.gitkeep
+
+# --- Logs -------------------------------------------------------------------
+*.log
+backend_log.txt
+backend_err.txt
+
+# --- Trash / quarantine created by the app at runtime -----------------------
+.vault-trash/
+.vault-quarantine/
+
+# --- Editors / OS -------------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Env / secrets ------------------------------------------------------------
+.env
+.env.*
+*.local

@@ -1,0 +1,121 @@
+/* ==
+   base.css — reset, typography, focus, scrollbars, selection
+   Geekatplay ComfyUI Asset Vault. No colour literals — tokens only.
+   == */
+
+*,*::before,*::after{box-sizing:border-box}
+
+html,body,#root{height:100%}
+
+html{
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+  color-scheme:dark;
+}
+
+body{
+  margin:0;
+  background:var(--gp-bg-000);
+  color:var(--gp-fg-100);
+  font-family:var(--gp-font-ui);
+  font-size:var(--gp-fs-13);
+  line-height:var(--gp-lh-base);
+  font-weight:var(--gp-fw-400);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  overflow:hidden;                 /* the shell owns all scrolling */
+}
+
+h1,h2,h3,h4,h5,h6,p,figure,blockquote,dl,dd{margin:0}
+ul,ol{margin:0;padding:0;list-style:none}
+
+/* Headings inherit the body size; every real heading in the app carries a
+   component class (.gp-modal__title, .gp-empty__title, .gp-u-fs-*). */
+h1,h2,h3,h4,h5,h6{font-size:inherit;line-height:var(--gp-lh-tight);font-weight:var(--gp-fw-600)}
+
+a{color:var(--gp-local-fg);text-decoration:none;border-radius:var(--gp-r-1)}
+a:hover{text-decoration:underline;text-underline-offset:2px}
+
+b,strong{font-weight:var(--gp-fw-600)}
+small{font-size:var(--gp-fs-11)}
+
+code,kbd,pre,samp{
+  font-family:var(--gp-font-mono);
+  font-size:var(--gp-fs-11);
+  font-variant-numeric:tabular-nums lining-nums;
+}
+pre{margin:0;white-space:pre-wrap;word-break:break-word}
+
+img,svg,video,canvas,audio,iframe,embed,object{display:block;max-width:100%}
+img,video{height:auto}
+
+button,input,select,textarea,optgroup{
+  font:inherit;
+  color:inherit;
+  margin:0;
+  background:none;
+  border:0;
+}
+button{cursor:pointer;text-align:inherit}
+button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allowed}
+textarea{resize:vertical}
+select{appearance:none;-webkit-appearance:none}
+input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{appearance:none;margin:0}
+
+table{border-collapse:collapse;border-spacing:0;width:100%}
+th{text-align:left;font-weight:var(--gp-fw-600)}
+
+hr{border:0;height:1px;background:var(--gp-line-100);margin:var(--gp-s-5) 0}
+
+::placeholder{color:var(--gp-fg-400);opacity:1}
+
+/* --- selection: the amber signal -- */
+::selection{background:var(--gp-selection-text);color:var(--gp-fg-100)}
+
+/* --- focus --
+   Rule: EVERY focusable element shows a ring. We remove the UA outline only
+   where we replace it with --gp-focus-ring. Mouse clicks use :focus-visible
+   so the ring never fires on a plain pointer press, but keyboard always
+   shows it. Never write `outline:none` without a replacement ring.        */
+:focus{outline:none}
+:focus-visible{
+  outline:2px solid transparent;   /* keeps a ring in forced-colors mode */
+  outline-offset:2px;
+  box-shadow:var(--gp-focus-ring);
+  border-radius:var(--gp-r-1);
+  z-index:var(--gp-z-sticky);
+  position:relative;
+}
+/* Elements that must show the ring inside their own box (full-bleed rows). */
+.gp-focus-inset:focus-visible{box-shadow:var(--gp-focus-ring-inset)}
+
+@media (forced-colors:active){
+  :focus-visible{outline:2px solid Highlight;outline-offset:2px}
+}
+
+/* --- scrollbars -- */
+*{scrollbar-width:thin;scrollbar-color:var(--gp-scrollbar) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{
+  background:var(--gp-scrollbar);
+  border:2px solid transparent;
+  background-clip:padding-box;
+  border-radius:var(--gp-r-full);
+}
+::-webkit-scrollbar-thumb:hover{background:var(--gp-scrollbar-hover);background-clip:padding-box}
+::-webkit-scrollbar-corner{background:transparent}
+
+/* --- motion --
+   The motion tokens already collapse to 0ms under prefers-reduced-motion;
+   this belt-and-braces rule also kills anything animated by a third party
+   or by an inline keyframe we did not author.                             */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:1ms;
+    animation-iteration-count:1;
+    transition-duration:1ms;
+    scroll-behavior:auto;
+  }
+}
+

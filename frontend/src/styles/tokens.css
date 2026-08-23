@@ -1,0 +1,161 @@
+/* ==
+   Geekatplay ComfyUI Asset Vault — Design Tokens
+   "Studio Graphite + Signal Amber"                        Vladimir Chopine
+   --
+   THIS IS THE ONLY FILE IN THE PROJECT ALLOWED TO CONTAIN A COLOUR LITERAL.
+   base / layout / components / utilities reference var() only.
+
+   LAYER 1 (FROZEN)  — ARCHITECTURE.md §7.1, verbatim. Do not edit.
+   LAYER 2 (DERIVED) — additive semantics built on Layer 1. Never redefines a
+                       frozen value; only names roles Layer 1 does not cover.
+   == */
+
+/* -- LAYER 1 — ARCHITECTURE §7.1, verbatim -- */
+:root{
+  /* surfaces — warm graphite ramp */
+  --gp-bg-000:#0B0B0D; --gp-bg-100:#131317; --gp-bg-200:#1A1A20;
+  --gp-bg-300:#23232B; --gp-bg-400:#2E2E38; --gp-bg-inset:#08080A;
+  --gp-line-100:#2A2A33; --gp-line-200:#3A3A46; --gp-line-300:#4A4A58;
+
+  /* brand — Geekatplay Amber */
+  --gp-brand-100:#FFC46B; --gp-brand-200:#F2A03D; --gp-brand-300:#D9841F;
+  --gp-brand-400:#B8721F; --gp-brand-ghost:rgba(242,160,61,.12);
+
+  /* secondary — Vault Violet (semantic / Smart / AI features) */
+  --gp-vio-100:#A79AF5; --gp-vio-200:#8B7BF0; --gp-vio-300:#6E5CD6;
+  --gp-vio-ghost:rgba(139,123,240,.14);
+
+  /* status */
+  --gp-ok:#4CC38A; --gp-warn:#E8B341; --gp-danger:#E5484D; --gp-info:#6E9BF5;
+  --gp-ok-ghost:rgba(76,195,138,.13); --gp-danger-ghost:rgba(229,72,77,.13);
+
+  /* text — warm greys */
+  --gp-fg-100:#F1EFEB; --gp-fg-200:#B9B5AD; --gp-fg-300:#8A867E;
+  --gp-fg-400:#63605A; --gp-fg-on-brand:#17130B;
+
+  /* type */
+  --gp-font-ui:"Inter Tight","Inter","Segoe UI Variable Text",system-ui,sans-serif;
+  --gp-font-mono:"JetBrains Mono","Cascadia Mono",ui-monospace,monospace;
+  --gp-fs-10:10px; --gp-fs-11:11px; --gp-fs-12:12px; --gp-fs-13:13px;
+  --gp-fs-15:15px; --gp-fs-18:18px; --gp-fs-22:22px; --gp-fs-28:28px;
+  --gp-lh-tight:1.25; --gp-lh-base:1.45;
+  --gp-fw-400:400; --gp-fw-500:500; --gp-fw-600:600; --gp-fw-700:700;
+  --gp-tnum:"tnum" 1,"lnum" 1;          /* tabular figures for counts/sizes */
+
+  /* spacing (4px base, 9 steps) */
+  --gp-s-1:2px;  --gp-s-2:4px;  --gp-s-3:6px;  --gp-s-4:8px;  --gp-s-5:12px;
+  --gp-s-6:16px; --gp-s-7:24px; --gp-s-8:32px; --gp-s-9:48px;
+
+  /* radii — squarer than the reference */
+  --gp-r-1:3px; --gp-r-2:6px; --gp-r-3:10px; --gp-r-4:16px; --gp-r-full:999px;
+
+  /* elevation — hairlines over heavy shadows */
+  --gp-e-0:none;
+  --gp-e-1:0 1px 2px rgba(0,0,0,.40);
+  --gp-e-2:0 6px 16px -6px rgba(0,0,0,.55);
+  --gp-e-3:0 24px 48px -12px rgba(0,0,0,.65);
+  --gp-focus:0 0 0 2px rgba(242,160,61,.45);
+
+  /* motion */
+  --gp-t-micro:90ms; --gp-t-base:140ms; --gp-t-overlay:220ms;
+  --gp-ease:cubic-bezier(.2,.6,.2,1);
+
+  /* layout geometry */
+  --gp-topbar-h:52px; --gp-statusbar-h:28px;
+  --gp-rail-w:264px;  --gp-rail-min:200px; --gp-rail-max:420px;
+  --gp-details-w:340px; --gp-details-min:280px; --gp-details-max:520px;
+}
+@media (prefers-reduced-motion:reduce){
+  :root{--gp-t-micro:0ms;--gp-t-base:0ms;--gp-t-overlay:0ms}
+}
+
+/* -- LAYER 2 — DERIVED -- */
+:root{
+  /* 2.1 Accessible TEXT weights for the status hues.
+     The Layer-1 hues are correct as fills and marks, but ok/danger/info sit
+     below the 7:1 body bar on --gp-bg-200. Status TEXT always uses the -100
+     sibling. Measured on --gp-bg-200: 10.10 / 11.45 / 8.73 / 9.01. */
+  --gp-ok-100:#7FD7AF; --gp-warn-100:#F2CE7A;
+  --gp-danger-100:#FF9DA0; --gp-info-100:#9DBBFA;
+  --gp-info-ghost:rgba(110,155,245,.13); --gp-warn-ghost:rgba(232,179,65,.13);
+  /* Solid destructive / solid violet surfaces carrying --gp-fg-100 text
+     (6.09:1 and 7.09:1). --gp-danger itself is too light to sit under white. */
+  --gp-danger-solid:#A8282C; --gp-danger-solid-hover:#BC2E33;
+  --gp-vio-400:#4E3EA8; --gp-vio-400-hover:#5B49BF;
+
+  /* 2.2 Control boundaries. --gp-line-100/200/300 are DECORATIVE hairlines
+     (1.2–2.0:1), legal only between non-interactive regions. Anything a user
+     clicks, types into or drags gets --gp-line-ctl (3.99:1 — WCAG 1.4.11). */
+  --gp-line-ctl:#787888; --gp-line-ctl-hover:#8F8FA0;
+
+  /* 2.3 THE AMBER / VIOLET CONVENTION — functional, not decorative.
+     amber = verified local data read from the user's own files
+     violet = AI-inferred / low-confidence data (Smart results,
+              arch_confidence < 0.7, Ollama summaries, derived descriptions)
+     Every violet value also carries the "~" marker (see .gp-inferred).
+     ui-dev picks the pair by DATA PROVENANCE, never by aesthetics. */
+  --gp-local-fg:var(--gp-brand-100);   /* 11.02:1 bg-200 · 9.92:1 bg-300 */
+  --gp-inferred-fg:#B7ACF7;            /* 8.46 bg-200 · 7.62 bg-300 · 7.01
+     on the violet ghost fill. A lighter sibling of --gp-vio-100, which is
+     only 6.37:1 on a card and misses the 7:1 body bar. Fills, borders and
+     spines still use the Layer-1 --gp-vio-* hues. */
+  --gp-inferred-marker:"~";
+
+  /* 2.4 Text roles. Layer-1 names are used directly in the CSS:
+       --gp-fg-100 body / primary                    15.08:1 on bg-200
+       --gp-fg-200 body / secondary                   8.47:1 on bg-200
+       --gp-meta   labels, counts, captions — AA (>=4.5:1) on every surface,
+                   NEVER a paragraph. Layer-1 --gp-fg-300 is 4.30:1 on a card,
+                   so this slightly lighter sibling is the one to use.
+       --gp-fg-400 disabled + decorative dotted leaders ONLY — 2.76:1, under
+                   the WCAG 1.4.3 inactive-component exemption. */
+  --gp-meta:#99958E;   /* 5.81 bg-200 · 5.23 bg-300 · 4.50 bg-400 */
+
+  /* 2.5 Interaction overlays */
+  --gp-hover:rgba(255,255,255,.045);
+  --gp-hover-strong:rgba(255,255,255,.075);
+  --gp-active:rgba(0,0,0,.28);
+  --gp-selected:rgba(242,160,61,.10);
+  --gp-selected-strong:rgba(242,160,61,.18);
+  --gp-selection-text:rgba(242,160,61,.30);
+  --gp-scrim:rgba(6,6,8,.66);
+  --gp-skeleton-a:#20202A;
+  --gp-scrollbar:#3A3A46; --gp-scrollbar-hover:#565668;
+  --gp-backdrop-blur:6px;
+  --gp-shimmer:linear-gradient(90deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.055) 50%,rgba(255,255,255,0) 100%);
+
+  /* Focus: dark spacer + amber halo, so the ring reads on a dark canvas AND
+     on an amber-filled button. Applied globally in base.css. */
+  --gp-focus-ring:0 0 0 2px var(--gp-bg-000),0 0 0 4px rgba(242,160,61,.85);
+  --gp-focus-ring-inset:inset 0 0 0 2px rgba(242,160,61,.85);
+  --gp-focus-ring-danger:0 0 0 2px var(--gp-bg-000),0 0 0 4px rgba(255,157,160,.85);
+
+  /* Transition shorthands (duration + easing), used across components. */
+  --gp-tr-micro:var(--gp-t-micro) var(--gp-ease);
+  --gp-tr-base:var(--gp-t-base) var(--gp-ease);
+  --gp-tr-overlay:var(--gp-t-overlay) var(--gp-ease);
+
+  /* 2.6 The amber spine (signature #1) */
+  --gp-spine-w:2px;
+  --gp-spine:var(--gp-brand-200);
+  --gp-spine-inferred:var(--gp-vio-200);
+
+  /* 2.7 Grid sizing — the ONE variable the size slider writes, set on .gp-shell.
+     Thumbnail tier (API_CONTRACT §10): <=180 -> 160, <=360 -> 320, else 640. */
+  --gp-grid-size:180px;
+  --gp-grid-gap:var(--gp-s-5);
+  --gp-grid-meta-h:52px;
+  --gp-row-h:34px;
+  --gp-tree-row-h:26px;
+
+  /* 2.8 Z-index scale */
+  --gp-z-sticky:10; --gp-z-resizer:20; --gp-z-dropdown:400;
+  --gp-z-overlay:600; --gp-z-modal:610; --gp-z-lightbox:700;
+  --gp-z-toast:800; --gp-z-tooltip:900;
+
+  /* 2.9 Brand placeholder gradients — amber for a verified local asset with no
+     renderable preview, violet when the record itself is inferred. */
+  --gp-placeholder-local:linear-gradient(135deg,#23232B 0%,#2E2E38 45%,#3A3020 100%);
+  --gp-placeholder-inferred:linear-gradient(135deg,#23232B 0%,#2E2E38 45%,#2A2540 100%);
+  --gp-placeholder-neutral:linear-gradient(135deg,#1A1A20 0%,#23232B 100%);
+}

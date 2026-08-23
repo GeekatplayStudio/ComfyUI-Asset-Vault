@@ -1,0 +1,105 @@
+{
+  "prompt": {
+    "55": {
+      "class_type": "SaveImageAdvanced",
+      "inputs": {
+        "filename_prefix": "Regression",
+        "images": [
+          "45:3",
+          0
+        ]
+      }
+    },
+    "45:2": {
+      "class_type": "UNETLoader",
+      "inputs": {
+        "unet_name": "boogu_image_edit_int8_convrot.safetensors",
+        "weight_dtype": "default"
+      }
+    },
+    "45:5": {
+      "class_type": "VAELoader",
+      "inputs": {
+        "vae_name": "ae.safetensors"
+      }
+    },
+    "45:7": {
+      "class_type": "CLIPLoader",
+      "inputs": {
+        "clip_name": "qwen3vl_8b_fp8_scaled.safetensors",
+        "type": "boogu",
+        "device": "default"
+      }
+    },
+    "45:8": {
+      "class_type": "EmptyLatentImage",
+      "inputs": {
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1
+      }
+    },
+    "45:36": {
+      "class_type": "TextEncodeBooguEdit",
+      "inputs": {
+        "prompt": "replace the background with a snowy ridge",
+        "negative_prompt": "",
+        "clip": [
+          "45:7",
+          0
+        ],
+        "vae": [
+          "45:5",
+          0
+        ]
+      }
+    },
+    "45:22": {
+      "class_type": "KSamplerSelect",
+      "inputs": {
+        "sampler_name": "dpmpp_2m"
+      }
+    },
+    "45:21": {
+      "class_type": "SamplerCustom",
+      "inputs": {
+        "add_noise": true,
+        "noise_seed": 22,
+        "cfg": 3.5,
+        "model": [
+          "45:2",
+          0
+        ],
+        "positive": [
+          "45:36",
+          0
+        ],
+        "negative": [
+          "45:36",
+          1
+        ],
+        "sampler": [
+          "45:22",
+          0
+        ],
+        "latent_image": [
+          "45:8",
+          0
+        ]
+      }
+    },
+    "45:3": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "45:21",
+          0
+        ],
+        "vae": [
+          "45:5",
+          0
+        ]
+      }
+    }
+  }
+}

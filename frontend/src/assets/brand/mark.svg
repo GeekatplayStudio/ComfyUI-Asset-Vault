@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"
+     fill="none" role="img" aria-label="Geekatplay Asset Vault mark">
+  <!-- Frame: square-leaning geometry, 3px radius (signature element #3). -->
+  <rect x="3.25" y="3.25" width="17.5" height="17.5" rx="3"
+        stroke="currentColor" stroke-width="1.4" opacity=".55"/>
+  <!-- The amber spine (signature element #1). Inherits colour from the host. -->
+  <rect x="6.6" y="6.8" width="2" height="10.4" rx="1" fill="currentColor"/>
+  <!-- Asset stack: three hairlines of decreasing length. -->
+  <rect x="10.8" y="7.1"  width="7"   height="1.6" rx=".8" fill="currentColor" opacity=".9"/>
+  <rect x="10.8" y="11.2" width="5.2" height="1.6" rx=".8" fill="currentColor" opacity=".6"/>
+  <rect x="10.8" y="15.3" width="3.4" height="1.6" rx=".8" fill="currentColor" opacity=".38"/>
+</svg>

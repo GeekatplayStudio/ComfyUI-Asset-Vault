@@ -1,0 +1,60 @@
+{
+  "purpose": "Regression cases for negative-prompt attribution. Every case uses subgraph-qualified node ids ('34:11') and must resolve negative_prompt to NULL - never a copy of the positive.",
+  "entry_point": "app.parsers.graph_utils.summarize_graph(prompt=<graph['prompt']>)",
+  "invariant": "negative_prompt must be NULL whenever it would otherwise equal positive_prompt from the same source node.",
+  "cases": [
+    {
+      "graph": "zeroed_negative_subgraph_ids.json",
+      "expect": {
+        "why": "ConditioningZeroOut on the negative branch, subgraph-qualified ids.",
+        "positive_prompt": "a lighthouse in a storm, dramatic composition",
+        "negative_prompt": null,
+        "negative_provenance_origin": "zeroed",
+        "negative_source_node_id": "34:9",
+        "seed": "896977722960984",
+        "steps": 4,
+        "cfg": 1.0,
+        "sampler": "lcm",
+        "scheduler": "sgm_uniform",
+        "models": [
+          "boogu_image_turbo_fp8_scaled.safetensors",
+          "ae.safetensors",
+          "qwen3vl_8b_fp8_scaled.safetensors"
+        ]
+      }
+    },
+    {
+      "graph": "dual_output_encoder_blank_negative.json",
+      "expect": {
+        "why": "Dual-output edit encoder: slot 1 is the negative and it is blank.",
+        "positive_prompt": "replace the background with a snowy ridge",
+        "negative_prompt": null,
+        "negative_provenance_origin": "empty",
+        "negative_source_node_id": "45:36",
+        "seed": "22",
+        "cfg": 3.5,
+        "models": [
+          "boogu_image_edit_int8_convrot.safetensors",
+          "ae.safetensors",
+          "qwen3vl_8b_fp8_scaled.safetensors"
+        ]
+      }
+    },
+    {
+      "graph": "identical_positive_negative_link.json",
+      "expect": {
+        "why": "Both sampler slots read the same conditioning output.",
+        "positive_prompt": "a quiet harbour at dawn",
+        "negative_prompt": null,
+        "negative_provenance_origin": "same_as_positive",
+        "negative_source_node_id": "7:4",
+        "seed": "12345",
+        "steps": 20,
+        "cfg": 7.0,
+        "models": [
+          "sd_xl_base_1.0.safetensors"
+        ]
+      }
+    }
+  ]
+}

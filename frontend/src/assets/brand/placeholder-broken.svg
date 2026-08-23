@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" width="320" height="320"
+     role="img" aria-label="File missing or not a valid model">
+  <!-- Integrity failure / missing file placeholder. -->
+  <rect width="320" height="320" fill="#1A1A20"/>
+  <rect x="0" y="0" width="320" height="320" fill="none" stroke="#E5484D" stroke-width="2" opacity=".35"/>
+  <path d="M160 118v54" stroke="#E5484D" stroke-width="8" stroke-linecap="round" opacity=".75"/>
+  <circle cx="160" cy="196" r="6" fill="#E5484D" opacity=".75"/>
+</svg>

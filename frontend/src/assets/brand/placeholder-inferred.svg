@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" width="320" height="320"
+     role="img" aria-label="No preview available (inferred record)">
+  <!-- Violet-tinted variant: the record's identity is AI-inferred / low
+       confidence. Pairs with the "~" marker in the card title. -->
+  <defs>
+    <linearGradient id="gpInferred" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#23232B"/>
+      <stop offset=".45" stop-color="#2E2E38"/>
+      <stop offset="1" stop-color="#2A2540"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="320" fill="url(#gpInferred)"/>
+  <rect x="128" y="112" width="4" height="96" rx="2" fill="#8B7BF0" opacity=".8"/>
+  <rect x="142" y="118" width="52" height="6" rx="3" fill="#A79AF5" opacity=".4"/>
+  <rect x="142" y="146" width="38" height="6" rx="3" fill="#A79AF5" opacity=".26"/>
+  <rect x="142" y="174" width="26" height="6" rx="3" fill="#A79AF5" opacity=".16"/>
+</svg>

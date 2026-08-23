@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 232 34" width="232" height="34"
+     role="img" aria-label="GEEKATPLAY — ASSET VAULT">
+  <!-- Full lockup: mark + wordmark + subline. Colours mirror tokens.css.
+       Signature #6: GEEKATPLAY at fw-700 / letter-spacing .14em,
+       ASSET VAULT beneath at fs-10 / fg-300. -->
+  <g>
+    <rect x="1" y="4" width="26" height="26" rx="3" fill="none" stroke="#D9841F" stroke-width="1.2" opacity=".7"/>
+    <rect x="6.5" y="9" width="2" height="16" rx="1" fill="#F2A03D"/>
+    <rect x="11.5" y="9.6"  width="10"  height="2" rx="1" fill="#FFC46B"/>
+    <rect x="11.5" y="16"   width="7.4" height="2" rx="1" fill="#B9B5AD"/>
+    <rect x="11.5" y="22.4" width="4.8" height="2" rx="1" fill="#63605A"/>
+  </g>
+  <text x="40" y="17.5"
+        font-family="Inter Tight, Inter, Segoe UI Variable Text, system-ui, sans-serif"
+        font-size="14" font-weight="700" letter-spacing="1.96" fill="#F1EFEB">GEEKATPLAY</text>
+  <text x="40" y="29"
+        font-family="Inter Tight, Inter, Segoe UI Variable Text, system-ui, sans-serif"
+        font-size="10" font-weight="500" letter-spacing="1.8" fill="#8A867E">ASSET VAULT</text>
+</svg>

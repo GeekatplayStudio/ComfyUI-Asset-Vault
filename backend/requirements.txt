@@ -1,0 +1,19 @@
+# Geekatplay ComfyUI Asset Vault - backend dependencies
+# Runtime
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.0.0
+httpx>=0.27
+python-multipart>=0.0.6
+pillow>=10.3
+numpy>=1.24.0
+PyYAML>=6.0.1,<7
+
+# Smart search: local ONNX embeddings, CPU only.  Deliberately NOT torch.
+onnxruntime>=1.17,<2
+tokenizers>=0.15,<1
+
+# Dev / CI
+pytest>=7.3.0
+pytest-asyncio>=0.23
+ruff>=0.4

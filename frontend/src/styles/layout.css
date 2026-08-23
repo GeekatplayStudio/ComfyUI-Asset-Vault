@@ -1,0 +1,252 @@
+/* ==
+   layout.css — app shell, rails, resizers, toolbars, status bar
+   Structure follows DECISIONS C3: left tree / top toolbar / centre grid /
+   right DETAILS / bottom status bar. Geometry comes from the tokens only.
+   == */
+
+/*
+   1. Shell
+   Five grid columns: rail | resizer | main | resizer | details.
+   Collapse a side by adding --no-rail / --no-details; the resizer collapses
+   with it. Grid tile size is inherited from --gp-grid-size set HERE.
+   */
+.gp-shell{
+  display:grid;
+  height:100%;
+  min-height:0;
+  background:var(--gp-bg-000);
+  grid-template-columns:var(--gp-rail-w) 1px minmax(0,1fr) 1px var(--gp-details-w);
+  grid-template-rows:var(--gp-topbar-h) minmax(0,1fr) var(--gp-statusbar-h);
+  grid-template-areas:
+    "topbar topbar topbar topbar topbar"
+    "rail   rzl    main   rzr    details"
+    "status status status status status"}
+.gp-shell--no-rail{grid-template-columns:0 0 minmax(0,1fr) 1px var(--gp-details-w)}
+.gp-shell--no-details{grid-template-columns:var(--gp-rail-w) 1px minmax(0,1fr) 0 0}
+.gp-shell--no-rail.gp-shell--no-details{grid-template-columns:0 0 minmax(0,1fr) 0 0}
+.gp-shell--no-rail .gp-rail,
+.gp-shell--no-rail .gp-resizer--left,
+.gp-shell--no-details .gp-details,
+.gp-shell--no-details .gp-resizer--right{display:none}
+/* While a resizer is dragged, kill text selection and pointer noise. */
+.gp-shell--resizing{cursor:col-resize;user-select:none}
+.gp-shell--resizing *{pointer-events:none}
+
+/* Shared chrome: the four framing regions. */
+.gp-topbar,.gp-rail,.gp-details,.gp-statusbar{background:var(--gp-bg-100)}
+.gp-topbar,.gp-rail__header,.gp-toolbar,.gp-facetbar,.gp-details__header{border-bottom:1px solid var(--gp-line-100)}
+.gp-rail__footer,.gp-details__footer,.gp-statusbar{border-top:1px solid var(--gp-line-100)}
+.gp-rail,.gp-details{display:grid;min-width:0;min-height:0}
+.gp-rail__header,.gp-rail__section-head,.gp-rail__footer{display:flex;align-items:center;justify-content:space-between;gap:var(--gp-s-3)}
+
+/* Shared eyebrow label: rail title, section heads, details eyebrow + section head. */
+.gp-rail__title,.gp-rail__section-head,.gp-details__eyebrow,.gp-details__section-head,.gp-toolbar__label{
+  font-size:var(--gp-fs-10);font-weight:var(--gp-fw-600);
+  letter-spacing:.12em;text-transform:uppercase;color:var(--gp-meta)}
+
+/*
+   2. Top bar
+   */
+.gp-topbar{
+  grid-area:topbar;
+  display:flex;
+  align-items:center;
+  gap:var(--gp-s-5);
+  padding:0 var(--gp-s-5);
+  min-width:0}
+.gp-topbar__brand{flex:0 0 auto;display:flex;align-items:center;min-width:0}
+.gp-topbar__divider{
+  flex:0 0 auto;width:1px;height:22px;background:var(--gp-line-200);
+  margin:0 var(--gp-s-2)}
+.gp-topbar__tabs{flex:0 0 auto;min-width:0}
+.gp-topbar__search{flex:1 1 420px;min-width:140px;max-width:640px}
+.gp-topbar__spacer{flex:1 1 auto;min-width:var(--gp-s-2)}
+/* Inline controls in the topbar (Smart toggle) never shrink their label. */
+.gp-topbar>.gp-toggle{flex:0 0 auto}
+.gp-topbar__actions{flex:0 0 auto;display:flex;align-items:center;gap:var(--gp-s-3)}
+
+/*
+   3. Brand lockup (signature element #6)
+   */
+.gp-brand{display:flex;align-items:center;gap:var(--gp-s-4);min-width:0}
+.gp-brand__mark{
+  flex:0 0 auto;width:26px;height:26px;
+  display:grid;place-items:center;
+  border-radius:var(--gp-r-1);
+  background:var(--gp-brand-ghost);
+  border:1px solid var(--gp-brand-300);
+  color:var(--gp-local-fg)}
+.gp-brand__mark svg{width:16px;height:16px}
+.gp-brand__text{display:flex;flex-direction:column;gap:1px;min-width:0}
+.gp-brand__word{
+  font-size:var(--gp-fs-13);
+  font-weight:var(--gp-fw-700);
+  letter-spacing:.14em;
+  line-height:1;
+  color:var(--gp-fg-100);
+  white-space:nowrap}
+.gp-brand__sub{
+  font-size:var(--gp-fs-10);
+  letter-spacing:.18em;
+  line-height:1;
+  color:var(--gp-meta);
+  white-space:nowrap}
+
+/*
+   4. Left rail — album / group tree
+   */
+.gp-rail{
+  grid-area:rail;
+  grid-template-rows:auto minmax(0,1fr) auto;
+  border-right:1px solid var(--gp-line-100)}
+.gp-rail__header{
+  padding:var(--gp-s-5) var(--gp-s-5) var(--gp-s-4)}
+.gp-rail__title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gp-rail__body{overflow:auto;padding:var(--gp-s-4) var(--gp-s-3) var(--gp-s-6);min-height:0}
+.gp-rail__section{margin-bottom:var(--gp-s-5)}
+.gp-rail__section-head{
+  padding:var(--gp-s-3) var(--gp-s-4) var(--gp-s-2)}
+.gp-rail__footer{
+  padding:var(--gp-s-4) var(--gp-s-5);
+  font-size:var(--gp-fs-10);
+  color:var(--gp-meta);
+  white-space:nowrap;overflow:hidden}
+.gp-rail__footer-name{
+  overflow:hidden;text-overflow:ellipsis;
+  letter-spacing:.06em}
+.gp-rail__footer-ver{font-family:var(--gp-font-mono);font-variant-numeric:tabular-nums}
+
+/*
+   5. Centre column
+   */
+.gp-main{
+  grid-area:main;
+  display:grid;
+  grid-template-rows:auto auto minmax(0,1fr);
+  min-width:0;min-height:0;
+  background:var(--gp-bg-200)}
+.gp-toolbar{
+  display:flex;align-items:center;gap:var(--gp-s-4);
+  padding:var(--gp-s-4) var(--gp-s-5);
+  min-width:0;
+  background:var(--gp-bg-200)}
+.gp-toolbar__group{display:flex;align-items:center;gap:var(--gp-s-3);min-width:0}
+.gp-toolbar__spacer{flex:1 1 auto;min-width:var(--gp-s-2)}
+.gp-toolbar__label{white-space:nowrap}
+/* Second toolbar row: facet chips. Wraps, scrolls horizontally when narrow. */
+.gp-facetbar{
+  display:flex;align-items:center;gap:var(--gp-s-3);
+  padding:var(--gp-s-3) var(--gp-s-5);
+  min-width:0;
+  overflow-x:auto;
+  background:var(--gp-bg-200);
+  scrollbar-width:none}
+.gp-facetbar::-webkit-scrollbar{height:0}
+.gp-facetbar--empty{display:none}
+.gp-main__body{position:relative;overflow:auto;min-height:0;padding:var(--gp-s-5)}
+.gp-main__body--flush{padding:0}
+
+/*
+   6. Details panel  (amber spine along the header top — signature #1)
+   */
+.gp-details{
+  grid-area:details;
+  grid-template-rows:auto minmax(0,1fr) auto;
+  border-left:1px solid var(--gp-line-100)}
+.gp-details__header{
+  position:relative;
+  padding:var(--gp-s-5) var(--gp-s-5) var(--gp-s-4)}
+.gp-details__header::before{
+  content:"";position:absolute;inset:0 0 auto 0;
+  height:var(--gp-spine-w);
+  background:var(--gp-spine)}
+/* An inferred-dominant record flips the spine to violet. */
+.gp-details__header--inferred::before{background:var(--gp-spine-inferred)}
+.gp-details__eyebrow{
+  margin-bottom:var(--gp-s-2)}
+.gp-details__title{
+  font-size:var(--gp-fs-15);font-weight:var(--gp-fw-600);
+  line-height:var(--gp-lh-tight);color:var(--gp-fg-100);
+  word-break:break-word}
+.gp-details__body{overflow:auto;min-height:0;padding:var(--gp-s-5)}
+.gp-details__footer{
+  display:flex;align-items:center;gap:var(--gp-s-3);
+  padding:var(--gp-s-4) var(--gp-s-5)}
+.gp-details__section{margin-bottom:var(--gp-s-6)}
+.gp-details__section:last-child{margin-bottom:0}
+.gp-details__section-head{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--gp-s-3);
+  margin-bottom:var(--gp-s-4)}
+.gp-details__section-head::after{
+  content:"";flex:1 1 auto;height:1px;background:var(--gp-line-100)}
+.gp-details__hero{
+  aspect-ratio:16/10;width:100%;
+  border-radius:var(--gp-r-2);
+  border:1px solid var(--gp-line-100);
+  background:var(--gp-placeholder-neutral);
+  background-size:cover;background-position:center;
+  margin-bottom:var(--gp-s-5);
+  overflow:hidden}
+.gp-details__hero img{width:100%;height:100%;object-fit:cover}
+
+/*
+   7. Resizers
+   1px hairline column with a 9px invisible grab strip centred on it.
+   */
+.gp-resizer{
+  position:relative;
+  z-index:var(--gp-z-resizer);
+  background:var(--gp-line-100);
+  cursor:col-resize;
+  touch-action:none}
+.gp-resizer--left{grid-area:rzl}
+.gp-resizer--right{grid-area:rzr}
+.gp-resizer::before{
+  content:"";position:absolute;top:0;bottom:0;left:-4px;right:-4px}
+.gp-resizer:hover,
+.gp-resizer--dragging{background:var(--gp-brand-300)}
+.gp-resizer:focus-visible{background:var(--gp-brand-200);box-shadow:var(--gp-focus-ring)}
+
+/*
+   8. Status bar
+   */
+.gp-statusbar{
+  grid-area:status;
+  display:flex;align-items:center;gap:var(--gp-s-5);
+  padding:0 var(--gp-s-5);
+  min-width:0;
+  font-size:var(--gp-fs-11);
+  color:var(--gp-fg-200);
+  white-space:nowrap;
+  overflow:hidden}
+.gp-statusbar__group{display:flex;align-items:center;gap:var(--gp-s-3);min-width:0}
+.gp-statusbar__spacer{flex:1 1 auto}
+.gp-statusbar__num{
+  font-family:var(--gp-font-mono);
+  font-variant-numeric:tabular-nums lining-nums;
+  color:var(--gp-fg-100)}
+.gp-statusbar__sep{width:1px;height:14px;background:var(--gp-line-200);flex:0 0 auto}
+.gp-statusbar__dot{
+  width:6px;height:6px;border-radius:var(--gp-r-full);
+  background:var(--gp-fg-400);flex:0 0 auto}
+.gp-statusbar__dot--ok{background:var(--gp-ok)}
+.gp-statusbar__dot--busy{background:var(--gp-brand-200);animation:gp-pulse 1.4s var(--gp-ease) infinite}
+.gp-statusbar__dot--warn{background:var(--gp-warn)}
+.gp-statusbar__dot--error{background:var(--gp-danger)}
+
+@keyframes gp-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/*
+   9. Free-standing / centred layouts (wizard, fatal error, first run)
+   */
+.gp-centered{
+  display:grid;place-items:center;
+  height:100%;padding:var(--gp-s-8);
+  background:var(--gp-bg-000)}
+.gp-centered__inner{width:100%;max-width:560px}
+
+/* Two-column form layout used in Settings and the wizard. */
+.gp-formgrid{display:grid;grid-template-columns:160px minmax(0,1fr);gap:var(--gp-s-5) var(--gp-s-6);align-items:start}
+.gp-formgrid__label{
+  font-size:var(--gp-fs-12);color:var(--gp-fg-200);
+  padding-top:var(--gp-s-3)}

@@ -1,0 +1,38 @@
+# Lint gate for the backend.  Pinned explicitly so the rule set does not drift
+# with ruff releases and so the `# noqa: S608` / `# noqa: BLE001` suppressions in
+# the codebase refer to rules that are actually enabled.
+line-length = 100
+target-version = "py312"
+
+[lint]
+select = [
+    "E", "F", "W",       # pycodestyle + pyflakes
+    "I",                 # import sorting
+    "UP",                # pyupgrade
+    "B",                 # bugbear
+    "SIM",               # simplify
+    "ASYNC",             # async correctness
+    "S",                 # bandit (S608 SQL, S603 subprocess, ...)
+    "BLE",               # blind except - bare `except:` is a hard failure
+    "PIE", "PERF", "FLY",
+    "RUF",
+]
+ignore = [
+    "E501",    # long lines are handled by line-length on new code only
+    "S101",    # asserts are fine in tests
+    "S311",    # random() is used for retry jitter, not for crypto
+    "RUF012",  # ClassVar annotations are noise for internal caches
+]
+
+[lint.per-file-ignores]
+"app/core/migrations/*.py" = ["E501"]
+"app/parsers/arch_rules.py" = ["E501"]
+
+[lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom puts `Depends(...)` / `Query(...)` in the
+# argument default.  That is the framework contract, not a mutable-default bug,
+# so B008 must not fire on it.
+extend-immutable-calls = [
+    "fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body",
+    "fastapi.Header", "fastapi.Cookie", "fastapi.Form", "fastapi.File",
+]

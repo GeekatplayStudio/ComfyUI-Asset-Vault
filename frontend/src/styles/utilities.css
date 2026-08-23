@@ -1,0 +1,97 @@
+/* utilities.css — single-purpose helpers, prefix .gp-u-
+   Compose layout INSIDE a component with these; never invent a new component
+   out of them. If the same stack of utilities appears twice, ask ui-design
+   for a real class instead. */
+
+/* flex / grid */
+.gp-u-row{display:flex;align-items:center}
+.gp-u-row-start{display:flex;align-items:flex-start}
+.gp-u-col{display:flex;flex-direction:column}
+.gp-u-wrap{flex-wrap:wrap}
+.gp-u-between{justify-content:space-between}
+.gp-u-center{display:flex;align-items:center;justify-content:center}
+.gp-u-grid-center{display:grid;place-items:center}
+.gp-u-grow{flex:1 1 auto;min-width:0}
+.gp-u-shrink0{flex:0 0 auto}
+.gp-u-minw0{min-width:0}
+.gp-u-minh0{min-height:0}
+.gp-u-w-full{width:100%}
+.gp-u-auto-l{margin-left:auto}
+
+/* gap / spacing (4px scale) */
+.gp-u-gap-2{gap:var(--gp-s-2)}
+.gp-u-gap-3{gap:var(--gp-s-3)}
+.gp-u-gap-4{gap:var(--gp-s-4)}
+.gp-u-gap-5{gap:var(--gp-s-5)}
+.gp-u-gap-6{gap:var(--gp-s-6)}
+.gp-u-mt-4{margin-top:var(--gp-s-4)}
+.gp-u-mt-5{margin-top:var(--gp-s-5)}
+.gp-u-mt-6{margin-top:var(--gp-s-6)}
+.gp-u-mb-4{margin-bottom:var(--gp-s-4)}
+.gp-u-mb-5{margin-bottom:var(--gp-s-5)}
+.gp-u-mb-6{margin-bottom:var(--gp-s-6)}
+.gp-u-p-0{padding:0}
+.gp-u-p-5{padding:var(--gp-s-5)}
+.gp-u-p-6{padding:var(--gp-s-6)}
+
+/* typography */
+.gp-u-num{font-family:var(--gp-font-mono);font-variant-numeric:tabular-nums lining-nums}
+.gp-u-fs-10{font-size:var(--gp-fs-10)}
+.gp-u-fs-11{font-size:var(--gp-fs-11)}
+.gp-u-fs-12{font-size:var(--gp-fs-12)}
+.gp-u-fs-15{font-size:var(--gp-fs-15)}
+.gp-u-fs-18{font-size:var(--gp-fs-18)}
+.gp-u-fw-500{font-weight:var(--gp-fw-500)}
+.gp-u-fw-600{font-weight:var(--gp-fw-600)}
+.gp-u-caps{letter-spacing:.1em;text-transform:uppercase}
+.gp-u-tight{line-height:var(--gp-lh-tight)}
+.gp-u-right{text-align:right}
+.gp-u-truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.gp-u-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.gp-u-break{word-break:break-word;overflow-wrap:anywhere}
+.gp-u-break-all{word-break:break-all}
+
+/* colour ROLES — pick by meaning, not by looks.
+   fg body · muted secondary body (>=7:1) · meta labels & counts (4.78:1,
+   never a paragraph) · dim disabled/decorative only · local verified amber ·
+   ai inferred violet (prefer .gp-inferred, which adds the required "~"). */
+.gp-u-fg{color:var(--gp-fg-100)}
+.gp-u-muted{color:var(--gp-fg-200)}
+.gp-u-meta{color:var(--gp-meta)}
+.gp-u-dim{color:var(--gp-fg-400)}
+.gp-u-local{color:var(--gp-local-fg)}
+.gp-u-ai{color:var(--gp-inferred-fg)}
+.gp-u-ok{color:var(--gp-ok-100)}
+.gp-u-warn{color:var(--gp-warn-100)}
+.gp-u-danger{color:var(--gp-danger-100)}
+
+/* surfaces / borders */
+.gp-u-bg-canvas{background:var(--gp-bg-200)}
+.gp-u-bg-raised{background:var(--gp-bg-300)}
+.gp-u-bg-inset{background:var(--gp-bg-inset)}
+.gp-u-hairline{border:1px solid var(--gp-line-100)}
+.gp-u-hairline-t{border-top:1px solid var(--gp-line-100)}
+.gp-u-hairline-b{border-bottom:1px solid var(--gp-line-100)}
+.gp-u-r-1{border-radius:var(--gp-r-1)}
+.gp-u-r-2{border-radius:var(--gp-r-2)}
+
+/* overflow / position / visibility */
+.gp-u-scroll{overflow:auto;min-height:0}
+.gp-u-scroll-y{overflow-y:auto;overflow-x:hidden;min-height:0}
+.gp-u-no-scrollbar{scrollbar-width:none}
+.gp-u-no-scrollbar::-webkit-scrollbar{width:0;height:0}
+.gp-u-rel{position:relative}
+.gp-u-sticky-top{position:sticky;top:0;z-index:var(--gp-z-sticky)}
+.gp-u-hidden{display:none}
+.gp-u-nopointer{pointer-events:none}
+.gp-u-pointer{cursor:pointer}
+.gp-u-disabled{opacity:.5;pointer-events:none}
+.gp-u-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+.gp-u-sr-focusable:focus-visible{position:static;width:auto;height:auto;margin:0;overflow:visible;clip:auto;clip-path:none;white-space:normal}
+
+/* media + brand placeholders */
+.gp-u-cover{width:100%;height:100%;object-fit:cover}
+.gp-u-ar-1{aspect-ratio:1/1}
+.gp-u-ph-local{background:var(--gp-placeholder-local)}
+.gp-u-ph-inferred{background:var(--gp-placeholder-inferred)}
+.gp-u-ph-neutral{background:var(--gp-placeholder-neutral)}

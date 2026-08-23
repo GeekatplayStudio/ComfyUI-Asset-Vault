@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"
+     role="img" aria-label="Geekatplay Asset Vault">
+  <!-- Standalone asset: brand hex is inlined because a favicon cannot read CSS
+       custom properties. Values mirror tokens.css exactly. -->
+  <rect width="32" height="32" rx="6" fill="#131317"/>
+  <rect x="4.5" y="4.5" width="23" height="23" rx="4.5" fill="none"
+        stroke="#3A3A46" stroke-width="1.4"/>
+  <rect x="9" y="9" width="2.6" height="14" rx="1.3" fill="#F2A03D"/>
+  <rect x="14.4" y="9.4"  width="9"   height="2.2" rx="1.1" fill="#FFC46B"/>
+  <rect x="14.4" y="14.9" width="6.6" height="2.2" rx="1.1" fill="#B9B5AD"/>
+  <rect x="14.4" y="20.4" width="4.2" height="2.2" rx="1.1" fill="#63605A"/>
+</svg>
