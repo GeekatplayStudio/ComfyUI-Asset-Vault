@@ -10,8 +10,10 @@ import React from 'react'
  */
 export default function MetaRow(props) {
   const {
-    label, value, num, tone, inferred, inferredTitle, wrap, title, empty
+    label, value: rawValue, num, tone, inferred, inferredTitle, wrap, title, empty
   } = props
+
+  let value = rawValue
 
   /* A value that arrives as an object used to throw "Objects are not valid as
      a React child" and take the entire details panel down with it -- one

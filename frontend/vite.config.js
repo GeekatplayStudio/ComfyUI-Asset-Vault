@@ -8,7 +8,9 @@ export default defineConfig({
   build: {
     target: 'es2020',
     assetsInlineLimit: 8192,
-    chunkSizeWarningLimit: 400
+    // Three.js is isolated behind React.lazy() and only downloads when a user
+    // opens a 3D output. Its 734 kB vendor chunk is intentional, not first paint.
+    chunkSizeWarningLimit: 800
   },
   server: {
     port: 3000,
