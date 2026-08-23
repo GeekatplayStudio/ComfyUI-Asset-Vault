@@ -161,6 +161,11 @@ export const api = {
 
   /* ------------------------------------------------------------ outputs */
   outputs: (query, signal) => get('/outputs', query, signal),
+  /** Capped, decoded excerpt of a text file (binary is reported as such). */
+  textPreview: (uid, signal) => get('/files/text', { uid }, signal),
+  /** Hand back a poster frame the browser rendered for a 3D model. */
+  putRenderedThumbnail: (uid, png, signal) =>
+    post('/files/thumbnail', { png }, { uid }, signal),
   output: (id, signal) => get('/outputs/' + id, null, signal),
   outputGraph: (id, signal) => get('/outputs/' + id + '/graph', null, signal),
   extractWorkflow: (id, body, signal) =>

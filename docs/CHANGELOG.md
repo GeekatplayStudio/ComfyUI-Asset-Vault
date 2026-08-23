@@ -4,6 +4,86 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay — Vladimir Chopine**
 
 ---
 
+## 2.1.0 — 2026-08-23
+
+Preview and playback. Everything an output folder can hold now shows itself: video and audio play
+in place, 3D models render, and text is formatted rather than guessed at.
+
+### Added
+
+**Inline playback for video and audio.** A play button on every playable asset — grid tile, list
+row and details panel — that turns into a real player where it stands. The poster stays mounted
+until playback is asked for, so a grid of 3,834 outputs never holds thousands of media elements,
+only the one being watched.
+
+**One player at a time, anywhere in the app.** Enforced once at the shell by a capture-phase
+`play` listener; media events do not bubble, so a document listener only sees them on the way
+down. The grid, list, details panel and lightbox therefore need to know nothing about each other.
+Pause is pause — including when the coordinator pauses one because another started — and a
+separate **stop** button rewinds and hands the poster back.
+
+**Video poster frames** via ffmpeg where it is installed, seeking one second in so the thumbnail
+is not the opening black frame. Absent ffmpeg, videos fall back to a placeholder and say so.
+
+**3D preview** for `.glb`, `.gltf` and `.fbx` — orbit, zoom, auto-rotate, framed from the model's
+bounding box — in the details panel and the lightbox. Plain `three.js`, dynamically imported: the
+entry bundle stays at ~347 kB and `three` (717 kB) never touches the cold path.
+
+**3D poster thumbnails.** The browser hands one rendered frame back to the vault, so the grid gets
+a real picture of the model. There is no server-side GL stack; the poster comes out of work the
+browser had already done. Accepted only for 3D assets, only as a PNG data URL, under a size cap,
+and re-encoded server-side rather than trusted as it arrived.
+
+**Formatted text preview** for `.txt`, `.json` and anything else that decodes as text, with JSON
+pretty-printed. Whether a file is text is decided **from its bytes, not its extension**: the `.pt`
+tensor files in an output folder are PyTorch pickles, up to a couple of hundred megabytes, and are
+reported as binary instead of rendered as mojibake.
+
+**Support and profile links** — a compact pair in the top bar, the full set with the copyright in
+the rail footer, all from one `services/links.js` so the two cannot drift apart.
+
+### Fixed
+
+**Grid collapsed to one column when switching from list.** `useElementWidth` measured
+`clientWidth`, which includes padding; the scroll container is padded in grid mode and flush in
+list mode, so the JS column count disagreed with CSS `auto-fill` by exactly one column and the
+extra card wrapped into the absolutely positioned row below. Verified across 20 width × tile-size
+combinations.
+
+**List rows pitched at a grid card's height.** Row height was measured monotonically, so a ~307 px
+card height survived the switch to 34 px list rows. Height is now stored with the geometry it was
+measured in, and observed with a `ResizeObserver` rather than sampled once — a one-shot read
+landed before thumbnails laid out and cards overlapped on first paint.
+
+**List columns did not line up.** Empty cells were skipped rather than holding their slot, so each
+row shifted differently; cells also sized to their own content. Cells now keep their slot and share
+a fixed basis. The actions column additionally needed `min-width: 0` — `flex-basis` alone does not
+clamp content, so rows with a play button were 6 px wider and dragged the column with them.
+
+**Only the thumbnail was clickable.** Clicking a card's title or size line did nothing. The card
+owns the handler now; the thumb's click bubbles to it, so selection still fires once and the thumb
+keeps its focus ring.
+
+**Stale thumbnails after a renderer change.** Thumbnails are served `immutable` with a one-year
+max-age, so improving the renderer would never have reached an existing client. `THUMB_VERSION`
+now appears in the cache key, the ETag and the URL, with a test pinning the backend and frontend
+constants together.
+
+**3D placeholders could overwrite a stored poster.** A placeholder fetched after the poster was
+stored claimed the same cache slot. Placeholders for 3D models are no longer cached at all.
+
+### Changed
+
+- `test_build` measures the **entry** chunk rather than the largest file, and asserts `three` never
+  enters the entry graph — picking the biggest file silently made the budget meaningless the
+  moment a lazy chunk outgrew the app.
+- The `subprocess` allowlist grew from three call sites to four, deliberately and with its own
+  tests: `jobs/video_frame.py` is the only module permitted to start ffmpeg, with a fixed argv,
+  `shell=False`, a timeout, an output cap, and local paths only.
+- New dependency: `three` (frontend only, dynamically imported).
+
+---
+
 ## 2.0.0 — 2026-08-22
 
 A rebuild, not a release. Version 1 installed cleanly and did nothing: a full scan against a real

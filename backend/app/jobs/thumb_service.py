@@ -12,6 +12,8 @@ extraction is available when ffmpeg is, and its absence degrades gracefully.
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 import contextlib
 import hashlib
 import io
@@ -128,6 +130,89 @@ class ThumbService:
         finally:
             with self._lock:
                 self._inflight.pop(key, None)
+
+    #: Hard ceiling on a browser-supplied poster frame.
+    MAX_RENDERED_BYTES = 4 * 1024 * 1024
+
+    def store_rendered(self, uid: str, data_url: str) -> int:
+        """Take a PNG the browser rendered for a 3D model into the cache.
+
+        This is the one path where bytes for the cache come from the client, so
+        it is deliberately strict: a `data:image/png;base64,` URL, inside a size
+        cap, that Pillow can actually open as a PNG.  The image is re-encoded
+        to WebP by us rather than trusted as-is, which also means a hostile
+        payload never reaches disk in the form it arrived in.
+        """
+        from PIL import Image
+
+        prefix = "data:image/png;base64,"
+        if not data_url.startswith(prefix):
+            raise ValueError("Expected a data:image/png;base64 URL.")
+        try:
+            raw = base64.b64decode(data_url[len(prefix):], validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise ValueError("The thumbnail payload is not valid base64.") from exc
+
+        if not raw:
+            raise ValueError("The thumbnail payload is empty.")
+        if len(raw) > self.MAX_RENDERED_BYTES:
+            raise ValueError(
+                f"The thumbnail is larger than {self.MAX_RENDERED_BYTES // 1024} KB.")
+
+        info = self._resolve(uid)
+        if info is None:
+            raise ValueError(f"Unknown asset '{uid}'.")
+        # Only 3D models get a client-rendered poster: everything else already
+        # has a server-side path, and this endpoint writes to the cache.
+        if str(info.get("media") or "") != "model3d":
+            raise ValueError("Rendered thumbnails are only accepted for 3D models.")
+
+        written = 0
+        for size in SIZES:
+            try:
+                with Image.open(io.BytesIO(raw)) as im:
+                    if im.format != "PNG":
+                        raise ValueError("The payload is not a PNG.")
+                    im.load()
+                    img = im.convert("RGB")
+                    img.thumbnail((size, size), Image.LANCZOS)
+            except ValueError:
+                raise
+            except Exception as exc:
+                raise ValueError(f"The thumbnail could not be decoded: {exc}") from exc
+
+            target = cache_path(uid, size)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            buf = io.BytesIO()
+            img.save(buf, format="WEBP", quality=QUALITY, method=4)
+            data = buf.getvalue()
+            part = target.with_suffix(".part")
+            with open(part, "wb") as fh:
+                fh.write(data)
+            os.replace(part, target)
+            written += len(data)
+
+            now = dbmod.now_ms()
+            row = (uid, size, str(target), versioned(info["fingerprint"]), len(data),
+                   img.width, img.height, now, now)
+
+            def _op(conn: sqlite3.Connection, row=row) -> None:
+                conn.execute("BEGIN IMMEDIATE")
+                conn.execute(
+                    "INSERT INTO thumb_cache(uid,size,cache_path,fingerprint,bytes,width,"
+                    "height,generated_at,last_access_at) VALUES (?,?,?,?,?,?,?,?,?) "
+                    "ON CONFLICT(uid,size) DO UPDATE SET cache_path=excluded.cache_path, "
+                    "fingerprint=excluded.fingerprint, bytes=excluded.bytes, "
+                    "width=excluded.width, height=excluded.height, "
+                    "generated_at=excluded.generated_at, last_access_at=excluded.last_access_at",
+                    row,
+                )
+                conn.commit()
+
+            dbmod.writer().run(_op)
+        log.info("stored a rendered poster for %s (%d bytes across %d sizes)",
+                 uid, written, len(SIZES))
+        return written
 
     def relocate(self, uid: str, old_path: str, new_path: str) -> None:
         """Renaming is cheap: the cache key is the uid, so only the row moves."""
@@ -314,6 +399,18 @@ class ThumbService:
             os.replace(part, target)
         except OSError as exc:
             raise NotFoundError(f"Could not write the thumbnail cache: {exc}") from exc
+
+        # A 3D placeholder must NOT claim the cache slot.  The real poster for
+        # a model is rendered by the browser and handed back later
+        # (`store_rendered`), and if the gradient were recorded as cached, the
+        # next GET would serve it forever -- worse, a GET that lands after the
+        # poster was stored would overwrite it.  Leaving the row out means the
+        # gradient is regenerated cheaply on each request until a poster
+        # arrives, and the moment one does it wins.
+        transient = source == "placeholder" and info.get("media") == "model3d"
+        if transient:
+            return ThumbResult(str(target), etag, source,
+                               width=img.width, height=img.height)
 
         now = dbmod.now_ms()
         row = (uid, size, str(target), versioned(info["fingerprint"]), len(data),

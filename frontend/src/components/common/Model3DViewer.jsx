@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, RotateCw } from 'lucide-react'
-import { rawUrl } from '../../services/api.js'
+import api, { rawUrl } from '../../services/api.js'
 
 /*
  * A 3D preview -- orbit, zoom, auto-rotate. Not an editor.
@@ -25,7 +25,8 @@ export function canPreview3D(ext) {
 /** Past this, decoding in a browser tab is slow enough to warn about first. */
 const HEAVY_BYTES = 60 * 1024 * 1024
 
-export default function Model3DViewer({ uid, ext, sizeBytes, className = '' }) {
+export default function Model3DViewer({ uid, ext, sizeBytes, className = '',
+  captureThumbnail = false }) {
   const hostRef = useRef(null)
   const [status, setStatus] = useState('idle')   // idle | loading | ready | error
   const [error, setError] = useState(null)
@@ -137,6 +138,64 @@ export default function Model3DViewer({ uid, ext, sizeBytes, className = '' }) {
         tick()
         setStatus('ready')
 
+        /* Hand a poster frame back to the vault, once.
+           There is no server-side GL stack, and the browser has already paid
+           the cost of loading this model in order to show it -- so the grid
+           gets a real thumbnail out of work that is already done, instead of
+           the app growing a headless renderer to draw a picture. */
+        if (captureThumbnail) {
+          setTimeout(() => {
+            if (disposed) return
+            try {
+              /* Render into a WebGLRenderTarget on the EXISTING context and
+                 read the pixels back, rather than spinning up a second
+                 WebGLRenderer.  A browser caps how many live WebGL contexts a
+                 page may hold, and asking for another one is refused on a page
+                 that has already opened a few -- silently, which is how this
+                 first went wrong.  Reusing the context also means the main
+                 renderer does not need preserveDrawingBuffer. */
+              const S = 512
+              const rt = new THREE.WebGLRenderTarget(S, S)
+
+              const cam = new THREE.PerspectiveCamera(50, 1, 0.01, 5000)
+              const fit = (radius / 2) / Math.tan((cam.fov * Math.PI) / 360)
+              cam.position.set(radius * 0.55, radius * 0.42, fit * 1.35)
+              cam.near = Math.max(fit / 1000, 0.01)
+              cam.far = fit * 100
+              cam.lookAt(0, 0, 0)
+              cam.updateProjectionMatrix()
+
+              const prevBg = scene.background
+              scene.background = new THREE.Color(0x14141a)
+              renderer.setRenderTarget(rt)
+              renderer.render(scene, cam)
+              const buf = new Uint8Array(S * S * 4)
+              renderer.readRenderTargetPixels(rt, 0, 0, S, S, buf)
+              renderer.setRenderTarget(null)
+              scene.background = prevBg
+              rt.dispose()
+
+              // readRenderTargetPixels hands back rows bottom-up; the 2D
+              // canvas wants them top-down.
+              const flipped = new Uint8ClampedArray(S * S * 4)
+              const stride = S * 4
+              for (let y = 0; y < S; y++) {
+                flipped.set(buf.subarray(y * stride, y * stride + stride),
+                            (S - 1 - y) * stride)
+              }
+              const cv = document.createElement('canvas')
+              cv.width = S; cv.height = S
+              cv.getContext('2d').putImageData(new ImageData(flipped, S, S), 0, 0)
+              const png = cv.toDataURL('image/png')
+              if (png && png.length > 512) {
+                api.putRenderedThumbnail(uid, png).catch(() => {
+                  /* a poster is a nicety; never surface a failure for it */
+                })
+              }
+            } catch { /* no poster this time; the placeholder stands */ }
+          }, 700)
+        }
+
         cleanup = () => {
           cancelAnimationFrame(frame)
           if (ro) ro.disconnect()
@@ -164,7 +223,7 @@ export default function Model3DViewer({ uid, ext, sizeBytes, className = '' }) {
     })()
 
     return () => { disposed = true; cleanup() }
-  }, [uid, ext, start])
+  }, [uid, ext, start, captureThumbnail])
 
   if (!supported) {
     return (

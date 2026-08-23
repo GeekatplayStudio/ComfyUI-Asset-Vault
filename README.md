@@ -143,13 +143,42 @@ you seeing it first:
 
 ### Generated outputs
 
-Indexes images and videos from `output/`, extracts the embedded generation graph, and pulls out
-prompt, negative prompt, seed, sampler, steps, CFG and the checkpoint used — resolving ComfyUI's
-node-link references so a prompt that lives three nodes away from the sampler is still attributed
-correctly. Thumbnails are generated into a local cache so the grid stays smooth over thousands of
-files. Click through to a full-resolution **lightbox** with the complete metadata beside it.
+Indexes images, video, audio, 3D models and text from `output/`, extracts the embedded
+generation graph, and pulls out prompt, negative prompt, seed, sampler, steps, CFG and the
+checkpoint used — resolving ComfyUI's node-link references so a prompt that lives three nodes
+away from the sampler is still attributed correctly. Thumbnails are generated into a local cache
+so the grid stays smooth over thousands of files. Click through to a full-resolution **lightbox**
+with the complete metadata beside it.
 
 ![Full-resolution lightbox with generation metadata](docs/screenshots/05-output-lightbox.png)
+
+**Video and audio play in place.** A play button sits on every playable asset — grid tile, list
+row and the details panel — and turns into a real player where it stands. The poster stays until
+you ask for playback, so a grid of several thousand outputs never holds thousands of media
+elements, only the one you are watching. **Only one thing plays at a time**: starting a second
+clip pauses the first, anywhere in the app. Pause is pause; a separate stop button rewinds and
+hands the poster back.
+
+![Play buttons on video and audio tiles, with the details panel preview](docs/screenshots/10-inline-playback.png)
+
+**Video posters** are extracted with ffmpeg when you have it installed, seeking a second in so
+the thumbnail is not the opening black frame. Without ffmpeg videos fall back to a placeholder
+and say so — the feature degrades, it does not error.
+
+**3D models** (`.glb`, `.gltf`, `.fbx`) get an interactive preview — orbit, zoom, auto-rotate —
+in the details panel and the lightbox, framed automatically from the model's bounding box. The
+browser also hands one rendered frame back to the vault, so the grid gets a real poster for the
+model rather than a coloured placeholder. There is no server-side 3D renderer: the picture comes
+out of work the browser had already done to show you the model.
+
+![A 3D model previewed in the details panel](docs/screenshots/11-3d-preview.png)
+
+**Text and JSON** are shown as formatted text, with JSON pretty-printed. Whether a file counts as
+text is decided from its **bytes, not its extension** — a ComfyUI output folder holds `.pt`
+tensor files that are PyTorch pickles, sometimes hundreds of megabytes, and those are reported as
+binary instead of being rendered as a screen of mojibake.
+
+![A JSON output shown as formatted text](docs/screenshots/12-text-preview.png)
 
 ### Search
 
