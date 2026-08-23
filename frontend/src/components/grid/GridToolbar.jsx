@@ -1,4 +1,3 @@
-import React from 'react'
 import {
   LayoutGrid, List, Pencil, FolderInput, Trash2, RefreshCw, X, Filter
 } from 'lucide-react'
@@ -94,12 +93,15 @@ export default function GridToolbar(props) {
         </div>
       </div>
 
-      <div className={'gp-facetbar' + (
+      <div
+        className={'gp-facetbar' + (
         (!facets || !facets.length) && !activeFilters.length ? ' gp-facetbar--empty' : ''
-      )}
+        )}
+        aria-label="Available filters"
+        tabIndex={0}
       >
         {activeFilters.length ? (
-          <>
+          <div className="gp-facetbar__group gp-facetbar__group--active">
             <span className="gp-toolbar__label"><Filter size={11} aria-hidden="true" /></span>
             {activeFilters.map((f) => (
               <Chip
@@ -117,11 +119,11 @@ export default function GridToolbar(props) {
               onClick={onClearFilters}
             />
             <span className="gp-divider gp-divider--v" />
-          </>
+          </div>
         ) : null}
 
         {(facets || []).map((facet) => (
-          <React.Fragment key={facet.field}>
+          <div className="gp-facetbar__group" key={facet.field}>
             <span className="gp-toolbar__label">{facet.label}</span>
             {facet.values.map((v) => (
               <Chip
@@ -132,7 +134,7 @@ export default function GridToolbar(props) {
                 onClick={() => facet.onToggle(v)}
               />
             ))}
-          </React.Fragment>
+          </div>
         ))}
       </div>
     </>

@@ -98,14 +98,18 @@
 .gp-rail{
   grid-area:rail;
   grid-template-rows:auto minmax(0,1fr) auto;
-  border-right:1px solid var(--gp-line-100)}
+  border-right:1px solid var(--gp-line-100);
+  box-shadow:inset -1px 0 0 color-mix(in srgb,var(--gp-brand-ghost) 35%,transparent)}
 .gp-rail__header{
-  padding:var(--gp-s-5) var(--gp-s-5) var(--gp-s-4)}
+  padding:var(--gp-s-5) var(--gp-s-5) var(--gp-s-4);
+  background:linear-gradient(180deg,var(--gp-bg-300),var(--gp-bg-100))}
 .gp-rail__title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gp-rail__body{overflow:auto;padding:var(--gp-s-4) var(--gp-s-3) var(--gp-s-6);min-height:0}
-.gp-rail__section{margin-bottom:var(--gp-s-5)}
+.gp-rail__body{overflow-y:auto;overflow-x:hidden;padding:var(--gp-s-4) var(--gp-s-3) var(--gp-s-6);min-height:0;scrollbar-gutter:stable}
+.gp-rail__section{margin-bottom:var(--gp-s-4);padding:var(--gp-s-2);border:1px solid transparent;border-radius:var(--gp-r-2)}
+.gp-rail__section:hover{background:var(--gp-hover);border-color:var(--gp-line-100)}
 .gp-rail__section-head{
-  padding:var(--gp-s-3) var(--gp-s-4) var(--gp-s-2)}
+  padding:var(--gp-s-3) var(--gp-s-4) var(--gp-s-2);
+  color:var(--gp-fg-300)}
 .gp-rail__footer{
   padding:var(--gp-s-4) var(--gp-s-5);
   font-size:var(--gp-fs-10);
@@ -126,22 +130,33 @@
   min-width:0;min-height:0;
   background:var(--gp-bg-200)}
 .gp-toolbar{
-  display:flex;align-items:center;gap:var(--gp-s-4);
+  display:flex;align-items:center;gap:var(--gp-s-4);flex-wrap:wrap;
   padding:var(--gp-s-4) var(--gp-s-5);
   min-width:0;
   background:var(--gp-bg-200)}
-.gp-toolbar__group{display:flex;align-items:center;gap:var(--gp-s-3);min-width:0}
+.gp-toolbar__group{display:flex;align-items:center;gap:var(--gp-s-3);min-width:0;flex-wrap:wrap}
 .gp-toolbar__spacer{flex:1 1 auto;min-width:var(--gp-s-2)}
 .gp-toolbar__label{white-space:nowrap}
-/* Second toolbar row: facet chips. Wraps, scrolls horizontally when narrow. */
+/* Second toolbar row: filters stay in their named groups and scroll openly
+   when the centre panel is narrow. The scrollbar deliberately remains visible:
+   an invisible overflow region was making Base/category filters unreachable. */
 .gp-facetbar{
   display:flex;align-items:center;gap:var(--gp-s-3);
   padding:var(--gp-s-3) var(--gp-s-5);
   min-width:0;
   overflow-x:auto;
   background:var(--gp-bg-200);
-  scrollbar-width:none}
-.gp-facetbar::-webkit-scrollbar{height:0}
+  scrollbar-gutter:stable both-edges;
+  scrollbar-color:var(--gp-line-300) var(--gp-bg-200)}
+.gp-facetbar::-webkit-scrollbar{height:7px}
+.gp-facetbar::-webkit-scrollbar-track{background:var(--gp-bg-200)}
+.gp-facetbar::-webkit-scrollbar-thumb{background:var(--gp-line-300);border:2px solid var(--gp-bg-200);border-radius:var(--gp-r-full)}
+.gp-facetbar::-webkit-scrollbar-thumb:hover{background:var(--gp-brand-300)}
+.gp-facetbar:focus-visible{outline:2px solid var(--gp-focus);outline-offset:-2px}
+.gp-facetbar__group{display:flex;align-items:center;gap:var(--gp-s-3);flex:0 0 auto;padding-right:var(--gp-s-3);border-right:1px solid var(--gp-line-100)}
+.gp-facetbar__group:last-child{padding-right:0;border-right:0}
+.gp-facetbar__group--active{background:var(--gp-bg-300);padding:var(--gp-s-2) var(--gp-s-3);border:1px solid var(--gp-line-100);border-radius:var(--gp-r-1)}
+.gp-facetbar__group--active .gp-divider{display:none}
 .gp-facetbar--empty{display:none}
 .gp-main__body{position:relative;overflow:auto;min-height:0;padding:var(--gp-s-5)}
 .gp-main__body--flush{padding:0}
