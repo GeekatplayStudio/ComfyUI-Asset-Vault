@@ -78,7 +78,9 @@ def test_row_counts_are_close_to_the_accepted_ground_truth(live_conn, table, exp
 
 
 def test_the_schema_is_at_the_expected_version(live_conn):
-    assert live_conn.execute("PRAGMA user_version").fetchone()[0] == 5
+    from app.config import SCHEMA_VERSION
+
+    assert live_conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
 
 
 def test_albums_are_exactly_ten_with_no_duplicates(live_conn):

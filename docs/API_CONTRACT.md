@@ -471,10 +471,12 @@ Filters: `q`, `package_id`, `category`, `official`, `deprecated`, `experimental`
      "inputs":{"required":{"image":"IMAGE","width":"INT","height":"INT","x":"INT","y":"INT"},"optional":{}},
      "outputs":{"types":["IMAGE"],"names":null},"output_node":false,
      "flags":{"deprecated":true,"experimental":false,"api_node":false},
-     "confidence":"declared","source":{"strategy":"S4","file":"comfy_extras\\nodes_images.py","lineno":29},
+     "confidence":"declared","registration":"python",
+     "source":{"strategy":"S4","file":"comfy_extras\\nodes_images.py","lineno":29},
      "counts":{"workflows":4} } ],
   "page":{…},"groups":[…] }
 ```
+`registration` says who registers the class at runtime: `python` (a class in the package's own source, or the ComfyUI-Manager registry), `javascript` (the package's shipped `web/**/*.js`, strategy `S7` — `ComfyUI-KJNodes` registers `GetNode` and `SetNode` that way and defines neither in Python), or `frontend` (the web client itself: `Note`, `MarkdownNote`, `Reroute`, `PrimitiveNode`). The last two have no Python definition in any install, so no package can supply them and none is ever offered.
 
 ### `GET /api/v1/node-classes/{id}`
 Adds `workflows_using` (top 20) and the raw `input_types_json`.
@@ -501,7 +503,7 @@ Filters: `q`, `folder`, `base_model`, `runnable`, `missing_only`, `node_class`, 
      "capability_tags":["video","character-replacement","controlnet"],
      "base_model":"WAN","modality":"video",
      "counts":{"nodes":84,"links":132,"groups":6,"missing_nodes":0,"missing_models":2},
-     "is_runnable":false,
+     "is_runnable":false,"has_subgraphs":true,"subgraph_count":8,
      "prompt_summary":"a cowboy walking through a desert town at golden hour",
      "size":184321,"modified_at":1764000000000,
      "thumbnail_url":"/api/v1/files/thumbnail?uid=workflow:12&size=320",
@@ -527,11 +529,17 @@ Adds `node_breakdown` (class → count, resolved, package), `positive_prompt`, `
      "status":"satisfied","match_method":"basename","uid":"model:143"}],
   "nodes":[
     {"class_type":"WanVideoSampler","status":"satisfied","uid":"node_class:1044",
+     "provided_by":"python",
      "package":{"uid":"node_package:9","name":"ComfyUI-WanVideoWrapper"}},
+    {"class_type":"MarkdownNote","status":"satisfied","uid":"node_class:1869",
+     "provided_by":"frontend",
+     "package":{"uid":"node_package:34","name":"ComfyUI Core"}},
     {"class_type":"SomeUnknownNode","status":"missing","uid":null,
      "registry_hint":{"package":"ComfyUI-Foo","repo_url":"https://github.com/x/ComfyUI-Foo"}}],
   "embeddings":[],"input_files":[] }
 ```
+`provided_by` mirrors `node_classes.registration` and is present on every satisfied node: `frontend` and `javascript` mean the web client supplies the type and there is nothing to install. Nodes that instantiate a subgraph the workflow itself declares are not dependencies at all — they never appear in this list, and `subgraph_count` on the workflow item reports how many definitions the file carries.
+
 `registry_hint` comes from the ComfyUI-Manager `extension-node-map.json` (5,590 repos) — it tells the user *which package to install*, which is the whole point of the missing-node report.
 
 ---
@@ -1253,8 +1261,14 @@ installation described under "Opening a workflow inside ComfyUI".
   "recommended_updater": "portable",
   "launchers": [ /* see the open-workflow plan */ ],
   "recommended_launcher": "run_nvidia_gpu",
-  "running": {"running":false,"ports":[],"method":"loopback tcp probe",
-              "confidence":"inferred","note":"No ComfyUI port is accepting connections."},
+  "running": {"running":true,"ports":[8188],"comfyui_ports":[8188],"confirmed":true,
+              "probed_ports":[8188,8189],
+              "evidence":[{"port":8188,"open":true,"families":["ipv4"],"http_status":200,
+                           "comfyui":true,"comfyui_version":"0.33.0","error":null},
+                          {"port":8189,"open":false,"families":[],"http_status":null,
+                           "comfyui":null,"error":null}],
+              "method":"loopback probe: tcp on 127.0.0.1 and ::1, confirmed with /system_stats",
+              "confidence":"measured","note":"ComfyUI answered on 127.0.0.1:8188. Nothing needs to be started."},
   "update_status": { /* see the update status route */ },
   "launch_status": { /* see the launch status route */ }
 }
@@ -1264,6 +1278,27 @@ installation described under "Opening a workflow inside ComfyUI".
 **parsed** out of `comfyui_version.py` with `ast`, never imported or executed. Package versions come
 from `*.dist-info` directory names in the interpreter that actually launches ComfyUI — for a
 portable build that is `python_embeded`, not the interpreter running this app.
+
+**How "is ComfyUI running" is decided.** Every route that branches on it — the update
+refusal, the open-workflow plan, the start refusal — reads the same probe, and the probe
+reports two different claims rather than one blurred one:
+
+* `running` (and `ports`) means **a port is taken**: a TCP connection was accepted on a
+  candidate port. Nothing more is claimed, and this is what the update refusal is decided on
+  — updating the files underneath *whatever* holds that port is the risk, not updating
+  underneath a process that identified itself;
+* `comfyui_ports` (and `confirmed`) means **it answered as ComfyUI**: a request to the
+  install's own `/system_stats` returned ComfyUI-shaped JSON. This is what "already running,
+  so start nothing" is decided on, and it is what raises `confidence` from `inferred` to
+  `measured`.
+
+Each candidate port is probed on **both loopback families** — `127.0.0.1` and `::1`,
+concurrently. A portable launcher passes `--listen 0.0.0.0`, which binds the IPv4 wildcard and
+not the IPv6 one, so a probe that reaches for one family only will miss a running install and
+offer to start a second copy of it. The candidate ports are 8188 and 8189 plus any port a
+discovered launcher script pins on its own command line, so an install configured away from
+the defaults is still found. `evidence` reports every port that was looked at and what
+answered, so the UI can say what was seen instead of asserting.
 
 ### `GET /api/v1/comfyui/latest`
 
@@ -1391,10 +1426,12 @@ one). Fetch this **before** showing any confirmation.
   "rel_path": "custom_nodes\\ComfyUI-Pack\\example_workflows\\basic_flow.json",
   "origin": "bundled", "origin_package": "ComfyUI-Pack",
   "origin_label": "bundled with ComfyUI-Pack",
-  "running": {"running": false, "ports": [], "method": "loopback tcp probe",
-              "confidence": "inferred", "note": "No ComfyUI port is accepting connections."},
+  "running": {"running": true, "ports": [8188], "comfyui_ports": [8188],
+              "confirmed": true, "probed_ports": [8188, 8189], "evidence": [ /* per port */ ],
+              "method": "loopback probe: tcp on 127.0.0.1 and ::1, confirmed with /system_stats",
+              "confidence": "measured", "note": "ComfyUI answered on 127.0.0.1:8188. ..."},
   "port": 8188,
-  "port_reason": "the --port argument in the launcher script",
+  "port_reason": "the port ComfyUI answered on",
   "url": "http://127.0.0.1:8188/?template=basic_flow&source=ComfyUI-Pack",
   "open_method": "deep_link",                 // deep_link | manual
   "deep_link": {
@@ -1402,8 +1439,11 @@ one). Fetch this **before** showing any confirmation.
     "params": {"template": "basic_flow", "source": "ComfyUI-Pack"},
     "query": "?template=basic_flow&source=ComfyUI-Pack",
     "explanation": "ComfyUI serves this package's example graphs at ...",
-    "verified_against": "comfyui_frontend_package 1.49.6"
+    "verified_against": "comfyui_frontend_package 1.49.6",
+    "checked": true, "served": true, "served_reason": null, "served_note": null
   },
+  "deep_link_check": {"checked": true, "served": true, "reason": null, "note": null},
+  "filename": "basic_flow.json",
   "manual_hint": null,
   "launcher": {"id": "run_nvidia_gpu", "kind": "batch", "label": "run_nvidia_gpu.bat",
                "path": "O:\\run_nvidia_gpu.bat", "working_dir": "O:\\",
@@ -1454,6 +1494,27 @@ A `--port` value outside 1–65535 is discarded rather than believed, and `port_
 `not_served_by_comfyui` (nested deeper than ComfyUI serves) · `name_not_url_addressable` ·
 `package_disabled` · `no_path`.
 
+**Addressable is not the same as served, so the address is confirmed before it is offered.**
+A bundled example graph has a legal address only while ComfyUI is *loading the package that
+owns it*: a package that is disabled, renamed, or failed to import leaves the address
+answering 404, and ComfyUI's frontend reports that as a small toast on an empty canvas — from
+the owner's side, "it opened ComfyUI and did nothing". So when ComfyUI is running, the plan
+asks it: the template list route it serves for loaded packages, or its official template
+index for a `source=default` link, and the name is matched **inside the answer** — it is never
+interpolated into a URL the vault requests.
+
+* `deep_link_check.checked` is `false` and `served` is `null` when ComfyUI was not up to be
+  asked. The link is still offered: nothing was disproved;
+* `served: true` — the address is confirmed and `open_method` stays `deep_link`;
+* `served: false` — `open_method` becomes `manual`, `url` drops the query rather than
+  carrying one that will not work, and `manual_hint` says why and names the file to pick.
+  `deep_link_check.reason` is `package_not_loaded` · `template_not_listed` ·
+  `not_in_the_official_template_index`, or a transport reason when ComfyUI did not answer.
+
+`filename` is the file's own name — what the owner has to look for in ComfyUI's Workflows
+sidebar whenever `open_method` is `manual`. The UI must show it; a `manual` open that does
+not name the file is a blank ComfyUI with no explanation.
+
 `copy.reason` when `possible` is `false`: `already_in_the_workflows_folder` ·
 `destination_exists` · `no_comfyui_path`.
 
@@ -1488,7 +1549,9 @@ plan and the write.
 ```jsonc
 {"uid": "workflow:12", "name": "basic_flow",
  "url": "http://127.0.0.1:8188/?template=basic_flow&source=ComfyUI-Pack",
- "open_method": "deep_link", "deep_link": { /* as above */ }, "manual_hint": null,
+ "open_method": "deep_link", "deep_link": { /* as above */ },
+ "deep_link_check": { /* as above */ }, "filename": "basic_flow.json",
+ "manual_hint": null, "running": { /* the probe, as above */ },
  "port": 8188,
  "copied": false, "copy_destination": null, "copy_note": null,
  "started": true, "already_running": false, "ready": false,
@@ -1498,9 +1561,19 @@ plan and the write.
  "note": "ComfyUI is starting. Watch the launch stream and open the URL when it reports ready."}
 ```
 
-When ComfyUI was already running, `already_running` and `ready` are `true`, `started` is
-`false`, and no process was touched. When a start was made, the caller waits on the launch
-stream and opens `url` on `ready` — the server never opens a browser.
+**Liveness is measured here, not taken from the plan.** The plan is a snapshot, and a caller
+may hold one for a while; a dialog that measured "not running" ten minutes ago will send
+`start: true` with a perfectly valid confirmation. This route probes again first, and when
+ComfyUI is up it answers `already_running: true`, `ready: true`, `started: false` and touches
+no process — `start` is not even consulted. A stale plan can therefore never start a second
+copy of ComfyUI. When a start *was* made, the caller waits on the launch stream and opens
+`url` on `ready` — the server never opens a browser.
+
+The caller is expected to open `url` in a **separate window** rather than a tab (window
+features, not `target="_blank"`), and to open it **once** — `ready` and `done` both arrive on
+a successful launch. A window opened from a finished background task has no user activation
+behind it, so browsers block it by default: a client that cannot open the window must say so
+and offer a control that opens it from a real click, never fail silently.
 
 The process is started with a list argv and `shell=False`, in its own console window, from
 the launcher's own working directory, with the environment inherited rather than assembled.
@@ -1531,10 +1604,13 @@ Stream events: `open`, `phase` (`starting`, `spawned`), `waiting`
  "finished_at": 1787441062000, "note": "ComfyUI is accepting connections."}
 ```
 
-Readiness is measured, not assumed: the loopback port is probed once a second until it
-accepts a connection. A cold start loads every installed node package and can take minutes,
-so the wait runs for up to **300 seconds** and then reports the timeout rather than
-pretending. A launcher that exits before the port opens is reported with its exit code.
+Readiness is measured, not assumed, and "ready" means **ComfyUI answered** — not that its
+port accepted a connection. The wait polls once a second for a TCP connection *and* a
+ComfyUI-shaped answer from the install's own `/system_stats`, because a socket that accepts
+is not yet a server that serves: an address opened in that gap loads the page but not the
+graph. A cold start loads every installed node package and can take minutes, so the wait runs
+for up to **300 seconds** and then reports the timeout rather than pretending. A launcher
+that exits before ComfyUI answers is reported with its exit code.
 
 ### `GET /api/v1/comfyui/templates`
 

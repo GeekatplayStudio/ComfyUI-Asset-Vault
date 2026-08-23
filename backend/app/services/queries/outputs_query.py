@@ -169,15 +169,31 @@ def list_outputs(filters: OutputFilters | dict | None = None, sort: str = "-crea
     groups = None
     if group in ("date", "first_letter"):
         buckets: dict[str, int] = {}
+        # Date buckets carry their own bounds so the caller can filter by one
+        # without re-deriving it from the label.  The labels are a mix of
+        # relative ("Today", "This week") and absolute ("June 2026"), and
+        # parsing those back into a range in the client would be guesswork that
+        # breaks on the first locale or wording change.
+        spans: dict[str, tuple[int, int]] = {}
         for r in dbmod.rows(
             conn, f"SELECT created_at_file, filename FROM outputs WHERE {where_sql}",  # noqa: S608
             args,
         ):
+            ts = int(r["created_at_file"] or 0)
             key = (first_letter(r["filename"]) if group == "first_letter"
-                   else date_bucket(int(r["created_at_file"] or 0)))
+                   else date_bucket(ts))
             buckets[key] = buckets.get(key, 0) + 1
-        groups = [{"key": k, "label": k, "count": v, "offset": 0}
-                  for k, v in sorted(buckets.items())]
+            if group == "date" and ts:
+                lo, hi = spans.get(key, (ts, ts))
+                spans[key] = (min(lo, ts), max(hi, ts))
+        groups = []
+        for k, v in sorted(buckets.items()):
+            entry = {"key": k, "label": k, "count": v, "offset": 0}
+            span = spans.get(k)
+            if span:
+                # `date_to` is inclusive of the newest item in the bucket.
+                entry["date_from"], entry["date_to"] = span[0], span[1]
+            groups.append(entry)
     elif group in GROUPS:
         col = GROUPS[group]
         groups = [

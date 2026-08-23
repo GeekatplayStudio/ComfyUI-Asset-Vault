@@ -1,5 +1,5 @@
 # Data Model — Geekatplay ComfyUI Asset Vault
-SQLite (stdlib `sqlite3`), WAL. **Schema version 5** (v2 base + v3 album identity + v4 workflow origin + v5 the Enable fetch queue, §15–§16). Canonical version lives in `PRAGMA user_version`.
+SQLite (stdlib `sqlite3`), WAL. **Schema version 6** (v2 base + v3 album identity + v4 workflow origin + v5 the Enable fetch queue, §15–§16 + v6 provided nodes and subgraph counts, §5.2 / §6). Canonical version lives in `PRAGMA user_version`.
 
 DB file: `backend/data/vault.db` (renamed from `asset_vault.db`; see §14 migration).
 
@@ -307,7 +307,7 @@ CREATE TABLE node_packages (
     missing_since     INTEGER
 );
 ```
-`fingerprint` for a package = blake2b over the sorted `(rel_path, size, mtime_ns)` of every `.py`/`.toml`/`.txt`/`.md` in it. That is what makes node re-analysis incremental — measured at ~4k files across 35 packages, the fingerprint walk is ~0.05 s versus ~3 s of AST work.
+`fingerprint` for a package = blake2b over the sorted `(rel_path, size, mtime_ns)` of every `.py`/`.toml`/`.txt`/`.md`/`.json`/`.js` in it. `.js` is in the list because a package can register node types from its shipped `web/` code (§5.2, `registration`); without it, editing that JavaScript would not change the fingerprint and the re-scan would skip the package. That is what makes node re-analysis incremental — measured at ~4k files across 35 packages, the fingerprint walk is ~0.05 s versus ~3 s of AST work.
 
 ### 5.2 `node_classes`
 
@@ -333,10 +333,11 @@ CREATE TABLE node_classes (
 
     source_file      TEXT,
     source_lineno    INTEGER,
-    source_strategy  TEXT NOT NULL,            -- 'S1'|'S2'|'S3'|'S4'|'S5'|'S6'
+    source_strategy  TEXT NOT NULL,            -- 'S1'|'S2'|'S3'|'S4'|'S5'|'S6'|'S7'
     sources_json     TEXT,                     -- all contributing strategies
     confidence       TEXT NOT NULL DEFAULT 'declared'
                      CHECK (confidence IN ('declared','inferred','registry')),
+    registration     TEXT NOT NULL DEFAULT 'python',   -- v6: 'python'|'javascript'|'frontend'
 
     workflow_count   INTEGER NOT NULL DEFAULT 0,
     created_at       INTEGER NOT NULL,
@@ -345,6 +346,14 @@ CREATE TABLE node_classes (
     UNIQUE (package_id, node_id)
 );
 ```
+
+**`registration` (v6) — a node class does not have to come from Python.** Three values, and the distinction is the whole reason the "missing nodes" column can be trusted:
+
+* `python` — a class found in the package's own source by S1–S5, or named by the ComfyUI-Manager registry (S6). The default, and what almost every row is.
+* `javascript` — the package ships `web/**/*.js` that registers the type by name (`LiteGraph.registerNodeType("GetNode", …)`). `ComfyUI-KJNodes` registers `GetNode` and `SetNode` this way and defines neither in Python; both were reported as missing packages until v6. Found by strategy **S7** in `app/parsers/node_js.py`, which is `re` over decoded text — no JavaScript is ever executed, exactly as no Python under `custom_nodes/` is ever imported.
+* `frontend` — provided by the ComfyUI web client itself: `Note`, `MarkdownNote`, `Reroute`, `PrimitiveNode`. They appear in no `/object_info` response and in no `.py` in any install, so no package can ever supply them. They are attached to the `__comfyui_core__` package with `source_strategy = 'S7'`.
+
+A class that has *any* Python strategy behind it stays `python` even when its package's JavaScript also touches it — only a class with no Python definition anywhere is recorded as provided.
 
 ### 5.3 Node indexes
 
@@ -384,6 +393,7 @@ CREATE TABLE workflows (
     link_count       INTEGER NOT NULL DEFAULT 0,
     group_count      INTEGER NOT NULL DEFAULT 0,
     has_subgraphs    INTEGER NOT NULL DEFAULT 0 CHECK (has_subgraphs IN (0,1)),
+    subgraph_count   INTEGER NOT NULL DEFAULT 0,   -- v6: definitions.subgraphs entries
 
     title            TEXT,                     -- workflow.extra.title or filename
     author           TEXT,
@@ -831,7 +841,7 @@ The existing DB (`backend/data/asset_vault.db`) has **0 rows in `models`, `nodes
 3. If any are non-empty (a user on a partially working build), import with a best-effort field map: `models.base_model → base_model_family` (normalized through the vocabulary table), `nodes → node_packages` + explode `node_classes` JSON into `node_classes` rows, `output_assets.prompt → outputs.positive_prompt`. Every imported row gets `parser_version = 0`, guaranteeing a full re-parse on the next scan.
 4. Rename the legacy file to `asset_vault.db.v1.bak`; never delete it.
 
-**Applied so far:** `m001_initial` (v1), `m002_import_legacy` (v2), `m003_album_identity` (v3), `m004_workflow_origin` (v4 — see §15).
+**Applied so far:** `m001_initial` (v1), `m002_import_legacy` (v2), `m003_album_identity` (v3), `m004_workflow_origin` (v4 — see §15), `m005_enable_jobs` (v5 — see §16), `m006_provided_nodes` (v6 — see §17).
 
 **Forward path:** each future migration is `mNNN_<name>.py` exporting `VERSION`, `NAME`, and `def up(conn)`. The runner is transactional per migration and refuses to start if `user_version > CODE_SCHEMA_VERSION` (a newer DB opened by an older build) with a clear error rather than corrupting it.
 
@@ -1113,3 +1123,35 @@ own: after a fetch places files it schedules an incremental scan, and the rechec
 both the freshly computed answer and whether that scan is still running.
 
 ---
+
+## 17. Provided nodes and subgraphs (v6)
+
+`PRAGMA user_version = 6`, applied by `m006_provided_nodes`. Two `ALTER TABLE … ADD COLUMN`
+statements, both with a default: forward-only, idempotent, and no existing row is rewritten.
+
+Both columns exist for the same reason — the vault was reporting node packages as missing when
+nothing was missing at all. Three distinct causes produced that, and each one is a different kind of
+"this is not an installable dependency":
+
+**1. Subgraph instances → `workflows.subgraph_count`.** A workflow declares its reusable subgraphs
+under `definitions.subgraphs`, each with a UUID `id` and a `name`; a node that instantiates one
+carries that UUID as its `type`. Those UUIDs were being written to `workflow_nodes` and
+`workflow_dependencies` as node classes and then, inevitably, reported missing — 21 distinct UUIDs
+over 61 dependency rows on the owner's library, 8 in a single file. `workflow_graph` now collects
+every declared id first (walking nested `definitions` as well as the top level, bounded on depth and
+count) and treats a matching `type` as an internal reference: counted as a subgraph, never recorded
+as a dependency. `subgraph_count` is how many definitions the file declares, so the UI can say
+"8 subgraphs" instead of silently dropping them.
+
+**2. Frontend virtual nodes → `node_classes.registration = 'frontend'`.** `Note`, `MarkdownNote`,
+`Reroute` and `PrimitiveNode` are drawn by the web client and exist in no `.py` anywhere.
+`MarkdownNote` alone produced 117 "missing" rows.
+
+**3. JavaScript-registered nodes → `node_classes.registration = 'javascript'`.** Discovered
+statically per package by `app/parsers/node_js.py` (strategy S7) rather than hard-coded, so the list
+cannot rot as packages change.
+
+Neither column changes the matching ladder in §6.1: the frontend and JavaScript classes are real
+`node_classes` rows, so phase 7 resolves them through the same `node_id` join as any other class and
+`missing_node_count` falls out unchanged. A package that genuinely is not installed is still
+`missing` — the fix makes the question correct, it does not stop asking it.

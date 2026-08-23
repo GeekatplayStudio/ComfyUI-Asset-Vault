@@ -152,9 +152,11 @@ def no_spawn(monkeypatch):
 @pytest.fixture
 def not_running(monkeypatch):
     """The machine running the suite may have the real ComfyUI up."""
-    monkeypatch.setattr(cs, "is_running", lambda: {
-        "running": False, "ports": [], "method": "test",
-        "confidence": "inferred", "note": "nothing is listening"})
+    monkeypatch.setattr(cs, "is_running", lambda *a, **k: {
+        "running": False, "ports": [], "comfyui_ports": [], "confirmed": False,
+        "probed_ports": list(cs.COMFYUI_PORTS), "evidence": [],
+        "method": "test", "confidence": "inferred",
+        "note": "nothing is listening"})
 
 
 @pytest.fixture
@@ -417,7 +419,7 @@ def test_the_argv_is_the_discovered_path_and_nothing_else(portable, monkeypatch)
         return _FakeProc()
 
     monkeypatch.setattr(cs.subprocess, "Popen", _record)
-    monkeypatch.setattr(cs, "_port_open", lambda port, timeout=0.25: True)
+    monkeypatch.setattr(cs, "_is_serving", lambda port: True)
 
     launcher = cs.resolve_launcher()
     cs.start_comfyui(None, confirm_path=launcher["path"], port=8189)
@@ -516,7 +518,7 @@ def test_a_different_spelling_of_the_same_file_still_starts_only_that_file(
         return _FakeProc()
 
     monkeypatch.setattr(cs.subprocess, "Popen", _record)
-    monkeypatch.setattr(cs, "_port_open", lambda port, timeout=0.25: True)
+    monkeypatch.setattr(cs, "_is_serving", lambda port: True)
     try:
         cs.start_comfyui(None, confirm_path=confirm)
     except ValidationError:
@@ -765,7 +767,7 @@ def test_a_launch_is_visible_to_the_owner_while_and_after_it_runs(
         portable, monkeypatch):
     """The record is in-process only - the same standing the updater has."""
     monkeypatch.setattr(cs.subprocess, "Popen", lambda argv, **k: _FakeProc())
-    monkeypatch.setattr(cs, "_port_open", lambda port, timeout=0.25: True)
+    monkeypatch.setattr(cs, "_is_serving", lambda port: True)
     launcher = cs.resolve_launcher()
     cs.start_comfyui(None, confirm_path=launcher["path"], trigger="test")
     status = _settle()
@@ -794,7 +796,7 @@ def test_a_launcher_that_exits_first_is_reported_not_hidden(portable, monkeypatc
             return 3
 
     monkeypatch.setattr(cs.subprocess, "Popen", lambda argv, **k: _Dead())
-    monkeypatch.setattr(cs, "_port_open", lambda port, timeout=0.25: False)
+    monkeypatch.setattr(cs, "_is_serving", lambda port: False)
     cs.start_comfyui(None, confirm_path=cs.resolve_launcher()["path"])
     status = _settle()
     assert status["status"] == "failed"
@@ -807,10 +809,10 @@ def test_a_launch_that_cannot_be_watched_still_ends(portable, monkeypatch):
     """A wait that raises must not wedge the subsystem behind "already starting"."""
     monkeypatch.setattr(cs.subprocess, "Popen", lambda argv, **k: _FakeProc())
 
-    def _explode(port, timeout=0.25):
+    def _explode(port):
         raise OverflowError("port must be 0-65535")
 
-    monkeypatch.setattr(cs, "_port_open", _explode)
+    monkeypatch.setattr(cs, "_is_serving", _explode)
     cs.start_comfyui(None, confirm_path=cs.resolve_launcher()["path"])
     status = _settle()
     assert status["status"] == "failed"
@@ -818,7 +820,7 @@ def test_a_launch_that_cannot_be_watched_still_ends(portable, monkeypatch):
     assert status["error"]
 
     # ...and the next launch is not refused by a stranded state machine.
-    monkeypatch.setattr(cs, "_port_open", lambda port, timeout=0.25: True)
+    monkeypatch.setattr(cs, "_is_serving", lambda port: True)
     cs.start_comfyui(None, confirm_path=cs.resolve_launcher()["path"])
     assert _settle()["status"] == "ready"
 
@@ -826,7 +828,7 @@ def test_a_launch_that_cannot_be_watched_still_ends(portable, monkeypatch):
 def test_a_second_launch_is_refused_while_the_first_is_starting(portable,
                                                                 monkeypatch):
     monkeypatch.setattr(cs.subprocess, "Popen", lambda argv, **k: _FakeProc())
-    monkeypatch.setattr(cs, "_port_open", lambda port, timeout=0.25: False)
+    monkeypatch.setattr(cs, "_is_serving", lambda port: False)
     monkeypatch.setattr(cs, "LAUNCH_TIMEOUT_S", 0.5)
     monkeypatch.setattr(cs, "LAUNCH_POLL_S", 0.05)
     resolved = cs.resolve_launcher()["path"]
@@ -851,3 +853,125 @@ def test_the_owner_library_root_is_never_touched_by_this_file(portable, tmp_path
         if root.kind == "data":
             continue
         assert str(tmp_path) in str(root.path) or not Path(root.path).exists()
+
+
+# ---------------------------------------------------------------------------
+#: Captured at import, before ``not_running`` replaces it: these tests are
+#: about the detector itself, so they need the real one.
+_REAL_IS_RUNNING = cs.is_running
+
+# The detection pass (2026-08-23) - the probe learned to speak HTTP, and a
+# probe that speaks is a probe that can be pointed somewhere.  None of the four
+# grounds S-19..S-21 rest on may move because of it.
+# ---------------------------------------------------------------------------
+
+def test_the_probe_only_ever_talks_to_the_loopback(monkeypatch):
+    """Every address the detector connects to is a loopback literal.
+
+    The port can come from a launcher script on disk; the host never can.
+    """
+    seen: list = []
+
+    def _record(host, family, port, timeout=cs.SOCKET_PROBE_TIMEOUT_S):
+        seen.append(host)
+        return False
+
+    monkeypatch.setattr(cs, "_tcp_open", _record)
+    _REAL_IS_RUNNING((8190, 9999))
+    assert seen
+    assert set(seen) <= {"127.0.0.1", "::1"}
+    assert {host for host, _family in cs.LOOPBACK_PROBES} == {"127.0.0.1", "::1"}
+
+
+def test_the_probe_requests_fixed_paths_and_nothing_a_caller_chose(monkeypatch):
+    """A hostile template or source name never reaches a request line.
+
+    ``verify_deep_link`` looks its names up as keys *inside* the answer.  It is
+    not building a URL out of them, so there is nothing to escape and nothing
+    to smuggle - asserted rather than assumed, because the obvious
+    implementation of this function would have fetched
+    ``<template list>/<source>/<template>.json`` directly.
+    """
+    asked: list = []
+
+    def _fake(port, path, host="127.0.0.1", timeout=0.0):
+        asked.append(path)
+        return 200, {"ok": []}, None
+
+    monkeypatch.setattr(cs, "_http_get_json", _fake)
+    hostile = {"supported": True, "source": "../../etc", "template": "a b?&#x"}
+    cs.verify_deep_link(hostile, 8188)
+    cs.verify_deep_link({**hostile, "source": "default"}, 8188)
+    assert asked
+    assert set(asked) <= {cs.TEMPLATE_LIST_PATH, cs.CORE_TEMPLATE_INDEX_PATH}
+    flat = " ".join(asked)
+    for needle in ("..", "etc", "a b", "#x"):
+        assert needle not in flat, needle
+
+
+def test_probing_starts_nothing_and_writes_nothing(portable, monkeypatch,
+                                                   tmp_path):
+    """Detection is read-only. It is also the thing that runs most often."""
+    def _never(*a, **k):
+        raise AssertionError("the probe must not spawn anything")
+
+    monkeypatch.setattr(cs.subprocess, "Popen", _never)
+    before = sorted(p.name for p in tmp_path.iterdir())
+    _REAL_IS_RUNNING()
+    cs.probe_port(8188)
+    cs.verify_deep_link(cs.deep_link_for(str(portable["root"] / "x.json")), 8188)
+    assert sorted(p.name for p in tmp_path.iterdir()) == before
+
+
+def test_a_port_that_is_not_a_port_cannot_strand_the_probe():
+    """S-23's shape, at the new entry point.
+
+    ``extra_ports`` is fed from launcher scripts, which may say anything.
+    """
+    state = _REAL_IS_RUNNING(("not-a-port", -1, 99999, 0, None, 8188),
+                             confirm=False)
+    assert state["probed_ports"] == list(cs.COMFYUI_PORTS)
+    assert cs._port_open(99999) is False
+    assert cs._port_open(-1) is False
+
+
+def test_a_confirmed_launcher_is_still_refused_once_comfyui_answers(
+        portable, monkeypatch):
+    """The "already running" refusal is now decided on a stronger signal, and
+    it still refuses: a valid confirmation for a real launcher starts nothing
+    while ComfyUI is up."""
+    monkeypatch.setattr(cs, "is_running", lambda *a, **k: {
+        "running": True, "ports": [8188], "comfyui_ports": [8188],
+        "confirmed": True, "probed_ports": [8188], "evidence": [],
+        "method": "test", "confidence": "measured", "note": "ComfyUI answered"})
+    calls: list = []
+    monkeypatch.setattr(cs.subprocess, "Popen",
+                        lambda *a, **k: calls.append((a, k)))
+    launcher = cs.resolve_launcher()
+    with pytest.raises(ConflictError):
+        cs.start_comfyui(None, confirm_path=launcher["path"])
+    assert calls == []
+
+
+def test_a_port_that_is_taken_by_something_else_still_blocks_the_updater(
+        portable, monkeypatch):
+    """``running`` may not become the *narrower* claim.
+
+    "It answered as ComfyUI" is a better signal for "do not start a second
+    copy".  It would be a worse one for "do not update the files underneath a
+    running process": something is holding that port, and the update refusal
+    keeps deciding on that.
+    """
+    updater = portable["base"] / "update" / "update_comfyui.bat"
+    updater.parent.mkdir(parents=True, exist_ok=True)
+    updater.write_text("@echo off\r\n", encoding="utf-8")
+    monkeypatch.setattr(cs, "probe_port", lambda port, confirm=True: {
+        "port": port, "open": port == 8188, "families": ["ipv4"],
+        "http_status": 200, "comfyui": False, "error": None})
+    monkeypatch.setattr(cs, "is_running", _REAL_IS_RUNNING)
+    state = cs.is_running()
+    assert state["running"] is True          # the conservative half
+    assert state["confirmed"] is False       # the confident half
+    assert state["confidence"] == "inferred"
+    with pytest.raises(ConflictError):
+        cs.run_updater(None, confirm_path=cs.resolve_updater()["path"])

@@ -102,6 +102,13 @@ function NodeRow({ dep, onOpenUid }) {
             onClick={() => onOpenUid(dep.package.uid)} />
         </div>
       ) : null}
+      {dep.provided_by && dep.provided_by !== 'python' ? (
+        <div className="gp-u-mt-4 gp-u-fs-11 gp-u-muted">
+          {dep.provided_by === 'frontend'
+            ? 'Provided by the ComfyUI interface — nothing to install.'
+            : 'Registered by the package interface code — nothing extra to install.'}
+        </div>
+      ) : null}
       {hint ? (
         <div className="gp-callout gp-callout--info gp-u-mt-4">
           <span className="gp-callout__icon"><Package aria-hidden="true" /></span>

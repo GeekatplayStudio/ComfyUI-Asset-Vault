@@ -18,12 +18,15 @@ from ...core import config_service
 from ...core import db as dbmod
 from ...core.fingerprint import folder_fingerprint
 from ...core.pathsafe import path_key, safe_relpath
-from ...parsers import node_ast, node_registry
+from ...parsers import node_ast, node_js, node_registry
 from ..service import commit_batches, map_cpu
 from ..walker import is_reparse_point
 
 OFFICIAL_FOLDER = "__comfyui_core__"
-FINGERPRINT_EXTS = (".py", ".toml", ".txt", ".md", ".json")
+# ``.js`` is in the list because a package can register node types from its
+# shipped client code (node_js S7); without it, editing that JavaScript would
+# not change the fingerprint and the re-scan would skip the package.
+FINGERPRINT_EXTS = (".py", ".toml", ".txt", ".md", ".json", ".js")
 MAX_FP_FILES = 6000
 
 
@@ -96,7 +99,10 @@ def _fingerprint_folder(root: Path) -> tuple[str, int, int, int]:
                 if is_reparse_point(e):
                     continue
                 if e.is_dir(follow_symlinks=False):
-                    if e.name in node_ast.PRUNE_DIRS or e.name.startswith("."):
+                    pruned = (e.name in node_ast.PRUNE_DIRS
+                              and e.name not in node_js.WEB_DIRS)
+                    if (pruned or e.name.startswith(".")
+                            or e.name in node_js.SKIP_DIRS):
                         continue
                     stack.append(Path(e.path))
                     continue
@@ -200,6 +206,37 @@ def _discover(ctx) -> list[PackageWork]:
     return out
 
 
+def _add_frontend_classes(work: PackageWork, pkg_dir: Path) -> None:
+    """S7 - node types that exist without any Python class behind them.
+
+    Core install: the four virtual nodes the ComfyUI web client draws itself
+    (``Note``, ``MarkdownNote``, ``Reroute``, ``PrimitiveNode``).  They are in
+    no ``/object_info`` response and in no ``.py``, so every workflow carrying
+    a sticky note was reported as needing an uninstallable package.
+
+    Custom package: whatever its own ``web/**/*.js`` registers by name.  Read as
+    text with ``re``; no JavaScript is ever executed.
+    """
+    result = work.result
+    if result is None:
+        return
+    if work.is_official:
+        for node_id, display, description in node_js.CORE_VIRTUAL_NODES:
+            result.add(node_ast.NodeClass(
+                node_id=node_id, display_name=display, description=description,
+                category="utils", registration="frontend",
+            ), "S7", source="ComfyUI frontend")
+        return
+    if work.is_single_file:
+        return
+    for js in node_js.scan_package(pkg_dir):
+        result.add(node_ast.NodeClass(
+            node_id=js.node_id, display_name=js.node_id,
+            source_file=js.source_file, source_lineno=js.source_lineno,
+            registration="javascript",
+        ), "S7", source="web (JavaScript)")
+
+
 def _analyze(work: PackageWork) -> PackageWork:
     p = Path(work.abs_path)
     if work.is_official:
@@ -228,6 +265,7 @@ def _analyze(work: PackageWork) -> PackageWork:
     else:
         work.result = node_ast.extract_package(p)
         work.meta = node_registry.collect_package_meta(p, work.folder_name)
+    _add_frontend_classes(work, p)
     return work
 
 
@@ -339,8 +377,9 @@ def _upsert(conn: sqlite3.Connection, work: PackageWork) -> int | None:
             "INSERT INTO node_classes(package_id,node_id,class_name,display_name,category,"
             "description,input_types_json,return_types_json,return_names_json,output_node,"
             "function_name,is_deprecated,is_experimental,is_api_node,source_file,"
-            "source_lineno,source_strategy,sources_json,confidence,created_at,updated_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+            "source_lineno,source_strategy,sources_json,confidence,registration,"
+            "created_at,updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
             "ON CONFLICT(package_id,node_id) DO UPDATE SET class_name=excluded.class_name, "
             "display_name=excluded.display_name, category=excluded.category, "
             "description=excluded.description, input_types_json=excluded.input_types_json, "
@@ -350,7 +389,8 @@ def _upsert(conn: sqlite3.Connection, work: PackageWork) -> int | None:
             "is_experimental=excluded.is_experimental, is_api_node=excluded.is_api_node, "
             "source_file=excluded.source_file, source_lineno=excluded.source_lineno, "
             "source_strategy=excluded.source_strategy, sources_json=excluded.sources_json, "
-            "confidence=excluded.confidence, updated_at=excluded.updated_at",
+            "confidence=excluded.confidence, registration=excluded.registration, "
+            "updated_at=excluded.updated_at",
             (
                 pkg_id, b(nc.node_id), b(nc.class_name), b(nc.display_name or nc.node_id),
                 b(nc.category), b(nc.description), b(nc.input_types, kind="json"),
@@ -359,7 +399,7 @@ def _upsert(conn: sqlite3.Connection, work: PackageWork) -> int | None:
                 b(nc.is_experimental), b(nc.is_api_node), b(nc.source_file),
                 b(nc.source_lineno, kind="int"), b(nc.primary_strategy),
                 b(sorted(nc.strategies), kind="json"), b(nc.confidence),
-                b(now, kind="int"), b(now, kind="int"),
+                b(nc.registration), b(now, kind="int"), b(now, kind="int"),
             ),
         )
     if keep:

@@ -16,9 +16,9 @@ import { count as fmtCount, humanise, dateTime } from '../../services/format.js'
  *
  * Two things are deliberately quiet here. A failed version check is a callout,
  * never an error toast: the panel has to render with no network at all. And the
- * "is ComfyUI running" probe is a loopback port test, which the API itself
- * labels inferred - so it is painted violet with the "~" marker rather than
- * stated as fact.
+ * "is ComfyUI running" probe reports its own confidence: a port that answered
+ * as ComfyUI is stated plainly, while a port that is merely taken - or a
+ * silence - is painted violet with the "~" marker rather than stated as fact.
  */
 
 function SectionHead({ label, aside }) {
@@ -129,12 +129,18 @@ export default function ComfyUIPanel(props) {
           <span className="gp-u-fw-600 gp-u-num gp-u-fs-15">ComfyUI {info.version}</span>
           <Badge tone="neutral">{info.flavour}</Badge>
           {running.running ? (
-            <Badge tone="warn" title={running.note}>running</Badge>
+            <Badge tone="warn" title={running.note}>
+              {running.confirmed
+                ? 'running'
+                : <span className="gp-inferred"
+                  title={'Decided by a ' + (running.method || 'loopback probe') +
+                    '. ' + (running.note || '')}>port in use</span>}
+            </Badge>
           ) : (
             <Badge tone="neutral" title={running.note || 'Loopback port probe'}>
               {running.confidence === 'inferred'
                 ? <span className="gp-inferred"
-                  title={'Decided by a ' + (running.method || 'loopback tcp probe') +
+                  title={'Decided by a ' + (running.method || 'loopback probe') +
                     '. ' + (running.note || '')}>not running</span>
                 : 'not running'}
             </Badge>

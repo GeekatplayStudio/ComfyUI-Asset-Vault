@@ -243,6 +243,9 @@ def _class_item(row: sqlite3.Row) -> dict:
         "confidence": row["confidence"],
         "source": {"strategy": row["source_strategy"], "file": row["source_file"],
                    "lineno": row["source_lineno"]},
+        # Where the class comes from at runtime: python / javascript /
+        # frontend.  The last two have no Python definition anywhere.
+        "registration": row["registration"],
         "counts": {"workflows": int(row["workflow_count"] or 0)},
     }
 

@@ -53,6 +53,13 @@ class WorkflowResult:
     link_count: int = 0
     group_count: int = 0
     has_subgraphs: bool = False
+    subgraph_count: int = 0
+    #: subgraph id (a UUID) -> its declared name, for every definition the file
+    #: carries.  A node whose ``type`` is one of these keys instantiates that
+    #: subgraph; it is an internal reference, never an installable dependency.
+    subgraph_defs: dict[str, str] = field(default_factory=dict)
+    #: subgraph id -> how many nodes instantiate it.
+    subgraph_types: dict[str, int] = field(default_factory=dict)
     title: str | None = None
     author: str | None = None
     node_types: dict[str, int] = field(default_factory=dict)
@@ -88,6 +95,45 @@ def _read_json(path: str | Path) -> tuple[object | None, str | None, str | None]
         return json.loads(text), None, None
     except ValueError as exc:
         return None, errors.JSON_INVALID, str(exc)[:400]
+
+
+MAX_SUBGRAPH_DEPTH = 8
+MAX_SUBGRAPH_DEFS = 2000
+
+
+def collect_subgraph_defs(data: object) -> dict[str, str]:
+    """Every subgraph id a workflow declares, mapped to its name.
+
+    The frontend stores them under ``definitions.subgraphs`` (and, in older
+    files, a bare ``subgraphs`` list); a node that instantiates one carries the
+    definition's UUID as its ``type``.  Reading only the top level is not
+    enough by construction - a subgraph may declare its own ``definitions`` -
+    so the walk recurses, bounded on both depth and count.
+    """
+    out: dict[str, str] = {}
+
+    def visit(obj: object, depth: int) -> None:
+        if depth > MAX_SUBGRAPH_DEPTH or not isinstance(obj, dict):
+            return
+        lists: list[object] = []
+        defs = obj.get("definitions")
+        if isinstance(defs, dict):
+            lists.append(defs.get("subgraphs"))
+        lists.append(obj.get("subgraphs"))
+        for entries in lists:
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                sid = entry.get("id")
+                if isinstance(sid, str) and sid and len(out) < MAX_SUBGRAPH_DEFS:
+                    name = entry.get("name")
+                    out[sid] = str(name)[:200] if isinstance(name, str) else sid
+                visit(entry, depth + 1)
+
+    visit(data, 0)
+    return out
 
 
 def _detect_format(data: object) -> tuple[str, dict | None, dict | None]:
@@ -145,6 +191,8 @@ def analyze(path: str | Path, *, name: str | None = None) -> WorkflowResult:
 
     fmt, api, ui = _detect_format(data)
     res.fmt = fmt
+    res.subgraph_defs = collect_subgraph_defs(data)
+    res.subgraph_count = len(res.subgraph_defs)
     if api is None and ui is None:
         res.error_code = errors.JSON_INVALID
         res.error_message = "File is JSON but not a ComfyUI workflow."
@@ -157,7 +205,8 @@ def analyze(path: str | Path, *, name: str | None = None) -> WorkflowResult:
         res.link_count = len(links) if isinstance(links, list) else 0
         groups = ui.get("groups")
         res.group_count = len(groups) if isinstance(groups, list) else 0
-        res.has_subgraphs = bool(ui.get("definitions") or ui.get("subgraphs"))
+        res.has_subgraphs = bool(res.subgraph_defs) or bool(
+            ui.get("definitions") or ui.get("subgraphs"))
         ver = ui.get("version")
         res.schema_version = str(ver) if ver is not None else None
         extra = ui.get("extra")
@@ -170,6 +219,13 @@ def analyze(path: str | Path, *, name: str | None = None) -> WorkflowResult:
             for n in nodes:
                 if isinstance(n, dict) and isinstance(n.get("type"), str):
                     t = n["type"]
+                    if t in res.subgraph_defs:
+                        # An instance of a subgraph this very file declares.  It
+                        # is not a node class, so it is not a dependency: the
+                        # UUID used to be recorded as a missing node package.
+                        res.subgraph_types[t] = res.subgraph_types.get(t, 0) + 1
+                        res.has_subgraphs = True
+                        continue
                     res.node_types[t] = res.node_types.get(t, 0) + 1
                     if t in ("Subgraph", "SubgraphNode"):
                         res.has_subgraphs = True
@@ -180,8 +236,13 @@ def analyze(path: str | Path, *, name: str | None = None) -> WorkflowResult:
         if not res.node_types:
             for node in api.values():
                 t = node.get("class_type") if isinstance(node, dict) else None
-                if isinstance(t, str):
-                    res.node_types[t] = res.node_types.get(t, 0) + 1
+                if not isinstance(t, str):
+                    continue
+                if t in res.subgraph_defs:
+                    res.subgraph_types[t] = res.subgraph_types.get(t, 0) + 1
+                    res.has_subgraphs = True
+                    continue
+                res.node_types[t] = res.node_types.get(t, 0) + 1
         if any(":" in str(k) for k in api):
             res.has_subgraphs = True
 

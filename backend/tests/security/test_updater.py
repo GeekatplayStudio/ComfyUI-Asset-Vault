@@ -244,9 +244,11 @@ def test_the_updater_refuses_while_comfyui_appears_to_be_running(portable_instal
     from app.services import comfyui_service
 
     monkeypatch.setattr(comfyui_service, "is_running",
-                        lambda: {"running": True, "ports": [8188],
-                                 "method": "test", "confidence": "inferred",
-                                 "note": "simulated"})
+                        lambda *a, **k: {"running": True, "ports": [8188],
+                                         "comfyui_ports": [8188],
+                                         "confirmed": True, "method": "test",
+                                         "confidence": "measured",
+                                         "note": "simulated"})
     response = client.post(
         "/api/v1/comfyui/update/run",
         json={"confirm_path": str(parent / "update" / "update_comfyui.bat")})
@@ -260,9 +262,11 @@ def test_the_plan_reports_can_run_false_while_comfyui_is_running(portable_instal
     from app.services import comfyui_service
 
     monkeypatch.setattr(comfyui_service, "is_running",
-                        lambda: {"running": True, "ports": [8188],
-                                 "method": "test", "confidence": "inferred",
-                                 "note": "simulated"})
+                        lambda *a, **k: {"running": True, "ports": [8188],
+                                         "comfyui_ports": [8188],
+                                         "confirmed": True, "method": "test",
+                                         "confidence": "measured",
+                                         "note": "simulated"})
     plan = client.get("/api/v1/comfyui/update/plan").json()
     assert plan["can_run"] is False
     assert plan["blocked_reason"] == "comfyui_running"

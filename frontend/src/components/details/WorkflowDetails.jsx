@@ -221,7 +221,10 @@ export default function WorkflowDetails({ id, onOpenUid, onLightbox }) {
             <MetaRow label="nodes" value={fmtCount(counts.nodes)} num />
             <MetaRow label="links" value={fmtCount(counts.links)} num />
             <MetaRow label="groups" value={fmtCount(counts.groups)} num />
-            <MetaRow label="subgraphs" value={wf.has_subgraphs ? 'yes' : 'no'} />
+            <MetaRow label="subgraphs"
+              value={wf.subgraph_count ? fmtCount(wf.subgraph_count)
+                : wf.has_subgraphs ? 'yes' : 'no'}
+              num={!!wf.subgraph_count} />
             <MetaRow label="unresolved inputs" value={wf.unresolved_inputs} num
               tone={wf.unresolved_inputs ? 'danger' : undefined} />
             <MetaRow label="size" value={bytes(wf.size)} num />

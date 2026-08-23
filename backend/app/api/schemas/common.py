@@ -65,6 +65,12 @@ class GroupInfo(Lenient):
     count: int
     bytes: int | None = None
     offset: int | None = None
+    #: Date buckets carry their own bounds (epoch ms, both inclusive) so a
+    #: caller can filter by one without parsing the label.  The labels mix
+    #: relative ("Today") and absolute ("June 2026") forms, so deriving a range
+    #: from the text would break on the first wording or locale change.
+    date_from: int | None = None
+    date_to: int | None = None
 
 
 class TreeNode(Lenient):

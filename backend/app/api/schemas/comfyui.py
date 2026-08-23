@@ -34,9 +34,33 @@ class Updater(Lenient):
     note: str | None = None
 
 
+class PortProbe(Lenient):
+    """One port, seen from both loopback families and then asked who it is."""
+
+    port: int
+    open: bool = False
+    #: Which loopback families accepted a connection: ``ipv4``, ``ipv6``.
+    families: list[str] = []
+    http_status: int | None = None
+    #: True when the port answered as ComfyUI, False when something else did,
+    #: null when nothing was there to ask.
+    comfyui: bool | None = None
+    comfyui_version: str | None = None
+    frontend_version: str | None = None
+    error: str | None = None
+
+
 class RunningProbe(Lenient):
+    #: A listening socket on a candidate port - the conservative signal, and
+    #: what the update refusal is still decided on.
     running: bool = False
     ports: list[int] = []
+    #: Ports that answered as ComfyUI itself.  "Already running, so start
+    #: nothing" is decided on these.
+    comfyui_ports: list[int] = []
+    confirmed: bool = False
+    probed_ports: list[int] = []
+    evidence: list[PortProbe] = []
     method: str | None = None
     confidence: Literal["measured", "inferred"] = "inferred"
     note: str | None = None
@@ -174,6 +198,22 @@ class DeepLink(Lenient):
     source: str | None = None
     template: str | None = None
     verified_against: str | None = None
+    #: Whether the *running* ComfyUI was asked, and what it said.  ``served`` is
+    #: null when ComfyUI was not up to be asked - "addressable" and "served
+    #: right now" are different claims and the plan keeps them apart.
+    checked: bool = False
+    served: bool | None = None
+    served_reason: str | None = None
+    served_note: str | None = None
+
+
+class DeepLinkCheck(Lenient):
+    """The answer the running ComfyUI gave when asked about this address."""
+
+    checked: bool = False
+    served: bool | None = None
+    reason: str | None = None
+    note: str | None = None
 
 
 class WorkflowCopyPlan(Lenient):
@@ -211,6 +251,9 @@ class OpenWorkflowPlan(Lenient):
     url: str
     open_method: Literal["deep_link", "manual"]
     deep_link: DeepLink
+    deep_link_check: DeepLinkCheck | None = None
+    #: The name to pick in ComfyUI's Workflows sidebar when there is no link.
+    filename: str | None = None
     manual_hint: str | None = None
     launcher: Launcher | None = None
     launcher_confirm_path: str | None = None
@@ -244,6 +287,9 @@ class OpenWorkflowResponse(Lenient):
     url: str
     open_method: Literal["deep_link", "manual"]
     deep_link: DeepLink
+    deep_link_check: DeepLinkCheck | None = None
+    filename: str | None = None
+    running: RunningProbe | None = None
     manual_hint: str | None = None
     port: int
     copied: bool = False

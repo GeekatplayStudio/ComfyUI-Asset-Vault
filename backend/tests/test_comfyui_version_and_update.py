@@ -174,9 +174,20 @@ def test_unknown_updater_is_rejected_before_anything_resolves(portable):
 
 
 def test_running_probe_is_honest_about_its_confidence(portable):
+    """The probe may not claim more than it measured.
+
+    This one runs against whatever is really on this machine's loopback, so it
+    pins the *rule* rather than an outcome: "measured" is allowed only when a
+    port answered as ComfyUI, and ``running`` still means no more than "a port
+    is taken" - which is what the update refusal is decided on.
+    """
     probe = cs.is_running()
-    assert probe["confidence"] == "inferred"
     assert "method" in probe and probe["note"]
+    assert probe["confidence"] in ("measured", "inferred")
+    assert (probe["confidence"] == "measured") is bool(probe["comfyui_ports"])
+    assert probe["running"] is bool(probe["ports"])
+    assert set(probe["comfyui_ports"]) <= set(probe["ports"])
+    assert set(probe["ports"]) <= set(probe["probed_ports"])
 
 
 # ---------------------------------------------------------------------------

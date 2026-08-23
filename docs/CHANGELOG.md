@@ -49,6 +49,37 @@ even for a file that appears while the dialog is open. A launcher script naming 
 port no longer strands the start-up state, and a start that cannot be watched now ends and says
 so instead of blocking every later one.
 
+### Fixed — Open in ComfyUI, after the first real use
+
+Three defects, all reported from one session and all reproduced before they were changed.
+
+**ComfyUI was already running and the vault offered to start it anyway.** The plan carries
+"is ComfyUI running", and the front end cached that plan for the life of the tab — so an
+answer measured once, while ComfyUI was down, was replayed for every later open. The dialog
+now measures on every open and carries a **Check again** control, and the server measures
+again at the moment of the request: a stale plan cannot start a second copy of ComfyUI, and
+does not try.
+
+The probe itself is stronger. It reaches **both loopback addresses**, `127.0.0.1` and `::1`,
+because a portable launcher passes `--listen 0.0.0.0` and binds only one of them; it also
+looks at whatever port the launcher scripts pin, not only 8188 and 8189; and it confirms what
+answered by asking ComfyUI's own status endpoint rather than trusting that a taken port is
+ComfyUI. The two claims stay separate: *a port is taken* still blocks an update, while *it
+answered as ComfyUI* is what decides that nothing needs starting.
+
+**ComfyUI opened, and the workflow did not.** Two causes, one for each half. The vault
+declared ComfyUI ready the moment a TCP connection was accepted — before the server was
+actually serving — so the address could arrive too early to load anything; readiness now
+means ComfyUI answered. And a bundled example graph has an address only while ComfyUI is
+loading the package that owns it, which the vault never checked: when ComfyUI is running, the
+address is now confirmed against it first, and a graph it is not serving is opened as a plain
+ComfyUI window that says which file to pick and why the link could not be used.
+
+**It opened a tab; the owner asked for a window.** It is a window now, sized and centred with
+real window features. It is opened once per launch rather than twice, and if the browser
+blocks it — which it will, for a window opened when a background task finishes — the dialog
+says so plainly and gives a button that opens it from a real click.
+
 ### Honest about what ComfyUI supports
 
 The ComfyUI frontend this install serves (1.49.6) can be told by URL to open an official
