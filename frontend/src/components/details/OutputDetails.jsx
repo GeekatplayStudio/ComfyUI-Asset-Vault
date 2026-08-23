@@ -13,6 +13,7 @@ import {
   bytes, dateTime, dimensions, duration, count as fmtCount
 } from '../../services/format.js'
 import { useVault } from '../../state/VaultContext.jsx'
+import InlinePlayer, { isPlayable } from '../common/InlinePlayer.jsx'
 
 /*
  * OutputDetails - the full generation record behind one output file.
@@ -119,12 +120,18 @@ export default function OutputDetails({ id, onOpenUid, onLightbox }) {
       </div>
 
       <div className="gp-details__body">
-        <button type="button" className="gp-details__hero"
-          onClick={() => onLightbox(out.uid)}
-          aria-label="Open a full size preview" title="Open a full size preview">
-          <img src={thumbnailUrl(out.uid, 640)} width="640" height="400"
-            loading="lazy" decoding="async" alt="" />
-        </button>
+        <div className="gp-details__herowrap">
+          <button type="button" className="gp-details__hero"
+            onClick={() => onLightbox(out.uid)}
+            aria-label="Open a full size preview" title="Open a full size preview">
+            <img src={thumbnailUrl(out.uid, 640)} width="640" height="400"
+              loading="lazy" decoding="async" alt="" />
+          </button>
+          {isPlayable(out.media_kind) ? (
+            <InlinePlayer uid={out.uid} mediaKind={out.media_kind}
+              label={'Play ' + (out.filename || 'this output')} />
+          ) : null}
+        </div>
 
         <div className="gp-u-row gp-u-gap-3 gp-u-mb-6 gp-u-wrap">
           <Button size="sm" icon={Maximize2} label="Full size"

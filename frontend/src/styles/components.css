@@ -505,3 +505,22 @@ button.gp-chip--selected:hover{background:var(--gp-selected-strong);border-color
 .gp-badge--neutral,.gp-badge--hash-unhashed,.gp-badge--dep-unknown,.gp-badge--mode-lexical,
 .gp-badge--integrity-unsupported-format,.gp-badge--conf-registry{color:var(--gp-meta)}
 
+/* --- inline media playback ------------------------------------------------
+   A play affordance over a poster, and the player it becomes.  The button is a
+   sibling of the thumb (never nested inside it -- the thumb is already a
+   button) and is positioned over it, the same way .gp-card__check is. */
+.gp-card__mediawrap,.gp-details__herowrap{position:relative;display:block}
+.gp-play{position:absolute;display:grid;place-items:center;border-radius:50%;background:var(--gp-bg-inset);border:1px solid var(--gp-line-ctl);color:var(--gp-fg-100);opacity:.92;transition:background var(--gp-tr-micro),border-color var(--gp-tr-micro),opacity var(--gp-tr-micro),transform var(--gp-tr-micro)}
+.gp-play svg{width:45%;height:45%;fill:currentColor;transform:translateX(4%)}
+.gp-play:hover{background:var(--gp-brand-200);border-color:var(--gp-brand-300);color:var(--gp-fg-on-brand);opacity:1;transform:scale(1.06)}
+.gp-play:focus-visible{outline:2px solid var(--gp-focus);outline-offset:2px;opacity:1}
+.gp-play--md{width:44px;height:44px;inset:auto auto 50% 50%;translate:-50% 50%}
+.gp-play--sm{width:26px;height:26px;position:static;translate:none;flex:0 0 auto}
+.gp-play__stage{position:absolute;inset:0;display:grid;place-items:center;background:var(--gp-bg-inset);z-index:2}
+.gp-play__media{width:100%;height:100%;object-fit:contain;display:block;background:var(--gp-bg-inset)}
+audio.gp-play__media{height:auto;align-self:center;padding:0 var(--gp-s-4)}
+/* The row player needs real height; a 16:9 frame at row height is unusable. */
+.gp-row .gp-play__stage{inset:0 0 auto 0;height:var(--gp-row-player-h);z-index:5;border:1px solid var(--gp-line-300);border-radius:var(--gp-r-1)}
+.gp-row--playing{z-index:5}
+.gp-details__hero .gp-play__stage,.gp-details__hero+.gp-play__stage{border-radius:var(--gp-r-2)}
+@media (prefers-reduced-motion:reduce){.gp-play,.gp-play:hover{transition:none;transform:none}}

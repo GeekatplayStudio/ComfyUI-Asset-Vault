@@ -22,6 +22,7 @@ import FirstLaunchWizard from '../modals/FirstLaunchWizard.jsx'
 import { useVault } from '../../state/VaultContext.jsx'
 import { SkeletonRows } from '../common/Skeleton.jsx'
 import { parseUid } from '../../services/format.js'
+import useExclusiveMedia from '../../hooks/useExclusiveMedia.js'
 
 /* Storage is a secondary workspace with its own panels, dialogs and stream
    handling. Splitting it keeps the first paint - the four asset tabs - inside
@@ -60,6 +61,9 @@ export default function AppShell() {
   const [resizing, setResizing] = useState(false)
   const tabApi = useRef({})
   const searchRef = useRef(null)
+
+  // Only one video or audio element plays at a time, anywhere in the app.
+  useExclusiveMedia()
 
   const tab = state.tab
   const viewKey = TAB_TO_VIEW[tab] || 'models'

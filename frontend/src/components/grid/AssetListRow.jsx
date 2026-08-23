@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Trash2, Pencil } from 'lucide-react'
 import { thumbnailUrl } from '../../services/api.js'
 import { presentAsset } from './AssetCard.jsx'
+import InlinePlayer, { isPlayable } from '../common/InlinePlayer.jsx'
 
 /*
  * AssetListRow - the dense list mode. Numbers live in __cell--num so columns of
@@ -32,7 +33,11 @@ function AssetListRow(props) {
   } = props
   const p = presentAsset(item, scope)
 
+  const [playing, setPlaying] = useState(false)
+  useEffect(() => { setPlaying(false) }, [p.uid])
+
   const classes = ['gp-row', 'gp-focus-inset']
+  if (playing) classes.push('gp-row--playing')
   if (selected || checked) classes.push('gp-row--selected')
   if (p.missing) classes.push('gp-row--missing')
   if (p.error) classes.push('gp-row--error')
@@ -60,6 +65,15 @@ function AssetListRow(props) {
         return <span key={cell.key} className={cls.join(' ')}>{cell.node}</span>
       })}
       <span className="gp-row__actions">
+        {isPlayable(item.media_kind) ? (
+          <InlinePlayer
+            uid={p.uid}
+            mediaKind={item.media_kind}
+            size="sm"
+            label={'Play ' + p.title}
+            onActivate={() => setPlaying(true)}
+          />
+        ) : null}
         {onRename ? (
           <button
             type="button"

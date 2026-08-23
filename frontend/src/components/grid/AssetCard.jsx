@@ -4,6 +4,7 @@ import {
   FileText, Star, AlertTriangle
 } from 'lucide-react'
 import { thumbnailUrl } from '../../services/api.js'
+import InlinePlayer, { isPlayable } from '../common/InlinePlayer.jsx'
 import { bytes, params, dimensions, duration, humanise } from '../../services/format.js'
 import Badge, { HashBadge, IntegrityBadge, BaseModelBadge } from '../common/Badge.jsx'
 
@@ -239,6 +240,7 @@ function AssetCard(props) {
       data-uid={p.uid}
       onContextMenu={onContextMenu}
     >
+      <div className="gp-card__mediawrap">
       <button
         type="button"
         className={'gp-card__thumb gp-focus-inset' + (p.wide ? ' gp-card__thumb--wide' : '')}
@@ -265,6 +267,14 @@ function AssetCard(props) {
           </div>
         ) : null}
       </button>
+      {isPlayable(item.media_kind) ? (
+        <InlinePlayer
+          uid={p.uid}
+          mediaKind={item.media_kind}
+          label={'Play ' + p.title}
+        />
+      ) : null}
+      </div>
       <label className="gp-card__check gp-check" onClick={(e) => e.stopPropagation()}>
         <input
           className="gp-check__input"

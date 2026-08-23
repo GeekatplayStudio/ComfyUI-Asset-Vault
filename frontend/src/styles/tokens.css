@@ -144,6 +144,8 @@
      Thumbnail tier (API_CONTRACT §10): <=180 -> 160, <=360 -> 320, else 640. */
   --gp-grid-size:180px;
   --gp-grid-gap:var(--gp-s-5);
+  /* Height of the player that opens over a list row. */
+  --gp-row-player-h:180px;
   --gp-grid-meta-h:52px;
   --gp-row-h:34px;
   --gp-tree-row-h:26px;
