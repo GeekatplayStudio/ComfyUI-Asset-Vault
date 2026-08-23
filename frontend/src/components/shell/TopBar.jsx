@@ -1,13 +1,14 @@
 import React from 'react'
 import {
   Box, Package, Workflow, Image as ImageIcon, HardDrive,
-  Settings, Activity, RefreshCw, Hash
+  Settings, Activity, RefreshCw, Hash, Coffee, Globe
 } from 'lucide-react'
 import Button from '../common/Button.jsx'
 import Toggle from '../common/Toggle.jsx'
 import SearchInput from '../common/SearchInput.jsx'
 import { TABS } from '../../state/actions.js'
 import { count as fmtCount, parseUid } from '../../services/format.js'
+import { TOP_LINKS } from '../../services/links.js'
 
 /* The Geekatplay mark, inlined so it inherits the amber from its host. */
 function BrandMark() {
@@ -111,6 +112,29 @@ export default function TopBar(props) {
       <div className="gp-topbar__spacer" />
 
       <div className="gp-topbar__actions">
+        {/* Short pair: support the author, and the author's site. The full set
+            with the copyright lives in the rail footer. */}
+        <a
+          className="gp-btn gp-btn--ghost gp-btn--icon gp-linkbtn"
+          href={TOP_LINKS[0].href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={TOP_LINKS[0].label}
+          title={TOP_LINKS[0].label}
+        >
+          <Coffee className="gp-btn__icon" aria-hidden="true" />
+        </a>
+        <a
+          className="gp-btn gp-btn--ghost gp-btn--icon gp-linkbtn"
+          href={TOP_LINKS[1].href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={TOP_LINKS[1].label}
+          title={TOP_LINKS[1].label}
+        >
+          <Globe className="gp-btn__icon" aria-hidden="true" />
+        </a>
+        <span className="gp-topbar__divider" />
         <Button
           variant="ghost"
           iconOnly

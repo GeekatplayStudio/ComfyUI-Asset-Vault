@@ -37,7 +37,7 @@
 .gp-topbar,.gp-rail__header,.gp-toolbar,.gp-facetbar,.gp-details__header{border-bottom:1px solid var(--gp-line-100)}
 .gp-rail__footer,.gp-details__footer,.gp-statusbar{border-top:1px solid var(--gp-line-100)}
 .gp-rail,.gp-details{display:grid;min-width:0;min-height:0}
-.gp-rail__header,.gp-rail__section-head,.gp-rail__footer{display:flex;align-items:center;justify-content:space-between;gap:var(--gp-s-3)}
+.gp-rail__header,.gp-rail__section-head,.gp-rail__footer-top{display:flex;align-items:center;justify-content:space-between;gap:var(--gp-s-3)}
 
 /* Shared eyebrow label: rail title, section heads, details eyebrow + section head. */
 .gp-rail__title,.gp-rail__section-head,.gp-details__eyebrow,.gp-details__section-head,.gp-toolbar__label{
@@ -250,3 +250,15 @@
 .gp-formgrid__label{
   font-size:var(--gp-fs-12);color:var(--gp-fg-200);
   padding-top:var(--gp-s-3)}
+
+/* Rail footer: the attribution block. Short pair of links lives in the top
+   bar; the full set with the copyright lives here. */
+.gp-rail__footer{display:flex;flex-direction:column;gap:var(--gp-s-3)}
+.gp-rail__links{display:flex;flex-direction:column;gap:1px;margin:var(--gp-s-2) 0 0}
+.gp-rail__link{display:flex;align-items:center;gap:var(--gp-s-3);min-width:0;height:20px;padding:0 var(--gp-s-2);border-radius:var(--gp-r-1);font-size:var(--gp-fs-11);color:var(--gp-fg-300);text-decoration:none;transition:color var(--gp-tr-micro),background var(--gp-tr-micro)}
+.gp-rail__link span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gp-rail__link:hover{color:var(--gp-brand-100);background:var(--gp-brand-ghost)}
+.gp-rail__link:focus-visible{outline:2px solid var(--gp-focus);outline-offset:-2px}
+.gp-rail__link-icon{width:12px;height:12px;flex:0 0 auto}
+.gp-rail__copy{margin:var(--gp-s-2) 0 0;padding:0 var(--gp-s-2);font-size:var(--gp-fs-10);line-height:var(--gp-lh-tight);color:var(--gp-fg-400)}
+.gp-rail__copy-sub{color:var(--gp-fg-400)}

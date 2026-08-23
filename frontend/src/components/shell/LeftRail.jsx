@@ -2,7 +2,7 @@ import React, { useMemo, useCallback } from 'react'
 import {
   Folder, Layers, Star, Clock, Hash, ArrowUp, AlertTriangle, Image as ImageIcon,
   Film, Music, Boxes, FileText, Users, ShieldCheck, CheckCircle2, XCircle,
-  Gauge, Copy, Trash2, Package, HardDrive, ShieldQuestion
+  Gauge, Copy, Trash2, Package, HardDrive, ShieldQuestion, Coffee, Globe, Youtube
 } from 'lucide-react'
 import api from '../../services/api.js'
 import useResource from '../../hooks/useResource.js'
@@ -10,6 +10,7 @@ import Tree from '../common/Tree.jsx'
 import { useVault, useTabView } from '../../state/VaultContext.jsx'
 import { STORAGE_SECTIONS } from '../../state/actions.js'
 import { humanise } from '../../services/format.js'
+import { AUTHOR, SUPPORT_URL, SITE_URL, CHANNELS, copyright } from '../../services/links.js'
 
 /*
  * LeftRail - the album / group tree with live counts. Selecting a node writes
@@ -369,10 +370,43 @@ export default function LeftRail() {
       </div>
 
       <div className="gp-rail__footer">
-        <span className="gp-rail__footer-name">Vladimir Chopine</span>
-        <span className="gp-rail__footer-ver">
-          v{(state.info && state.info.version) || '2.0.0'}
-        </span>
+        <div className="gp-rail__footer-top">
+          <span className="gp-rail__footer-name">{AUTHOR}</span>
+          <span className="gp-rail__footer-ver">
+            v{(state.info && state.info.version) || '2.0.0'}
+          </span>
+        </div>
+
+        <nav className="gp-rail__links" aria-label="Geekatplay links">
+          <a className="gp-rail__link" href={SUPPORT_URL}
+            target="_blank" rel="noopener noreferrer"
+            title="Support the author on Gumroad">
+            <Coffee className="gp-rail__link-icon" aria-hidden="true" />
+            <span>Buy me a coffee</span>
+          </a>
+          <a className="gp-rail__link" href={SITE_URL}
+            target="_blank" rel="noopener noreferrer"
+            title={AUTHOR + ' — portfolio and courses'}>
+            <Globe className="gp-rail__link-icon" aria-hidden="true" />
+            <span>vladimirchopine.com</span>
+          </a>
+          {CHANNELS.map((c) => (
+            <a key={c.url} className="gp-rail__link" href={c.url}
+              target="_blank" rel="noopener noreferrer"
+              title={c.label + ' on YouTube'}>
+              <Youtube className="gp-rail__link-icon" aria-hidden="true" />
+              <span>{c.label}</span>
+            </a>
+          ))}
+        </nav>
+
+        <p className="gp-rail__copy">
+          {copyright()}
+          <br />
+          <span className="gp-rail__copy-sub">
+            {AUTHOR} — all rights reserved
+          </span>
+        </p>
       </div>
     </aside>
   )
