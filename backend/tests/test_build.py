@@ -88,14 +88,34 @@ def test_the_frontend_builds(repo_root):
         f"npm run build failed:\n{r.stdout[-4000:]}\n{r.stderr[-4000:]}")
 
     dist = frontend / "dist"
-    assert (dist / "index.html").exists(), "the build produced no index.html"
-    js = sorted((dist / "assets").glob("*.js"),
-                key=lambda p: p.stat().st_size, reverse=True)
+    index = dist / "index.html"
+    assert index.exists(), "the build produced no index.html"
+    js = list((dist / "assets").glob("*.js"))
     assert js, "the build produced no JavaScript bundle"
-    kb = js[0].stat().st_size / 1024
-    print(f"\n  [budget] frontend bundle {kb:.2f} kB "
+
+    # The budget is about what a COLD LOAD costs, so it applies to the entry
+    # chunk -- the one index.html actually pulls in -- not to whichever file
+    # happens to be biggest.  Lazy chunks (the Storage tab, the Activity log,
+    # three.js for the 3D preview) are fetched only when the user opens the
+    # thing that needs them, and three alone is larger than the whole app.
+    html = index.read_text(encoding="utf-8")
+    entries = [f for f in js if f.name in html]
+    assert entries, ("no bundle in dist/assets is referenced by index.html; "
+                     "the entry chunk could not be identified")
+    entry = max(entries, key=lambda f: f.stat().st_size)
+    kb = entry.stat().st_size / 1024
+    lazy = sorted((f.name, round(f.stat().st_size / 1024, 1))
+                  for f in js if f not in entries)
+    print(f"\n  [budget] frontend entry {entry.name} {kb:.2f} kB "
           f"(budget {BUNDLE_BUDGET_KB} kB, baseline 344.08 kB)")
-    assert kb <= BUNDLE_BUDGET_KB, f"main bundle is {kb:.1f} kB"
+    if lazy:
+        print(f"  [budget] lazy, off the cold path: {lazy}")
+
+    # three.js only earns its size by staying off the cold path.
+    heavy = [f.name for f in entries if "three" in f.name.lower()]
+    assert not heavy, (f"three.js is in the entry graph ({heavy}); it must stay "
+                       "dynamically imported so it costs nothing until 3D opens")
+    assert kb <= BUNDLE_BUDGET_KB, f"entry bundle is {kb:.1f} kB"
 
 
 def test_no_typescript_was_introduced(repo_root):

@@ -254,12 +254,12 @@ button.gp-chip--selected:hover{background:var(--gp-selected-strong);border-color
 .gp-row--missing{opacity:.6}
 .gp-row:focus-visible{box-shadow:var(--gp-focus-ring-inset)}
 .gp-row__thumb{flex:0 0 auto;width:24px;height:24px;border-radius:var(--gp-r-1);background:var(--gp-placeholder-neutral);object-fit:cover;overflow:hidden}
-.gp-row__name{flex:1 1 auto;min-width:0;color:var(--gp-fg-100)}
+.gp-row__name{flex:1 1 0;min-width:0;color:var(--gp-fg-100)}
 .gp-row__sub{min-width:0;color:var(--gp-meta);font-size:var(--gp-fs-11)}
-.gp-row__cell{flex:0 0 auto;white-space:nowrap;color:var(--gp-meta)}
-.gp-row__cell--num{font-size:var(--gp-fs-11);text-align:right;min-width:72px}
-.gp-row__cell--grow{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.gp-row__actions{flex:0 0 auto;display:flex;gap:var(--gp-s-2);opacity:0;transition:opacity var(--gp-tr-micro)}
+.gp-row__cell{flex:0 0 var(--gp-row-col-w);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--gp-meta)}
+.gp-row__cell--num{font-size:var(--gp-fs-11);text-align:right;flex:0 0 var(--gp-row-col-num-w)}
+.gp-row__cell--grow{flex:1 1 0;min-width:0}
+.gp-row__actions{flex:0 0 var(--gp-row-actions-w);min-width:0;display:flex;justify-content:flex-end;align-items:center;gap:var(--gp-s-2);opacity:0;transition:opacity var(--gp-tr-micro)}
 .gp-row:is(:hover,:focus-within) .gp-row__actions{opacity:1}
 
 /* == 12. Table == */
@@ -526,3 +526,27 @@ audio.gp-play__media{height:auto;align-self:center;padding:0 var(--gp-s-4)}
 @media (prefers-reduced-motion:reduce){.gp-play,.gp-play:hover{transition:none;transform:none}}
 /* An <a> styled as a ghost icon button (external links in the top bar). */
 .gp-linkbtn{text-decoration:none}
+
+/* Stop control on an active player: rewinds and hands the poster back. The
+   native controls already pause; this is the one that closes. */
+.gp-play__stop{position:absolute;top:var(--gp-s-3);right:var(--gp-s-3);z-index:3;display:grid;place-items:center;width:22px;height:22px;border-radius:var(--gp-r-1);background:var(--gp-bg-inset);border:1px solid var(--gp-line-ctl);color:var(--gp-fg-200);opacity:.85;transition:background var(--gp-tr-micro),color var(--gp-tr-micro),opacity var(--gp-tr-micro)}
+.gp-play__stop svg{width:13px;height:13px}
+.gp-play__stop:hover{background:var(--gp-danger-ghost);border-color:var(--gp-danger-100);color:var(--gp-danger-100);opacity:1}
+.gp-play__stop:focus-visible{outline:2px solid var(--gp-focus);outline-offset:2px;opacity:1}
+/* The whole card selects now, so it must read as clickable. */
+.gp-card{cursor:pointer}
+
+/* --- 3D preview -----------------------------------------------------------
+   A viewport, not an editor: orbit, zoom, and a spin toggle. */
+.gp-3d{position:relative;width:100%;aspect-ratio:16/10;border:1px solid var(--gp-line-100);border-radius:var(--gp-r-2);background:var(--gp-bg-inset);overflow:hidden}
+.gp-3d--full{aspect-ratio:auto;height:100%;min-height:60vh;border:none;background:transparent}
+.gp-3d__canvas{position:absolute;inset:0}
+.gp-3d--msg{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--gp-s-4);padding:var(--gp-s-6);text-align:center;font-size:var(--gp-fs-11);color:var(--gp-fg-300)}
+.gp-3d__icon{width:20px;height:20px;color:var(--gp-warn-100)}
+.gp-3d__note,.gp-3d__hint{position:absolute;left:var(--gp-s-4);bottom:var(--gp-s-4);padding:2px var(--gp-s-3);border-radius:var(--gp-r-1);background:var(--gp-bg-000);border:1px solid var(--gp-line-100);font-size:var(--gp-fs-10);color:var(--gp-fg-300);pointer-events:none}
+.gp-3d__error{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--gp-s-3);padding:var(--gp-s-6);text-align:center;font-size:var(--gp-fs-11);color:var(--gp-fg-300);background:var(--gp-bg-inset)}
+.gp-3d__detail{max-width:100%;overflow:hidden;text-overflow:ellipsis;font-family:var(--gp-font-mono);font-size:var(--gp-fs-10);color:var(--gp-fg-400)}
+.gp-3d__spin{position:absolute;top:var(--gp-s-4);right:var(--gp-s-4);display:grid;place-items:center;width:26px;height:26px;border-radius:var(--gp-r-1);background:var(--gp-bg-000);border:1px solid var(--gp-line-ctl);color:var(--gp-fg-200);transition:color var(--gp-tr-micro),border-color var(--gp-tr-micro)}
+.gp-3d__spin svg{width:13px;height:13px}
+.gp-3d__spin--on{color:var(--gp-brand-100);border-color:var(--gp-brand-300)}
+.gp-3d__spin:focus-visible{outline:2px solid var(--gp-focus);outline-offset:2px}

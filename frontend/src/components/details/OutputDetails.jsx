@@ -14,6 +14,7 @@ import {
 } from '../../services/format.js'
 import { useVault } from '../../state/VaultContext.jsx'
 import InlinePlayer, { isPlayable } from '../common/InlinePlayer.jsx'
+const Model3DViewer = React.lazy(() => import('../common/Model3DViewer.jsx'))
 
 /*
  * OutputDetails - the full generation record behind one output file.
@@ -120,6 +121,11 @@ export default function OutputDetails({ id, onOpenUid, onLightbox }) {
       </div>
 
       <div className="gp-details__body">
+        {out.media_kind === 'model3d' ? (
+          <React.Suspense fallback={<div className="gp-3d gp-3d--msg"><p>Loading 3D…</p></div>}>
+            <Model3DViewer uid={out.uid} ext={out.ext} sizeBytes={out.size} />
+          </React.Suspense>
+        ) : (
         <div className="gp-details__herowrap">
           <button type="button" className="gp-details__hero"
             onClick={() => onLightbox(out.uid)}
@@ -132,6 +138,7 @@ export default function OutputDetails({ id, onOpenUid, onLightbox }) {
               label={'Play ' + (out.filename || 'this output')} />
           ) : null}
         </div>
+        )}
 
         <div className="gp-u-row gp-u-gap-3 gp-u-mb-6 gp-u-wrap">
           <Button size="sm" icon={Maximize2} label="Full size"
