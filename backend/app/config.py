@@ -23,12 +23,12 @@ LEGACY_DB_PATH = DATA_DIR / "asset_vault.db"
 THUMB_DIR = DATA_DIR / "thumbs"
 EMBED_MODEL_DIR = DATA_DIR / "models" / "all-MiniLM-L6-v2"
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 # Parser versions.  Bumping one forces a targeted re-parse of that kind only.
 PARSER_VERSION_MODEL = 4
-PARSER_VERSION_NODE = 4
-PARSER_VERSION_WORKFLOW = 3
+PARSER_VERSION_NODE = 5
+PARSER_VERSION_WORKFLOW = 4
 PARSER_VERSION_OUTPUT = 4
 
 TRASH_DIRNAME = ".vault-trash"

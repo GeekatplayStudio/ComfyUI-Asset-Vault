@@ -630,6 +630,39 @@ What holds, verified by execution:
 | Is a launch disclosed and recorded? | **Disclosed, not recorded.** The status carries the resolved path, port, url, pid, trigger and both timestamps, and leaks no environment and no secret. Nothing is persisted — **S-24, open**, the same standing the updater has |
 | Process hygiene | **Sound.** A new console is deliberate; ComfyUI outliving the vault is the design. No pipes are opened, so no handle is held for output that will never be read, and the `Popen` object is the only reference — on Windows there is no `_active` list to leak into. A launcher that exits first is reported with its exit code, a timeout says it timed out, and since S-23 a wait that raises still ends the launch instead of wedging it |
 
+### 8.2 The detection pass — 2026-08-23 (defect fix, no finding)
+
+Three defects were fixed in "Open in ComfyUI" after its first real use: detection missed a
+running ComfyUI, the workflow did not load once it was open, and it opened a tab rather than a
+window. The one change with a security surface is that the liveness probe now speaks HTTP
+where it used to open a socket and drop it. Recorded here because a probe that speaks can be
+pointed somewhere.
+
+* **Reach.** The probe connects only to `127.0.0.1` and `::1`, and only to a port. The host is
+  a literal in `LOOPBACK_PROBES`; the *port* can come from a launcher script on disk, is
+  range-checked, and cannot influence the host. Asserted by
+  `test_the_probe_only_ever_talks_to_the_loopback`.
+* **Request shape.** Two fixed paths (`/system_stats`, the template list) plus the official
+  template index. A template or source name is matched **inside** the answer, as a dict key —
+  it is never interpolated into a request line, which is the obvious implementation of that
+  function and the one that would have been traversable. Asserted by
+  `test_the_probe_requests_fixed_paths_and_nothing_a_caller_chose` with hostile names.
+* **No control moved.** `running` still means "a port is taken" and is still what the update
+  refusal decides on — the new, stronger "it answered as ComfyUI" signal is reported
+  *alongside* it, and is used only to decide that nothing needs starting. A port held by
+  something that is not ComfyUI still blocks the updater
+  (`test_a_port_that_is_taken_by_something_else_still_blocks_the_updater`). The verified-install
+  gate (S-20), the launcher-evidence gate (S-21), `cmd_line_hazard` (S-19), the verbatim path
+  confirmation and the copy containment (S-22) are untouched, and their tests are unchanged.
+* **S-23 shape re-checked at the new entry point.** `is_running` now takes ports discovered
+  from launcher scripts; a value that is not a port is discarded before any socket sees it,
+  and the probe still cannot raise into a caller
+  (`test_a_port_that_is_not_a_port_cannot_strand_the_probe`).
+* **Spawn surface unchanged.** Two `Popen` call sites, and probing starts nothing and writes
+  nothing (`test_probing_starts_nothing_and_writes_nothing`).
+
+S-24 remains open and unchanged: a launch is still disclosed and not recorded.
+
 ---
 
 ## 9. Sign-off

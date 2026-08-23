@@ -24,6 +24,17 @@ import { useVault } from '../../state/VaultContext.jsx'
  *   what is it, what is inside it, is it verified, is there a newer one,
  *   how do I use it, where did it come from, and what already uses it.
  */
+/** `{format, rank, alpha}` as something a person reads: "peft · rank 32". */
+function formatAdapter(adapter) {
+  if (!adapter || typeof adapter !== 'object') return adapter
+  const parts = []
+  if (adapter.format) parts.push(String(adapter.format))
+  if (adapter.rank !== null && adapter.rank !== undefined) parts.push('rank ' + adapter.rank)
+  if (adapter.alpha !== null && adapter.alpha !== undefined) parts.push('alpha ' + adapter.alpha)
+  return parts.length ? parts.join(' · ') : null
+}
+
+
 export default function ModelDetails({ id, onOpenUid, onLightbox }) {
   const { state, toast, toastError, invalidate } = useVault()
   const epoch = state.dataEpoch
@@ -271,7 +282,7 @@ export default function ModelDetails({ id, onOpenUid, onLightbox }) {
             <MetaRow label="trained by" value={build.trained_by} />
             <MetaRow label="training steps" value={build.training_steps} num />
             <MetaRow label="dataset" value={build.dataset_notes} wrap />
-            <MetaRow label="adapter" value={build.adapter} />
+            <MetaRow label="adapter" value={formatAdapter(build.adapter)} />
           </div>
         </Section>
 

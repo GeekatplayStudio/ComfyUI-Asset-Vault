@@ -108,6 +108,7 @@ def _upsert(conn: sqlite3.Connection, work: WorkflowWork) -> int | None:
         b(r.fmt if r.fmt in ("ui", "api", "both", "unknown") else "unknown"),
         b(r.schema_version), b(r.node_count, kind="int"), b(r.link_count, kind="int"),
         b(r.group_count, kind="int"), b(r.has_subgraphs),
+        b(r.subgraph_count, kind="int"),
         b(r.title), b(r.author), b(r.capability_tags, kind="json"),
         b(s.positive_prompt if s else None), b(s.negative_prompt if s else None),
         b(workflow_graph.prompt_summary(s)),
@@ -120,18 +121,20 @@ def _upsert(conn: sqlite3.Connection, work: WorkflowWork) -> int | None:
     conn.execute(
         "INSERT INTO workflows(root_id,abs_path,path_key,rel_path,folder,name,source,"
         "origin,origin_package,"
-        "format,schema_version,node_count,link_count,group_count,has_subgraphs,title,"
+        "format,schema_version,node_count,link_count,group_count,has_subgraphs,"
+        "subgraph_count,title,"
         "author,capability_tags_json,positive_prompt,negative_prompt,prompt_summary,"
         "base_model_family,modality,graph_json,graph_truncated,size,mtime_ns,fingerprint,"
         "parser_version,unresolved_inputs,created_at,updated_at) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
         "ON CONFLICT(path_key) DO UPDATE SET root_id=excluded.root_id, "
         "abs_path=excluded.abs_path, rel_path=excluded.rel_path, folder=excluded.folder, "
         "name=excluded.name, origin=excluded.origin, "
         "origin_package=excluded.origin_package, format=excluded.format, "
         "schema_version=excluded.schema_version, node_count=excluded.node_count, "
         "link_count=excluded.link_count, group_count=excluded.group_count, "
-        "has_subgraphs=excluded.has_subgraphs, title=excluded.title, "
+        "has_subgraphs=excluded.has_subgraphs, "
+        "subgraph_count=excluded.subgraph_count, title=excluded.title, "
         "author=excluded.author, capability_tags_json=excluded.capability_tags_json, "
         "positive_prompt=excluded.positive_prompt, "
         "negative_prompt=excluded.negative_prompt, prompt_summary=excluded.prompt_summary, "

@@ -1,4 +1,4 @@
-"""Static node-class extraction, six strategies (fixes B4).
+"""Static node-class extraction, seven strategies (fixes B4).
 
 **Absolute rule: never ``import``, never ``exec``, never ``eval``, never
 ``subprocess`` a package's code.**  Everything here is ``ast.parse`` over source
@@ -10,6 +10,8 @@ S3  re-export: ``from .mod import NODE_CLASS_MAPPINGS``
 S4  V3 schema: ``Schema(node_id=...)`` / ``IO.Schema(node_id=...)``
 S5  structural class scan: ``INPUT_TYPES`` + one of RETURN_TYPES/FUNCTION/CATEGORY
 S6  registry enrichment (node_registry.py) - no code read at all
+S7  frontend registration (node_js.py): ``web/**/*.js`` string literals,
+    plus the ComfyUI web client's own virtual nodes.  Never executed either.
 """
 
 from __future__ import annotations
@@ -65,10 +67,15 @@ class NodeClass:
     source_file: str | None = None
     source_lineno: int | None = None
     strategies: set[str] = field(default_factory=set)
+    #: Who registers this class at runtime: ``python`` (a class in the package's
+    #: own source), ``javascript`` (the package's ``web/**/*.js``), or
+    #: ``frontend`` (the ComfyUI web client itself).  The last two have no
+    #: Python definition anywhere and must never be reported as missing.
+    registration: str = "python"
 
     @property
     def confidence(self) -> str:
-        if self.strategies & {"S1", "S2", "S3", "S4"}:
+        if self.strategies & {"S1", "S2", "S3", "S4", "S7"}:
             return "declared"
         if "S5" in self.strategies:
             return "inferred"
@@ -76,13 +83,19 @@ class NodeClass:
 
     @property
     def primary_strategy(self) -> str:
-        for s in ("S1", "S2", "S3", "S4", "S5", "S6"):
+        for s in ("S1", "S2", "S3", "S4", "S5", "S7", "S6"):
             if s in self.strategies:
                 return s
         return "S6"
 
     def merge(self, other: NodeClass) -> None:
         self.strategies |= other.strategies
+        # Only a class with no Python definition anywhere is frontend-provided:
+        # a Python class whose JS also registers a widget stays ``python``.
+        if self.strategies & {"S1", "S2", "S3", "S4", "S5"}:
+            self.registration = "python"
+        elif other.registration != "python":
+            self.registration = other.registration
         for attr in ("class_name", "display_name", "category", "description",
                      "input_types", "return_types", "return_names",
                      "function_name", "source_file", "source_lineno"):

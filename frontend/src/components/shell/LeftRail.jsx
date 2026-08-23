@@ -43,6 +43,9 @@ function toNodes(groups, iconOf) {
         : g.label,
       count: g.count,
       bytes: g.bytes,
+      // Keep the server's own group payload: date buckets carry the bounds
+      // needed to filter by them.
+      raw: g,
       icon: iconOf ? iconOf(g) : undefined,
       children: (g.children || []).map((c) => ({
         key: String(c.key),
@@ -350,9 +353,22 @@ export default function LeftRail() {
                   ? view.railKey.slice(section.field.length + 1) : null}
                 onSelect={(node) => {
                   if (section.field === '__date__') {
-                    // Date buckets are a grouping, not a filter: switch the
-                    // grouping instead of narrowing the result set.
-                    patch({ group: 'date', railKey: '__date__:' + node.key })
+                    /* Clicking a date bucket now narrows to it. It used to only
+                       switch the grouping, which looked like nothing happening:
+                       the list regrouped but still showed every month. The
+                       bounds come from the server with the group -- the labels
+                       mix relative ("Today") and absolute ("June 2026") forms,
+                       so deriving a range from the text would be guesswork. */
+                    const g = node.raw || {}
+                    const filters = { ...(view.filters || {}) }
+                    if (g.date_from && g.date_to) {
+                      filters.date_from = g.date_from
+                      filters.date_to = g.date_to
+                    } else {
+                      delete filters.date_from
+                      delete filters.date_to
+                    }
+                    patch({ group: 'date', filters, railKey: '__date__:' + node.key })
                     return
                   }
                   select(section.field, node)

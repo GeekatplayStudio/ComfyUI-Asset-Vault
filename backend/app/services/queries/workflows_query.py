@@ -164,6 +164,7 @@ def _item(row: sqlite3.Row, output_count: int = 0) -> dict:
         },
         "is_runnable": bool(row["is_runnable"]),
         "has_subgraphs": bool(row["has_subgraphs"]),
+        "subgraph_count": int(row["subgraph_count"] or 0),
         "prompt_summary": row["prompt_summary"],
         "size": int(row["size"] or 0),
         "modified_at": int(row["mtime_ns"] or 0) // 1_000_000,
@@ -330,12 +331,16 @@ def workflow_dependencies(workflow_id: int,
             }
             if r["node_class_id"]:
                 pkg = dbmod.one(
-                    conn, "SELECT p.id, p.display_name FROM node_classes nc "
+                    conn, "SELECT p.id, p.display_name, nc.registration "
+                          "FROM node_classes nc "
                           "JOIN node_packages p ON p.id = nc.package_id WHERE nc.id = ?",
                     (int(r["node_class_id"]),))
                 if pkg:
                     entry["package"] = {"uid": f"node_package:{pkg['id']}",
                                         "name": pkg["display_name"]}
+                    # 'javascript'/'frontend' means the web client provides it:
+                    # there is no Python class to install, and never was.
+                    entry["provided_by"] = pkg["registration"]
             else:
                 hint = _registry_hint(str(r["ref_name"]), comfy_root)
                 if hint:

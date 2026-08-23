@@ -1,6 +1,7 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react'
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
-  ExternalLink, ShieldAlert, AlertTriangle, CheckCircle2, XCircle, Info, Copy
+  ExternalLink, ShieldAlert, AlertTriangle, CheckCircle2, XCircle, Info, Copy,
+  RefreshCw
 } from 'lucide-react'
 import api, { streamUrl } from '../../services/api.js'
 import useResource from '../../hooks/useResource.js'
@@ -26,7 +27,48 @@ import { duration } from '../../services/format.js'
  * Neither is implied by pressing Open. It also refuses to pretend about deep
  * links: this ComfyUI frontend cannot open a user workflow from a URL, so for
  * those the dialog says so and tells the owner which file to pick.
+ *
+ * Three things this file learned the hard way, from a session where ComfyUI
+ * started, opened, and showed an empty canvas:
+ *
+ *   - liveness is never read from a cache. The plan carries "is ComfyUI
+ *     running", and `useResource` keeps a payload for the life of the tab, so
+ *     a plan fetched once while ComfyUI was down went on offering to start it
+ *     for the rest of the session. Every mount fetches its own plan, and there
+ *     is a Check again button for the seconds in between;
+ *   - ComfyUI is opened in a window, with window features, not a tab; and it
+ *     is opened exactly once per launch, from a click wherever a click is
+ *     available - a browser blocks a window opened from a background event,
+ *     which is precisely when the launch finishes;
+ *   - when the graph will not load itself, the dialog says which file to pick
+ *     and what to pick it from, rather than opening a blank ComfyUI.
  */
+
+/* A separate window, not a tab: `popup` plus a size is what makes a browser
+ * detach it. Returns the handle, or null when the browser refused. */
+function openComfyWindow(url) {
+  if (!url) return null
+  const screenW = (window.screen && window.screen.availWidth) || 1440
+  const screenH = (window.screen && window.screen.availHeight) || 900
+  const width = Math.max(900, Math.min(1680, screenW - 80))
+  const height = Math.max(600, Math.min(1050, screenH - 80))
+  const left = Math.max(0, Math.round((screenW - width) / 2))
+  const top = Math.max(0, Math.round((screenH - height) / 2))
+  const features = [
+    'popup=yes', 'noopener', 'noreferrer', 'resizable=yes', 'scrollbars=yes',
+    'width=' + width, 'height=' + height, 'left=' + left, 'top=' + top
+  ].join(',')
+  let opened = null
+  try {
+    opened = window.open(url, '_blank', features)
+  } catch {
+    opened = null
+  }
+  if (opened) {
+    try { opened.focus() } catch { /* a popup may refuse focus; it is still open */ }
+  }
+  return opened
+}
 
 function Check({ checked, onChange, children, id }) {
   return (
@@ -59,10 +101,19 @@ export default function OpenInComfyUIDialog({ uid, name, onClose }) {
   const [elapsed, setElapsed] = useState(0)
   const [failure, setFailure] = useState(null)
   const [popupBlocked, setPopupBlocked] = useState(false)
+  const [openedUrl, setOpenedUrl] = useState(null)
+  const [outcome, setOutcome] = useState(null)
+  const openedRef = useRef(null)
+
+  /* A plan is a snapshot of whether ComfyUI is running, and the resource cache
+     lives as long as the tab. `epoch` is fixed per mount, so opening this
+     dialog always measures again instead of replaying an old answer. */
+  const [epoch] = useState(() => Date.now())
 
   const planned = useResource(
     'comfy:open:' + uid + ':' + (launcherId || 'default'),
-    (s) => api.comfyOpenWorkflowPlan(uid, launcherId || undefined, s)
+    (s) => api.comfyOpenWorkflowPlan(uid, launcherId || undefined, s),
+    { epoch }
   )
   const plan = planned.data
 
@@ -75,10 +126,17 @@ export default function OpenInComfyUIDialog({ uid, name, onClose }) {
       .map((l) => ({ value: l.id, label: l.label + (l.port ? ' - port ' + l.port : '') }))
   }, [plan])
 
-  /* Opening the tab is the last thing that happens, never the first. */
-  const openTab = useCallback((url) => {
-    const opened = window.open(url, '_blank', 'noopener,noreferrer')
+  /* Opening the window is the last thing that happens, never the first - and
+     exactly once: `ready` and `done` both arrive on a successful launch, and
+     opening twice piles up windows and makes the browser block the second one,
+     which then reads as "it was blocked" when it was not. */
+  const openComfy = useCallback((url, { force } = {}) => {
+    if (!url) return false
+    if (!force && openedRef.current === url) return true
+    const opened = openComfyWindow(url)
+    openedRef.current = opened ? url : null
     setPopupBlocked(!opened)
+    setOpenedUrl(opened ? url : null)
     return Boolean(opened)
   }, [])
 
@@ -88,14 +146,14 @@ export default function OpenInComfyUIDialog({ uid, name, onClose }) {
     } else if (event === 'ready' || (event === 'done' && payload && payload.ready)) {
       setStage('ready')
       setElapsed((payload && payload.elapsed_ms) || 0)
-      if (payload && payload.url) openTab(payload.url)
+      if (payload && payload.url) openComfy(payload.url)
     } else if (event === 'error' || (event === 'done' && payload && !payload.ready)) {
       setStage('failed')
       setFailure((payload && (payload.error || payload.message)) || 'ComfyUI did not start.')
     } else if (event === 'poll' && payload) {
       if (payload.status === 'ready') {
         setStage('ready')
-        if (payload.url) openTab(payload.url)
+        if (payload.url) openComfy(payload.url)
       } else if (payload.status === 'failed') {
         setStage('failed')
         setFailure(payload.error || 'ComfyUI did not start.')
@@ -103,7 +161,7 @@ export default function OpenInComfyUIDialog({ uid, name, onClose }) {
         setElapsed(payload.elapsed_ms)
       }
     }
-  }, [openTab])
+  }, [openComfy])
 
   const events = useMemo(() => ['open', 'phase', 'waiting', 'ready', 'error', 'done'], [])
   useEventSource(streamUrl('comfyui/launch'), {
@@ -149,19 +207,29 @@ export default function OpenInComfyUIDialog({ uid, name, onClose }) {
         })
       }
       if (result.started) {
+        setOutcome(result)
         setStage('starting')
         setElapsed(0)
       } else {
+        /* Already running: the backend measured that again and started
+           nothing, whatever this plan said a moment ago. This is still inside
+           the click, so the window is allowed to open. */
         setStage('ready')
-        openTab(result.url)
+        setOutcome(result)
+        openComfy(result.url)
       }
     } catch (err) {
       toastError(err, 'Could not open this workflow in ComfyUI')
       setFailure(err.message)
+      /* "ComfyUI is already running" as an error can only mean this plan was
+         measured before it came up. Measure again so the dialog stops
+         offering to start it. */
+      if (err && /already running/i.test(err.message || '')) planned.refresh()
     } finally {
       setBusy(false)
     }
-  }, [plan, uid, needsStart, wantCopy, copyPlan.destination, toast, toastError, openTab])
+  }, [plan, uid, needsStart, wantCopy, copyPlan.destination, toast, toastError,
+    openComfy, planned])
 
   /* ---------------------------------------------------------------- footer */
   let footer = null
@@ -186,6 +254,11 @@ export default function OpenInComfyUIDialog({ uid, name, onClose }) {
   }
 
   const deep = (plan && plan.deep_link) || {}
+  const loadsItself = Boolean(plan && plan.open_method === 'deep_link')
+  const filename = (plan && plan.filename) || (plan && plan.name) || name || ''
+  /* Addressable in principle, but the running ComfyUI says it is not serving
+     it: the one case where a link would open ComfyUI and quietly do nothing. */
+  const linkNotServed = Boolean(deep.supported && deep.served === false)
 
   return (
     <Modal
@@ -211,21 +284,52 @@ export default function OpenInComfyUIDialog({ uid, name, onClose }) {
       {plan && stage === 'plan' ? (
         <>
           {/* What ComfyUI will actually do with this file, stated first. */}
-          <div className={'gp-callout gp-callout--' + (deep.supported ? 'ok' : 'info')}>
+          <div className={'gp-callout gp-callout--'
+            + (loadsItself ? 'ok' : linkNotServed ? 'warn' : 'info')}>
             <span className="gp-callout__icon">
-              {deep.supported
+              {loadsItself
                 ? <CheckCircle2 aria-hidden="true" />
-                : <Info aria-hidden="true" />}
+                : linkNotServed
+                  ? <AlertTriangle aria-hidden="true" />
+                  : <Info aria-hidden="true" />}
             </span>
             <div className="gp-callout__body">
               <div className="gp-callout__title">
-                {deep.supported
+                {loadsItself
                   ? 'ComfyUI will load this graph itself'
-                  : 'ComfyUI cannot be told to open this file from a link'}
+                  : linkNotServed
+                    ? 'The running ComfyUI is not serving this graph'
+                    : 'ComfyUI cannot be told to open this file from a link'}
               </div>
-              {deep.explanation}
+              {linkNotServed ? deep.served_note : deep.explanation}
+              {loadsItself && deep.checked ? (
+                <div className="gp-u-fs-11 gp-u-meta gp-u-mt-4">
+                  Confirmed against the running ComfyUI: it lists this graph as
+                  one it serves, so the address will not open an empty canvas.
+                </div>
+              ) : null}
             </div>
           </div>
+
+          {/* Which file to pick, whenever the address will not do it for you. */}
+          {!loadsItself ? (
+            <div className="gp-callout gp-callout--info gp-u-mt-5">
+              <span className="gp-callout__icon"><Info aria-hidden="true" /></span>
+              <div className="gp-callout__body">
+                <div className="gp-callout__title">
+                  ComfyUI opens at its own address; you pick the file
+                </div>
+                In ComfyUI, open the <strong>Workflows</strong> sidebar and choose
+                {' '}<strong>{filename}</strong>.
+                {plan.copy && plan.copy.needed ? (
+                  <div className="gp-u-fs-11 gp-u-meta gp-u-mt-4">
+                    It is in that sidebar only if it lives in your ComfyUI
+                    workflows folder - the copy below puts it there.
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
 
           <div className="gp-u-fs-10 gp-u-caps gp-u-meta gp-u-mt-6 gp-u-mb-4">
             The address that will be opened
@@ -238,24 +342,31 @@ export default function OpenInComfyUIDialog({ uid, name, onClose }) {
             <MetaRow label="File" value={plan.abs_path} wrap />
             <MetaRow
               label="ComfyUI is"
-              value={running.running
-                ? 'accepting connections on port ' + plan.port
-                : 'not responding on any port'}
+              value={running.confirmed
+                ? 'running and answering on port ' + plan.port
+                : running.running
+                  ? 'holding port ' + plan.port + ', but it did not answer as ComfyUI'
+                  : 'not answering on ' + ((running.probed_ports || []).join(', ')
+                    || 'any known port')}
               inferred={running.confidence === 'inferred'}
-              inferredTitle={'Decided by a ' + (running.method || 'loopback tcp probe') +
+              inferredTitle={'Decided by a ' + (running.method || 'loopback probe') +
                 '. ' + (running.note || '')}
-              tone={running.running ? 'ok' : undefined}
+              tone={running.confirmed ? 'ok' : undefined}
             />
             <MetaRow label="Port" value={String(plan.port)} num
               title={plan.port_reason} />
           </div>
 
-          {!deep.supported && plan.manual_hint ? (
-            <div className="gp-callout gp-callout--warn gp-u-mt-5">
-              <span className="gp-callout__icon"><AlertTriangle aria-hidden="true" /></span>
-              <div className="gp-callout__body">{plan.manual_hint}</div>
-            </div>
-          ) : null}
+          {/* Liveness is measured, and it can change while this dialog is open. */}
+          <div className="gp-u-row gp-u-gap-3 gp-u-mt-4">
+            <Button size="sm" variant="ghost" icon={RefreshCw}
+              label="Check again"
+              loading={planned.loading}
+              title="Probe ComfyUI's ports again and rebuild this plan"
+              onClick={() => { setAckStart(false); planned.refresh() }} />
+            <span className="gp-u-fs-11 gp-u-meta">{running.note}</span>
+          </div>
+
 
           {/* Gate 1 - a write into the ComfyUI installation. */}
           {copyPlan.needed ? (
@@ -373,7 +484,7 @@ export default function OpenInComfyUIDialog({ uid, name, onClose }) {
           <div className="gp-u-row gp-u-gap-4 gp-u-mb-5">
             <span className="gp-spinner gp-spinner--sm" aria-hidden="true" />
             <span className="gp-u-fs-11 gp-u-meta">
-              Waiting for ComfyUI to accept connections - {duration(elapsed)} so far
+              Waiting for ComfyUI to answer on its own port - {duration(elapsed)} so far
             </span>
           </div>
           <div className="gp-callout gp-callout--info">
@@ -381,7 +492,8 @@ export default function OpenInComfyUIDialog({ uid, name, onClose }) {
             <div className="gp-callout__body">
               A cold start loads every installed node package, so this can take a
               few minutes. ComfyUI's own console window shows exactly where it is.
-              The tab opens by itself as soon as the port answers.
+              The window opens by itself as soon as ComfyUI answers - if your
+              browser blocks it, this dialog gives you a button to open it.
             </div>
           </div>
         </>
@@ -392,25 +504,68 @@ export default function OpenInComfyUIDialog({ uid, name, onClose }) {
           <div className="gp-callout gp-callout--ok">
             <span className="gp-callout__icon"><CheckCircle2 aria-hidden="true" /></span>
             <div className="gp-callout__body">
-              <div className="gp-callout__title">ComfyUI is answering</div>
-              {plan && plan.deep_link && plan.deep_link.supported
-                ? 'The graph is loading in the new tab.'
-                : (plan && plan.manual_hint) || 'Pick the workflow from the sidebar.'}
+              <div className="gp-callout__title">
+                {(outcome && outcome.already_running)
+                  ? 'ComfyUI was already running - nothing was started'
+                  : 'ComfyUI is answering'}
+              </div>
+              {loadsItself
+                ? (popupBlocked
+                  ? 'The address below loads the graph. Your browser refused to '
+                    + 'open it by itself, so use the button.'
+                  : 'The graph is loading in the ComfyUI window.')
+                : 'ComfyUI is open at its own address. The graph is not loaded '
+                  + 'for you - this build of ComfyUI has no link that can - so '
+                  + 'pick it yourself.'}
             </div>
           </div>
+
+          {/* Say it once more where it is needed, with the name to look for. */}
+          {!loadsItself ? (
+            <div className="gp-callout gp-callout--info gp-u-mt-5">
+              <span className="gp-callout__icon"><Info aria-hidden="true" /></span>
+              <div className="gp-callout__body">
+                In ComfyUI, open the <strong>Workflows</strong> sidebar and choose
+                {' '}<strong>{filename}</strong>.
+              </div>
+            </div>
+          ) : null}
+
           {popupBlocked ? (
             <div className="gp-callout gp-callout--warn gp-u-mt-5">
               <span className="gp-callout__icon"><AlertTriangle aria-hidden="true" /></span>
               <div className="gp-callout__body">
-                <div className="gp-callout__title">The browser blocked the new tab</div>
-                <a className="gp-btn gp-btn--sm gp-u-mt-4"
-                  href={(plan && plan.url) || '#'} target="_blank" rel="noreferrer">
-                  <ExternalLink className="gp-btn__icon" aria-hidden="true" />
-                  <span className="gp-btn__label">Open ComfyUI</span>
-                </a>
+                <div className="gp-callout__title">
+                  Your browser blocked the ComfyUI window
+                </div>
+                A window opened from a finished background task is blocked by
+                default. This button is a click, so it is allowed - or allow
+                pop-ups for this site to have it open by itself next time.
+                <div className="gp-u-mt-4">
+                  <Button size="sm" variant="primary" icon={ExternalLink}
+                    label="Open ComfyUI window"
+                    onClick={() => openComfy((outcome && outcome.url)
+                      || (plan && plan.url), { force: true })} />
+                </div>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="gp-u-mt-5">
+              <div className="gp-u-fs-10 gp-u-caps gp-u-meta gp-u-mb-4">
+                Opened in a new window
+              </div>
+              <code className="gp-code gp-u-break-all">
+                {openedUrl || (outcome && outcome.url) || (plan && plan.url)}
+              </code>
+              <div className="gp-u-mt-4">
+                <Button size="sm" variant="ghost" icon={ExternalLink}
+                  label="Open it again"
+                  title="Opens another ComfyUI window at the same address"
+                  onClick={() => openComfy((outcome && outcome.url)
+                    || (plan && plan.url), { force: true })} />
+              </div>
+            </div>
+          )}
         </>
       ) : null}
 

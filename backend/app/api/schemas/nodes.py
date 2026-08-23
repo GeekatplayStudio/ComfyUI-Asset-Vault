@@ -104,6 +104,8 @@ class NodeClassItem(Lenient):
     output_node: bool | None = None
     flags: dict[str, Any] | None = None
     confidence: str | None = None
+    #: python | javascript | frontend - who registers the class at runtime.
+    registration: str | None = None
     source: dict[str, Any] | None = None
     counts: dict[str, Any] | None = None
 

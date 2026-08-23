@@ -104,9 +104,11 @@ def portable(tmp_path):
 
 @pytest.fixture
 def not_running(monkeypatch):
-    monkeypatch.setattr(cs, "is_running", lambda: {
-        "running": False, "ports": [], "method": "loopback tcp probe",
-        "confidence": "inferred", "note": "nothing is listening"})
+    monkeypatch.setattr(cs, "is_running", lambda *a, **k: {
+        "running": False, "ports": [], "comfyui_ports": [], "confirmed": False,
+        "probed_ports": list(cs.COMFYUI_PORTS), "evidence": [],
+        "method": "loopback probe", "confidence": "inferred",
+        "note": "nothing is listening"})
 
 
 # ---------------------------------------------------------------------------
@@ -262,9 +264,11 @@ def test_the_plan_names_the_exact_copy_destination(portable, not_running):
 
 
 def test_a_running_comfyui_is_reported_and_its_port_wins(portable, monkeypatch):
-    monkeypatch.setattr(cs, "is_running", lambda: {
-        "running": True, "ports": [8188], "method": "loopback tcp probe",
-        "confidence": "inferred", "note": "listening"})
+    monkeypatch.setattr(cs, "is_running", lambda *a, **k: {
+        "running": True, "ports": [8188], "comfyui_ports": [8188],
+        "confirmed": True, "probed_ports": [8188, 8189], "evidence": [],
+        "method": "loopback probe", "confidence": "measured",
+        "note": "ComfyUI answered"})
     wid = _add_workflow(portable["root"], "workflows/root_flow.json")
     plan = cs.open_workflow_plan(f"workflow:{wid}")
     assert plan["needs_start"] is False
@@ -349,7 +353,7 @@ def test_a_confirmed_start_runs_the_discovered_argv_with_no_shell(
         return _FakeProc()
 
     monkeypatch.setattr(cs.subprocess, "Popen", _fake_popen)
-    monkeypatch.setattr(cs, "_port_open", lambda port, timeout=0.25: True)
+    monkeypatch.setattr(cs, "_is_serving", lambda port: True)
 
     launcher = cs.resolve_launcher()
     started = cs.start_comfyui(None, confirm_path=launcher["path"])
@@ -381,7 +385,7 @@ def test_a_launcher_that_exits_before_the_port_opens_is_reported_honestly(
             return 1
 
     monkeypatch.setattr(cs.subprocess, "Popen", lambda argv, **k: _Dead())
-    monkeypatch.setattr(cs, "_port_open", lambda port, timeout=0.25: False)
+    monkeypatch.setattr(cs, "_is_serving", lambda port: False)
 
     launcher = cs.resolve_launcher()
     cs.start_comfyui(None, confirm_path=launcher["path"])
@@ -398,7 +402,10 @@ def test_a_launcher_that_exits_before_the_port_opens_is_reported_honestly(
 
 def test_starting_is_refused_while_comfyui_is_already_running(portable,
                                                               monkeypatch):
-    monkeypatch.setattr(cs, "is_running", lambda: {"running": True, "ports": [8188]})
+    monkeypatch.setattr(cs, "is_running",
+                        lambda *a, **k: {"running": True, "ports": [8188],
+                                         "comfyui_ports": [8188],
+                                         "confirmed": True})
     calls: list = []
     monkeypatch.setattr(cs.subprocess, "Popen",
                         lambda *a, **k: calls.append((a, k)))
@@ -410,9 +417,11 @@ def test_starting_is_refused_while_comfyui_is_already_running(portable,
 
 def test_an_already_running_comfyui_is_opened_without_starting_anything(
         portable, monkeypatch):
-    monkeypatch.setattr(cs, "is_running", lambda: {
-        "running": True, "ports": [8188], "method": "loopback tcp probe",
-        "confidence": "inferred", "note": "listening"})
+    monkeypatch.setattr(cs, "is_running", lambda *a, **k: {
+        "running": True, "ports": [8188], "comfyui_ports": [8188],
+        "confirmed": True, "probed_ports": [8188, 8189], "evidence": [],
+        "method": "loopback probe", "confidence": "measured",
+        "note": "ComfyUI answered"})
     calls: list = []
     monkeypatch.setattr(cs.subprocess, "Popen",
                         lambda *a, **k: calls.append((a, k)))
@@ -507,3 +516,269 @@ def test_the_copy_target_is_inside_a_configured_root(portable, not_running):
     roots = [Path(r.path) for r in config_service.get_config().roots]
     destination = Path(plan["copy"]["destination"])
     assert any(destination.is_relative_to(root) for root in roots)
+
+
+# ---------------------------------------------------------------------------
+# Detection - the defect the owner hit: ComfyUI was up and the vault offered to
+# start it anyway, and the graph never loaded once it was open.
+# ---------------------------------------------------------------------------
+
+def _listening_socket(host: str = "0.0.0.0"):  # noqa: S104
+    """A real listening socket on an ephemeral port, answering nothing.
+
+    A wildcard bind is what the owner's launcher actually does
+    (``--listen 0.0.0.0``), and it is the case a 127.0.0.1-only probe has to
+    keep finding.  Nothing else on this machine is touched: the port is chosen
+    by the OS and the socket is closed by the caller.
+    """
+    import socket as _socket
+    import threading
+
+    server = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+    server.bind((host, 0))
+    server.listen(8)
+    port = server.getsockname()[1]
+
+    def _accept_and_close():
+        while True:
+            try:
+                conn, _addr = server.accept()
+            except OSError:
+                return
+            conn.close()
+
+    threading.Thread(target=_accept_and_close, daemon=True).start()
+    return server, port
+
+
+def test_a_wildcard_bind_is_found_on_the_ipv4_loopback():
+    """``--listen 0.0.0.0`` binds the IPv4 wildcard and not the IPv6 one."""
+    # S104 is the point of the test: this is the bind the owner's
+    # launcher makes, on an ephemeral port, closed in the finally.
+    server, port = _listening_socket("0.0.0.0")  # noqa: S104
+    try:
+        assert cs._port_open(port) is True
+        probe = cs.probe_port(port)
+        assert probe["open"] is True
+        assert "ipv4" in probe["families"]
+    finally:
+        server.close()
+
+
+def test_a_port_that_is_taken_but_silent_is_not_called_comfyui():
+    """Running and "it is ComfyUI" are two claims, and only one was measured.
+
+    ``running`` stays true - the update refusal is decided on it and must not
+    get easier to slip past - while ``confirmed`` stays false, because nothing
+    answered as ComfyUI.
+    """
+    server, port = _listening_socket("127.0.0.1")
+    try:
+        # Asserted about this port only: the machine running the suite may
+        # have the owner's real ComfyUI up on 8188, and that is not this test.
+        state = cs.is_running((port,))
+        assert state["running"] is True
+        assert port in state["ports"]
+        assert port not in state["comfyui_ports"]
+        mine = next(e for e in state["evidence"] if e["port"] == port)
+        assert mine["open"] is True
+        assert not mine.get("comfyui")
+    finally:
+        server.close()
+
+
+def test_nothing_listening_is_reported_with_the_ports_it_looked_at():
+    state = cs.is_running(confirm=False)
+    assert set(state["probed_ports"]) >= set(cs.COMFYUI_PORTS)
+    assert state["running"] is bool(state["ports"])
+
+
+def test_both_loopback_families_are_probed(monkeypatch):
+    """An install that binds only ``::1`` is still found."""
+    seen: list = []
+
+    def _only_v6(host, family, port, timeout=cs.SOCKET_PROBE_TIMEOUT_S):
+        seen.append(host)
+        return host == "::1"
+
+    monkeypatch.setattr(cs, "_tcp_open", _only_v6)
+    probe = cs.probe_port(4242, confirm=False)
+    assert probe["open"] is True
+    assert probe["families"] == ["ipv6"]
+    assert {"127.0.0.1", "::1"} <= set(seen)
+
+
+def test_the_launcher_port_is_probed_too(portable, monkeypatch):
+    """A build configured away from 8188/8189 is still detected as running."""
+    install = cs.probe()
+    assert 8189 in cs.launcher_ports(install)   # read out of run_nvidia_gpu.bat
+    asked: list = []
+
+    def _fake_probe(port, confirm=True):
+        asked.append(port)
+        return {"port": port, "open": False, "families": [],
+                "http_status": None, "comfyui": None, "error": None}
+
+    monkeypatch.setattr(cs, "probe_port", _fake_probe)
+    cs.is_running(cs.launcher_ports(install))
+    assert 8189 in asked
+
+
+def test_readiness_needs_comfyui_to_answer_not_only_a_socket(monkeypatch):
+    """The launch used to open the browser on the first TCP connect.
+
+    A socket that accepts is not a server that answers, and a workflow address
+    opened in that gap loads nothing.
+    """
+    monkeypatch.setattr(cs, "probe_port", lambda port, confirm=True: {
+        "port": port, "open": True, "families": ["ipv4"], "http_status": None,
+        "comfyui": None, "error": "RemoteDisconnected"})
+    assert cs._is_serving(8188) is False
+    monkeypatch.setattr(cs, "probe_port", lambda port, confirm=True: {
+        "port": port, "open": True, "families": ["ipv4"], "http_status": 200,
+        "comfyui": True, "error": None})
+    assert cs._is_serving(8188) is True
+
+
+# ---------------------------------------------------------------------------
+# The deep link, checked against the ComfyUI that is actually running
+# ---------------------------------------------------------------------------
+
+def _served(monkeypatch, mapping: dict) -> list:
+    """Answer the template-list request with ``mapping``; record every path."""
+    asked: list = []
+
+    def _fake(port, path, host="127.0.0.1", timeout=0.0):
+        asked.append(path)
+        if path == cs.TEMPLATE_LIST_PATH:
+            return 200, mapping, None
+        if path == cs.HTTP_PROBE_PATH:
+            return 200, {"system": {"comfyui_version": "0.33.0"}, "devices": []}, None
+        return 404, None, "http_404"
+
+    monkeypatch.setattr(cs, "_http_get_json", _fake)
+    return asked
+
+
+def _running(monkeypatch, port: int = 8188) -> None:
+    monkeypatch.setattr(cs, "is_running", lambda *a, **k: {
+        "running": True, "ports": [port], "comfyui_ports": [port],
+        "confirmed": True, "probed_ports": [port], "evidence": [],
+        "method": "test", "confidence": "measured", "note": "ComfyUI answered"})
+
+
+def test_a_deep_link_is_confirmed_against_the_running_comfyui(portable,
+                                                              monkeypatch):
+    wid = _add_workflow(
+        portable["root"],
+        "custom_nodes/ComfyUI-Pack/example_workflows/basic_flow.json")
+    _running(monkeypatch)
+    _served(monkeypatch, {"ComfyUI-Pack": ["basic_flow", "other"]})
+    plan = cs.open_workflow_plan(f"workflow:{wid}")
+    assert plan["open_method"] == "deep_link"
+    assert plan["deep_link"]["served"] is True
+    assert plan["deep_link_check"]["checked"] is True
+    assert plan["url"].endswith("?template=basic_flow&source=ComfyUI-Pack")
+    assert plan["manual_hint"] is None
+
+
+def test_a_package_comfyui_is_not_serving_is_not_offered_as_a_link(portable,
+                                                                   monkeypatch):
+    """The failure that reads as "it opened ComfyUI and did nothing".
+
+    The address is legal, the file is where ComfyUI would serve it from, and
+    the package is not loaded - so the address answers 404 and the canvas stays
+    empty.  The plan says so and names the file to pick instead.
+    """
+    wid = _add_workflow(
+        portable["root"],
+        "custom_nodes/ComfyUI-Pack/example_workflows/basic_flow.json")
+    _running(monkeypatch)
+    _served(monkeypatch, {"SomeOtherPack": ["basic_flow"]})
+    plan = cs.open_workflow_plan(f"workflow:{wid}")
+
+    assert plan["deep_link"]["supported"] is True     # addressable in principle
+    assert plan["deep_link"]["served"] is False       # but not right now
+    assert plan["open_method"] == "manual"
+    assert "?" not in plan["url"]
+    assert plan["filename"] == "basic_flow.json"
+    assert "basic_flow.json" in plan["manual_hint"]
+    assert "not serving" in plan["manual_hint"]
+
+
+def test_a_graph_the_package_no_longer_ships_is_not_offered_as_a_link(
+        portable, monkeypatch):
+    wid = _add_workflow(
+        portable["root"],
+        "custom_nodes/ComfyUI-Pack/example_workflows/basic_flow.json")
+    _running(monkeypatch)
+    _served(monkeypatch, {"ComfyUI-Pack": ["something_else"]})
+    plan = cs.open_workflow_plan(f"workflow:{wid}")
+    assert plan["deep_link"]["served"] is False
+    assert plan["deep_link_check"]["reason"] == "template_not_listed"
+    assert plan["open_method"] == "manual"
+
+
+def test_the_check_is_not_claimed_when_comfyui_is_down(portable, not_running):
+    """Nothing to ask, so nothing is asserted - and the link is still offered."""
+    wid = _add_workflow(
+        portable["root"],
+        "custom_nodes/ComfyUI-Pack/example_workflows/basic_flow.json")
+    plan = cs.open_workflow_plan(f"workflow:{wid}")
+    assert plan["deep_link_check"]["checked"] is False
+    assert plan["deep_link"]["served"] is None
+    assert plan["open_method"] == "deep_link"
+    assert plan["url"].endswith("?template=basic_flow&source=ComfyUI-Pack")
+
+
+def test_the_check_asks_only_for_fixed_paths(portable, monkeypatch):
+    """No caller-derived text ever reaches the probe's request line.
+
+    The template and source names are looked up *inside* the answer, as dict
+    keys - they are never interpolated into a URL the vault requests.
+    """
+    wid = _add_workflow(
+        portable["root"],
+        "custom_nodes/ComfyUI-Pack/example_workflows/basic_flow.json")
+    _running(monkeypatch)
+    asked = _served(monkeypatch, {"ComfyUI-Pack": ["basic_flow"]})
+    cs.open_workflow_plan(f"workflow:{wid}")
+    assert asked
+    assert set(asked) <= {cs.TEMPLATE_LIST_PATH, cs.HTTP_PROBE_PATH,
+                          cs.CORE_TEMPLATE_INDEX_PATH}
+
+
+def test_a_user_workflow_names_the_file_to_pick(portable, monkeypatch):
+    _running(monkeypatch)
+    _served(monkeypatch, {})
+    wid = _add_workflow(portable["root"], "user/default/workflows/mine.json")
+    plan = cs.open_workflow_plan(f"workflow:{wid}")
+    assert plan["open_method"] == "manual"
+    assert plan["filename"] == "mine.json"
+    assert "mine.json" in plan["manual_hint"]
+    assert "Workflows sidebar" in plan["manual_hint"]
+    assert "?" not in plan["url"]
+
+
+def test_a_stale_plan_cannot_start_a_second_comfyui(portable, monkeypatch):
+    """Defect 3, at the choke point.
+
+    A dialog that measured "not running" a while ago will send start=true with
+    a perfectly good confirmation.  ComfyUI is measured again here, and the
+    answer is "it is already up" - not a second copy of it.
+    """
+    _running(monkeypatch)
+    _served(monkeypatch, {})
+    calls: list = []
+    monkeypatch.setattr(cs.subprocess, "Popen",
+                        lambda *a, **k: calls.append((a, k)))
+    wid = _add_workflow(portable["root"], "workflows/root_flow.json")
+    launcher = cs.resolve_launcher()
+
+    result = cs.open_workflow(f"workflow:{wid}", start=True,
+                              confirm_launcher_path=launcher["path"])
+    assert calls == []
+    assert result["started"] is False
+    assert result["already_running"] is True
+    assert result["ready"] is True
+    assert "started nothing" in result["note"]

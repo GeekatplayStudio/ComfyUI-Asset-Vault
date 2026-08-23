@@ -13,6 +13,20 @@ export default function MetaRow(props) {
     label, value, num, tone, inferred, inferredTitle, wrap, title, empty
   } = props
 
+  /* A value that arrives as an object used to throw "Objects are not valid as
+     a React child" and take the entire details panel down with it -- one
+     unexpected field shape blanking the whole pane is a bad trade. Render
+     something legible instead, and let the caller format it properly when it
+     knows how. */
+  if (value !== null && typeof value === 'object' && !React.isValidElement(value)) {
+    value = Array.isArray(value)
+      ? value.join(', ')
+      : Object.entries(value)
+        .filter(([, v]) => v !== null && v !== undefined && v !== '')
+        .map(([k, v]) => `${k} ${v}`)
+        .join(' · ')
+  }
+
   const missing = value === null || value === undefined || value === ''
   const classes = ['gp-meta__val']
   if (num) classes.push('gp-meta__val--num')

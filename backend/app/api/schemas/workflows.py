@@ -33,6 +33,9 @@ class WorkflowItem(Lenient):
     counts: WorkflowCounts | None = None
     is_runnable: bool | None = None
     has_subgraphs: bool | None = None
+    #: How many subgraph definitions the file declares.  Nodes that
+    #: instantiate one are internal references, not dependencies.
+    subgraph_count: int | None = None
     prompt_summary: str | None = None
     size: int | None = None
     modified_at: int | None = None
