@@ -94,6 +94,10 @@ into RAM** — a multi-gigabyte checkpoint is inspected in milliseconds. For eac
 Every fact on a model card says where it came from. **Amber means measured from your files. Violet
 means inferred, and is marked with a `~`.** A guess is never dressed up as a fact.
 
+The model browser is designed for dense libraries: the category sidebar keeps folders and base-model
+families within reach, while filter groups remain horizontally scrollable with a visible scrollbar
+when the centre panel is narrow. No Base or category option is hidden outside the usable area.
+
 ![Deep technical detail for a single model: component breakdown, detection signals, hash state](docs/screenshots/02-model-detail.png)
 
 ### Custom & official nodes
