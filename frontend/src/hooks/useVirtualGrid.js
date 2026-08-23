@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useLayoutEffect, useEffect, useRef, useMemo, useCallback } from 'react'
 
 /*
  * useVirtualGrid - hand-rolled windowing for the asset grid and list.
@@ -108,15 +108,16 @@ export default function useVirtualGrid(opts) {
     : Math.max(tile, Math.floor((width - gap * (columns - 1)) / columns))
 
   const estimatedRow = mode === 'list' ? 34 : columnWidth + 66
-  const [measuredRow, setMeasuredRow] = useState(0)
 
-  // A change of mode or column width invalidates the measurement.
+  /* Row height is measured, not assumed -- but a measurement only describes the
+     geometry it was taken in.  A 200px grid card measures ~307px; a list row is
+     34px.  So the height is stored WITH the geometry it belongs to, and a
+     measurement from a different geometry is ignored rather than kept.
+     Taking the max across geometries (which this used to do) left list rows
+     pitched at a grid card's height after switching modes. */
   const geometryKey = mode + ':' + columnWidth
-  const geometryRef = useRef(geometryKey)
-  if (geometryRef.current !== geometryKey) {
-    geometryRef.current = geometryKey
-    if (measuredRow !== 0) setMeasuredRow(0)
-  }
+  const [measured, setMeasured] = useState({ key: '', h: 0 })
+  const measuredRow = measured.key === geometryKey ? measured.h : 0
 
   const rowPitch = (measuredRow || estimatedRow) + (mode === 'list' ? 0 : gap)
   const headerEstimate = 34
@@ -196,11 +197,48 @@ export default function useVirtualGrid(opts) {
   }, [sections, scrollTop, viewport, rowPitch, columns])
 
   /* ------------------------------------------------------- row measurement */
+  /* Keyed on geometryKey so the identity changes when the layout does: React
+     then detaches and re-attaches the ref, which is the only thing that makes
+     it re-measure.  A stable callback is never called again for a DOM node
+     React reuses across the switch, so the old height would simply persist.
+
+     The row is then OBSERVED rather than sampled once.  The first measurement
+     of a fresh grid lands before the thumbnails have laid out, so a one-shot
+     read captures a too-short row and the whole column pitches on it -- cards
+     overlapped on first paint.  A ResizeObserver corrects itself when the real
+     height arrives. */
+  const keyRef = useRef(geometryKey)
+  keyRef.current = geometryKey
+  const observerRef = useRef(null)
+
   const measureRef = useCallback((node) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect()
+      observerRef.current = null
+    }
     if (!node) return
-    const h = node.offsetHeight
-    if (!h) return
-    setMeasuredRow((prev) => (h > prev ? h : prev))
+    const apply = () => {
+      const h = node.offsetHeight
+      if (!h) return
+      setMeasured((prev) => {
+        // Within one geometry keep the tallest row (titles wrap to two lines);
+        // across geometries always adopt the new measurement.
+        if (prev.key === keyRef.current) {
+          return h > prev.h ? { key: keyRef.current, h } : prev
+        }
+        return { key: keyRef.current, h }
+      })
+    }
+    apply()
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(apply)
+      ro.observe(node)
+      observerRef.current = ro
+    }
+  }, [geometryKey])
+
+  useEffect(() => () => {
+    if (observerRef.current) observerRef.current.disconnect()
   }, [])
 
   const mountedCount = windowed.reduce(
