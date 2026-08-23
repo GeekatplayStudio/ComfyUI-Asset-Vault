@@ -524,3 +524,5 @@ audio.gp-play__media{height:auto;align-self:center;padding:0 var(--gp-s-4)}
 .gp-row--playing{z-index:5}
 .gp-details__hero .gp-play__stage,.gp-details__hero+.gp-play__stage{border-radius:var(--gp-r-2)}
 @media (prefers-reduced-motion:reduce){.gp-play,.gp-play:hover{transition:none;transform:none}}
+/* An <a> styled as a ghost icon button (external links in the top bar). */
+.gp-linkbtn{text-decoration:none}
