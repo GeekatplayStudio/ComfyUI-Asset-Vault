@@ -1,13 +1,15 @@
 # Geekatplay ComfyUI Asset Vault - backend dependencies
 # Runtime
-fastapi>=0.110
+fastapi>=0.135          # so the starlette floor below is satisfiable
+starlette>=1.3.1        # SECURITY_REVIEW S-09: CVE-2026-48818 (UNC/NTLM via StaticFiles)
 uvicorn[standard]>=0.29
-pydantic>=2.0.0
+pydantic>=2.4.0         # SECURITY_REVIEW S-09: CVE-2024-3772 (ReDoS), free to fix
 httpx>=0.27
-python-multipart>=0.0.6
-pillow>=10.3
+pillow>=12.3.0          # SECURITY_REVIEW S-09: 17 CVEs reachable through Image.open
 numpy>=1.24.0
 PyYAML>=6.0.1,<7
+# python-multipart removed: no UploadFile/File(/Form(/request.form() anywhere in
+# app/, so it was an unused dependency carrying nine advisories (S-09).
 
 # Smart search: local ONNX embeddings, CPU only.  Deliberately NOT torch.
 onnxruntime>=1.17,<2

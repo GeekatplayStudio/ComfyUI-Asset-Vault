@@ -60,6 +60,12 @@ SESSION_IDLE_TIMEOUT_S = 30 * 60
 RATE_LIMIT_CALLS = 120
 RATE_LIMIT_WINDOW_S = 60.0
 
+#: SECURITY_REVIEW S-06.  ``initialize`` is unauthenticated by design, so without
+#: a ceiling a client could mint sessions until the process ran out of memory:
+#: 300 calls produced 300 live sessions, each retained for 30 minutes.  A real
+#: deployment has one or two clients; 64 leaves room for reconnect churn.
+MAX_SESSIONS = 64
+
 LOG_LEVELS = ("debug", "info", "notice", "warning", "error", "critical", "alert",
               "emergency")
 
@@ -168,6 +174,7 @@ class SessionStore:
     def create(self, transport: str = "http") -> Session:
         with self._lock:
             self._sweep()
+            self._evict_to(MAX_SESSIONS - 1)
             session = Session(id=uuid.uuid4().hex, transport=transport)
             self._sessions[session.id] = session
             return session
@@ -206,6 +213,25 @@ class SessionStore:
         now = time.monotonic()
         for sid in [s.id for s in self._sessions.values() if s.expired(now)]:
             self._sessions.pop(sid, None)
+
+    def _evict_to(self, ceiling: int) -> int:
+        """Drop least-recently-seen sessions until at most ``ceiling`` remain.
+
+        Called under ``self._lock``.  Evicting the *oldest* is what makes the cap
+        safe to apply: a client that is actually working keeps its session, and
+        only the abandoned ones are reclaimed.
+        """
+        if len(self._sessions) <= ceiling:
+            return 0
+        ordered = sorted(self._sessions.values(), key=lambda s: s.last_seen)
+        dropped = 0
+        for session in ordered[:len(self._sessions) - max(ceiling, 0)]:
+            self._sessions.pop(session.id, None)
+            dropped += 1
+        if dropped:
+            log.info("mcp: evicted %d idle session(s) at the %d-session cap",
+                     dropped, MAX_SESSIONS)
+        return dropped
 
 
 SESSIONS = SessionStore()

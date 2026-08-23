@@ -1224,10 +1224,12 @@ Restore with `POST /api/v1/fileops/trash/restore` (§11). What the trash is hold
 
 ---
 
-## 19. ComfyUI version, updater, and official templates  *(REQUIREMENTS_R2 C8)*
+## 19. ComfyUI version, updater, official templates, and opening a workflow  *(REQUIREMENTS_R2 C8)*
 
-Every route is read-only except `POST /comfyui/update/run`, which is the only place in the entire
-product that starts a process.
+Two routes in this section can start a process: the updater run route, and the open-workflow route
+when it is explicitly asked and confirmed to start ComfyUI. They are the only two in the entire
+product. Everything else here is read-only, apart from the one optional copy into the ComfyUI
+installation described under "Opening a workflow inside ComfyUI".
 
 ### `GET /api/v1/comfyui/info`
 
@@ -1249,9 +1251,12 @@ product that starts a process.
                "comfyui_embedded_docs":"0.5.10"},
   "updaters": [ /* see /update/plan */ ],
   "recommended_updater": "portable",
+  "launchers": [ /* see the open-workflow plan */ ],
+  "recommended_launcher": "run_nvidia_gpu",
   "running": {"running":false,"ports":[],"method":"loopback tcp probe",
               "confidence":"inferred","note":"No ComfyUI port is accepting connections."},
-  "update_status": { /* see /update/status */ }
+  "update_status": { /* see the update status route */ },
+  "launch_status": { /* see the launch status route */ }
 }
 ```
 
@@ -1333,6 +1338,203 @@ Stream events: `open`, `output` (`{"line":"...","n":12}`, capped at 4 000 lines)
 ```
 
 The exit code is always surfaced. A run that exceeds 30 minutes is killed and reported.
+
+### Opening a workflow inside ComfyUI
+
+The owner's ask is one action: open this workflow in ComfyUI, and if ComfyUI is not running,
+offer to start it first. Three things can happen, and each is a separate consent, because
+they are separate acts:
+
+| Act | Consent |
+|---|---|
+| Open a URL | none needed — a URL is not a side effect |
+| Copy the file into `<comfyui>\user\default\workflows` | `confirm_copy_destination` naming that exact path |
+| Start ComfyUI | `start: true` **and** `confirm_launcher_path` naming the resolved absolute launcher path |
+
+Clicking "open" never starts a program. That is the same rule the updater follows.
+
+**What this ComfyUI frontend can actually be told to open.** Established by reading the
+frontend package this install serves (`comfyui_frontend_package` 1.49.6) and ComfyUI's own
+`app/custom_node_manager.py`, not by assuming a URL shape:
+
+* the router declares one application route (`/`), and the only query parameters any code in
+  it reads are `template`, `source`, `mode` and `share`;
+* `?template=<name>&source=default` loads `/templates/<name>.json` — the official templates
+  distribution;
+* `?template=<name>&source=<module>` loads `/api/workflow_templates/<module>/<name>.json`,
+  which ComfyUI's server mounts as a static directory for every **loaded** node package, one
+  level deep, for the folder names `example_workflows`, `example`, `examples`, `workflow`,
+  `workflows`;
+* `?share=<id>` is a cloud share id and needs an account;
+* both ends reject a `template` or `source` that is not `^[A-Za-z0-9_.-]+$`.
+
+**There is therefore no deep link for a workflow in `user\default\workflows`** — no loader in
+this build reads a user workflow path out of the URL. For those, the plan reports
+`open_method: "manual"`, opens ComfyUI at its own address, and names the file to pick from
+the Workflows sidebar. Shipping a link that silently does nothing would be worse than saying
+so. On the owner's install this splits **147 of 211** indexed workflows into `deep_link` and
+the remaining 64 into `manual`.
+
+The optional copy into the user workflows folder is offered for what it really buys — the
+graph appears in ComfyUI's Workflows sidebar — and `copy.creates_deep_link` is **always
+`false`**, because this frontend has no user-workflow deep link to create.
+
+### `GET /api/v1/comfyui/open-workflow/plan`
+
+Query: `uid` (a workflow uid, required) · `launcher` (launcher id; omit for the recommended
+one). Fetch this **before** showing any confirmation.
+
+```jsonc
+{
+  "uid": "workflow:12", "workflow_id": 12, "name": "basic_flow",
+  "abs_path": "O:\\ComfyUI\\custom_nodes\\ComfyUI-Pack\\example_workflows\\basic_flow.json",
+  "rel_path": "custom_nodes\\ComfyUI-Pack\\example_workflows\\basic_flow.json",
+  "origin": "bundled", "origin_package": "ComfyUI-Pack",
+  "origin_label": "bundled with ComfyUI-Pack",
+  "running": {"running": false, "ports": [], "method": "loopback tcp probe",
+              "confidence": "inferred", "note": "No ComfyUI port is accepting connections."},
+  "port": 8188,
+  "port_reason": "the --port argument in the launcher script",
+  "url": "http://127.0.0.1:8188/?template=basic_flow&source=ComfyUI-Pack",
+  "open_method": "deep_link",                 // deep_link | manual
+  "deep_link": {
+    "supported": true, "reason": null, "template": "basic_flow", "source": "ComfyUI-Pack",
+    "params": {"template": "basic_flow", "source": "ComfyUI-Pack"},
+    "query": "?template=basic_flow&source=ComfyUI-Pack",
+    "explanation": "ComfyUI serves this package's example graphs at ...",
+    "verified_against": "comfyui_frontend_package 1.49.6"
+  },
+  "manual_hint": null,
+  "launcher": {"id": "run_nvidia_gpu", "kind": "batch", "label": "run_nvidia_gpu.bat",
+               "path": "O:\\run_nvidia_gpu.bat", "working_dir": "O:\\",
+               "command": ["O:\\run_nvidia_gpu.bat"], "port": 8188,
+               "port_source": "launcher command line", "available": true,
+               "recommended": true, "note": "..."},
+  "launcher_confirm_path": "O:\\run_nvidia_gpu.bat",
+  "launcher_alternatives": [{"id": "run_cpu"}, {"id": "run_nvidia_gpu_stable_memory"}],
+  "launcher_error": null,
+  "copy": {"possible": true, "needed": true, "reason": null,
+           "destination": "O:\\ComfyUI\\user\\default\\workflows\\basic_flow.json",
+           "target_dir": "O:\\ComfyUI\\user\\default\\workflows",
+           "exists": false, "creates_deep_link": false, "note": "..."},
+  "steps": ["Start ComfyUI by running O:\\run_nvidia_gpu.bat - ...", "..."],
+  "needs_start": true, "can_open": true, "blocked_reason": null,
+  "frontend_version": "1.49.6", "comfyui_version": "0.33.0"
+}
+```
+
+Launchers are **discovered, never assumed**, exactly as the updater is: `run_*.bat` files
+beside the ComfyUI folder, each reported with its resolved absolute path, its working
+directory (a portable launcher uses relative paths and breaks anywhere else), and the port
+read out of its own command line rather than guessed. `main.py` with the interpreter that
+ships with the install is the fallback when no script is found. If nothing is found,
+`launcher` is `null`, `blocked_reason` is `"no_launcher_found"`, and the UI says so instead
+of inventing a path.
+
+Three gates decide what may appear in that list at all, because nominating an executable is
+the first half of running one (`SECURITY_REVIEW` §8, S-19 · S-20 · S-21):
+
+* the configured folder must be a **verified install** — `comfyui_version.py` **and**
+  `main.py` **and** `models/`, the same proof the updater routes require. A directory that
+  merely satisfies the config route's weaker check gets no launchers, and the plan says why;
+* the script must **carry evidence that it starts this install** — its text names ComfyUI's
+  entry point. `run_*.bat` is globbed in the *parent* of the ComfyUI folder, which on a
+  portable build is a drive root; a batch file that lands there is not a launcher just
+  because of its name. Each entry reports the `evidence` it was accepted on;
+* the resolved path must be **inert to `cmd.exe`**. A `.bat`/`.cmd` target is never executed
+  directly on Windows — `CreateProcess` runs it through `cmd.exe`, which re-parses the whole
+  command line — so a path holding `&`, `^`, `%`, `(`, `)` or `"` is reported with
+  `available: false` and `unsafe_reason: "cmd_metacharacter_in_path"` and is refused with
+  `409 CONFLICT` if named. The same rule applies to the updater.
+
+A `--port` value outside 1–65535 is discarded rather than believed, and `port_source` is
+`null` when the port was not measurable.
+
+`deep_link.reason` when `supported` is `false`: `user_workflow_has_no_deep_link` ·
+`not_served_by_comfyui` (nested deeper than ComfyUI serves) · `name_not_url_addressable` ·
+`package_disabled` · `no_path`.
+
+`copy.reason` when `possible` is `false`: `already_in_the_workflows_folder` ·
+`destination_exists` · `no_comfyui_path`.
+
+### `POST /api/v1/comfyui/open-workflow`
+
+```jsonc
+{"uid": "workflow:12",
+ "launcher": "run_nvidia_gpu",
+ "start": true,
+ "confirm_launcher_path": "O:\\run_nvidia_gpu.bat",
+ "copy_to_user_workflows": false,
+ "confirm_copy_destination": null}
+```
+
+`confirm_launcher_path` **must** equal `launcher_confirm_path` from the plan (compared after
+normalisation) whenever `start` is true; `confirm_copy_destination` **must** equal
+`copy.destination` whenever `copy_to_user_workflows` is true. A mismatch is a `422` whose
+`details` name the resolved path and the value received. Nothing is started and nothing is
+written when a confirmation does not match — asserted by
+`backend/tests/test_comfyui_open_workflow.py`.
+
+Refusals: `409 CONFLICT` when ComfyUI is not running and `start` was not sent — the `details`
+carry the launcher and its `confirm_launcher_path`, so the UI can ask the second question;
+`409` when a copy would overwrite a file that is already there, which it **never** does;
+`409` when ComfyUI is already running and a start was requested anyway, or while the updater
+is running; `403 PATH_NOT_ALLOWED` if the copy destination is outside every configured root;
+`422` if it is inside a root but outside `<comfyui>\user\default\workflows` itself, which is
+the only folder this route may write into (`SECURITY_REVIEW` S-22). The copy is an
+**exclusive create**, so "it never overwrites" holds even for a file that appears between the
+plan and the write.
+
+```jsonc
+{"uid": "workflow:12", "name": "basic_flow",
+ "url": "http://127.0.0.1:8188/?template=basic_flow&source=ComfyUI-Pack",
+ "open_method": "deep_link", "deep_link": { /* as above */ }, "manual_hint": null,
+ "port": 8188,
+ "copied": false, "copy_destination": null, "copy_note": null,
+ "started": true, "already_running": false, "ready": false,
+ "launcher": "run_nvidia_gpu", "launcher_path": "O:\\run_nvidia_gpu.bat",
+ "stream": "/api/v1/comfyui/launch/stream", "timeout_s": 300,
+ "started_at": 1787441000000,
+ "note": "ComfyUI is starting. Watch the launch stream and open the URL when it reports ready."}
+```
+
+When ComfyUI was already running, `already_running` and `ready` are `true`, `started` is
+`false`, and no process was touched. When a start was made, the caller waits on the launch
+stream and opens `url` on `ready` — the server never opens a browser.
+
+The process is started with a list argv and `shell=False`, in its own console window, from
+the launcher's own working directory, with the environment inherited rather than assembled.
+Nothing in the argv comes from the request: the executable is one of the paths discovery
+found on disk, and the request can only name one of them. `confirm_launcher_path` is
+compared after `realpath` normalisation, so a case variant, an 8.3 short name, a `\\?\`
+prefix or a junction naming the **same file** is accepted — and the argv is still the
+discovered path, never the caller's string, so a confirmation can loosen the spelling but
+can never redirect the spawn. It is deliberately not killed when the vault exits — ComfyUI is the owner's program,
+and its own console window is how they watch it and close it.
+
+This capability is **not exposed over MCP.** Starting a process on a hallucinated tool call
+is exactly the failure the C8 confirmation posture exists to prevent, and no agent-side
+confirmation can be trusted to be a person.
+
+### `GET /api/v1/comfyui/launch/status` · `GET /api/v1/comfyui/launch/stream` (SSE)
+
+Stream events: `open`, `phase` (`starting`, `spawned`), `waiting`
+(`{"elapsed_ms":42000,"port":8188}`, roughly every 2 s), `ready`, `error`, `done`,
+`heartbeat`. `done` and the status route carry:
+
+```jsonc
+{"status": "ready",                 // idle | starting | ready | failed
+ "running": false, "ready": true, "launcher": "run_nvidia_gpu",
+ "path": "O:\\run_nvidia_gpu.bat", "port": 8188, "pid": 24680,
+ "url": "http://127.0.0.1:8188/?template=basic_flow&source=ComfyUI-Pack",
+ "error": null, "exit_code": null, "elapsed_ms": 62000, "started_at": 1787441000000,
+ "finished_at": 1787441062000, "note": "ComfyUI is accepting connections."}
+```
+
+Readiness is measured, not assumed: the loopback port is probed once a second until it
+accepts a connection. A cold start loads every installed node package and can take minutes,
+so the wait runs for up to **300 seconds** and then reports the timeout rather than
+pretending. A launcher that exits before the port opens is reported with its exit code.
 
 ### `GET /api/v1/comfyui/templates`
 

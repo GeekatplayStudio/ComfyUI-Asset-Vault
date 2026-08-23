@@ -13,9 +13,12 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ..core import errors
+from ..core import errors, imaging
 from ..core.pathsafe import long_path
 from . import graph_utils, mp4_boxes
+
+#: SECURITY_REVIEW S-05: pin Pillow's pixel budget before the first header read.
+imaging.apply_budget()
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff", ".exr", ".avif"}
 VIDEO_EXTS = {".mp4", ".webm", ".mov", ".mkv", ".avi", ".m4v", ".gif"}
@@ -140,8 +143,16 @@ def read_image(path: str | Path, meta: OutputMeta) -> None:
     ImageFile.LOAD_TRUNCATED_IMAGES = True
     p = long_path(path)
     try:
-        with Image.open(p) as im:
+        with Image.open(p, formats=imaging.open_formats()) as im:
             meta.width, meta.height = im.size
+            if imaging.exceeds_budget(im.size):
+                # Recorded as a scan error rather than decoded: the header is
+                # cheap, the decode is not (SECURITY_REVIEW S-05).
+                meta.error_code = errors.IMAGE_UNREADABLE
+                meta.error_message = (
+                    f"{im.size[0]}x{im.size[1]} exceeds the "
+                    f"{imaging.MAX_IMAGE_PIXELS}-pixel decode budget.")
+                return
             meta.color_mode = im.mode
             meta.has_alpha = 1 if (im.mode in ("RGBA", "LA", "PA")
                                    or "transparency" in im.info) else 0

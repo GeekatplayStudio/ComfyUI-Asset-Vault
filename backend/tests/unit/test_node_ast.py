@@ -276,14 +276,11 @@ def test_s2_inline_mappings_in_the_same_module_are_followed(tmp_path):
     assert ids(res) >= {"ProbeA", "ProbeB"}, f"only found {sorted(ids(res))}"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="DEFECT QA-3: a mapping dict defined in another module under a "
-           "non-standard name (MAPPINGS_A = {...} in nodes_a.py, merged into "
-           "NODE_CLASS_MAPPINGS in __init__.py) is not followed across the module "
-           "boundary. The classes are still recovered by the S5 structural "
-           "fallback, but keyed on the Python class name instead of the "
-           "registered node_id. Owner: backend-core (parsers/node_ast.py).")
+# QA-3 fixed: ``collect_exported_dicts`` follows a mapping dict defined in a
+# sibling module under a name of the author's choosing.  A failure here means
+# the registered node_id is being lost again and the package's classes come
+# back keyed on their Python class name - which reads as missing dependencies
+# to every workflow that references them by class_type.
 def test_s2_preserves_the_registered_node_id_across_modules(mini_tree):
     """A workflow references ``class_type`` — the node_id, never the class name.
 

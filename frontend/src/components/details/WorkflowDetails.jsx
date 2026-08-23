@@ -1,5 +1,7 @@
-import React, { useCallback } from 'react'
-import { AlertTriangle, FolderOpen, Download, Maximize2, Image as ImageIcon } from 'lucide-react'
+import React, { useCallback, useState } from 'react'
+import {
+  AlertTriangle, FolderOpen, Download, Maximize2, Image as ImageIcon, ExternalLink
+} from 'lucide-react'
 import api, { thumbnailUrl, downloadUrl } from '../../services/api.js'
 import useResource from '../../hooks/useResource.js'
 import Button from '../common/Button.jsx'
@@ -8,6 +10,7 @@ import { SkeletonMeta } from '../common/Skeleton.jsx'
 import EmptyState from '../common/EmptyState.jsx'
 import MetaRow, { Section, DetailsFallback } from './MetaRow.jsx'
 import DependencyList from './DependencyList.jsx'
+import OpenInComfyUIDialog from '../modals/OpenInComfyUIDialog.jsx'
 import { bytes, dateTime, count as fmtCount } from '../../services/format.js'
 import { useVault } from '../../state/VaultContext.jsx'
 
@@ -19,6 +22,7 @@ import { useVault } from '../../state/VaultContext.jsx'
 export default function WorkflowDetails({ id, onOpenUid, onLightbox }) {
   const { state, toastError } = useVault()
   const epoch = state.dataEpoch
+  const [openInComfy, setOpenInComfy] = useState(false)
 
   const detail = useResource('workflow:' + id, (s) => api.workflow(id, s), { epoch })
   const deps = useResource('workflow-deps:' + id, (s) => api.workflowDependencies(id, s), { epoch })
@@ -87,6 +91,12 @@ export default function WorkflowDetails({ id, onOpenUid, onLightbox }) {
           </a>
           <Button size="sm" variant="ghost" icon={FolderOpen} label="Reveal"
             onClick={onReveal} />
+          {/* Opening it where it is meant to run. The dialog asks before it
+              starts anything - this button only ever opens a dialog. */}
+          <Button size="sm" variant="primary" icon={ExternalLink}
+            label="Open in ComfyUI"
+            title="Open this workflow in ComfyUI, starting ComfyUI first if you confirm it"
+            onClick={() => setOpenInComfy(true)} />
         </div>
 
         {missing ? (
@@ -220,6 +230,11 @@ export default function WorkflowDetails({ id, onOpenUid, onLightbox }) {
           </div>
         </Section>
       </div>
+
+      {openInComfy ? (
+        <OpenInComfyUIDialog uid={wf.uid} name={wf.name}
+          onClose={() => setOpenInComfy(false)} />
+      ) : null}
     </>
   )
 }

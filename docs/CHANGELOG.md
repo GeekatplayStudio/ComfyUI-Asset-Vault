@@ -4,6 +4,62 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay — Vladimir Chopine**
 
 ---
 
+## Unreleased
+
+### Added
+
+**Open in ComfyUI.** A workflow can now be opened where it is meant to run, from the details
+panel and from the row and card actions in the Workflows tab. If ComfyUI is not running, the
+vault offers to start it — and that offer is a separate question with its own answer.
+
+The dialog shows the whole plan before anything happens: whether ComfyUI is answering, which
+launcher would be run and its resolved absolute path, the port that launcher pins on its own
+command line, the address that will be opened, and, when the file is not already in ComfyUI's
+workflows folder, the exact destination a copy would be written to. Starting ComfyUI needs a
+confirmation that repeats the launcher path; copying needs a confirmation that repeats the
+destination; a copy never overwrites a file that is already there. Clicking Open starts nothing
+on its own. Start-up progress is streamed and the tab opens when the port actually answers — a
+cold start loads every installed node package, so the wait is measured, not assumed.
+
+**Launcher discovery.** The `run_*.bat` scripts beside the ComfyUI folder are found on disk and
+listed with their resolved paths, the same way the updater is discovered rather than assumed.
+`main.py` with the interpreter that ships with the install is the fallback.
+
+### Security — the launcher review (S-19 … S-24)
+
+The launcher was reviewed the way the updater was, and it needed work. Three things now have to
+be true before a file may be offered as a way to start ComfyUI, and the offer is refused with a
+reason when they are not:
+
+* the configured folder is a **real install** — `comfyui_version.py`, `main.py` and `models/`,
+  the same proof the updater already required. A folder that merely passed the setup check
+  could previously nominate, and run, its own batch file;
+* the script **says it starts ComfyUI**. `run_*.bat` is matched in the folder *above* the
+  ComfyUI folder, which on a portable build is a drive root, so a name match alone is not
+  enough. All four of the launchers on the owner's install — including the hand-written one —
+  are unaffected;
+* the path **holds no character `cmd.exe` would read as syntax**. Windows runs a batch file
+  through the command interpreter, which re-reads the whole line, so a launcher named
+  `run_a&something.bat` used to run two commands where the dialog showed one file. It is now
+  refused, and so is the same shape in an updater's folder.
+
+Copying a workflow into the install is checked against the workflows folder itself rather than
+against the vault's roots in general, and is an exclusive create, so "it never overwrites" holds
+even for a file that appears while the dialog is open. A launcher script naming an impossible
+port no longer strands the start-up state, and a start that cannot be watched now ends and says
+so instead of blocking every later one.
+
+### Honest about what ComfyUI supports
+
+The ComfyUI frontend this install serves (1.49.6) can be told by URL to open an official
+template or a node package's example graph, and **nothing else** — it has no URL parameter for
+a workflow in your own workflows folder. That was established by reading the frontend's own
+sources and ComfyUI's server routes, not guessed. So 147 of the 211 indexed workflows open
+themselves, and for the rest the vault opens ComfyUI and names the file to pick from the
+Workflows sidebar rather than handing over a link that would quietly do nothing.
+
+---
+
 ## 2.1.0 — 2026-08-23
 
 Preview and playback. Everything an output folder can hold now shows itself: video and audio play
@@ -39,6 +95,17 @@ pretty-printed. Whether a file is text is decided **from its bytes, not its exte
 tensor files in an output folder are PyTorch pickles, up to a couple of hundred megabytes, and are
 reported as binary instead of rendered as mojibake.
 
+**Open in ComfyUI** for any indexed workflow, from the details panel and the Workflows tab. If
+ComfyUI is not running the app offers to start it, naming the launcher it discovered, waits for
+the port, then opens the workflow. Starting ComfyUI and copying a file into the install are
+separate explicit consents; clicking Open does neither on its own.
+
+The deep-link support was established by reading the frontend this install serves, not assumed:
+ComfyUI 1.49.6 exposes **no** URL parameter for user-saved workflows — only for templates bundled
+with node packages. On this library that is 147 of 211 workflows opening directly and 64 opening
+ComfyUI with the filename to pick from its sidebar, and the app says which case applies rather
+than handing over a link that silently does nothing.
+
 **Support and profile links** — a compact pair in the top bar, the full set with the copyright in
 the rail footer, all from one `services/links.js` so the two cannot drift apart.
 
@@ -71,6 +138,34 @@ constants together.
 
 **3D placeholders could overwrite a stored poster.** A placeholder fetched after the poster was
 stored claimed the same cache slot. Placeholders for 3D models are no longer cached at all.
+
+### Security
+
+Every open finding from the internal audit is closed in this release; each fix replaced its
+`xfail` marker with a permanent regression test, and there is no won't-fix.
+
+- **S-03** SSE subscriber cap (32) with a real `503` from all five stream routes.
+- **S-04** the updater is now gated on the target actually being a ComfyUI install
+  (`comfyui_version.py` + `main.py` + `models/`), so a staged directory cannot nominate its own
+  `update_comfyui.bat`.
+- **S-05** decompression-bomb limits: a 64 Mpx cap, a header-level size check that records an
+  oversized image as a scan error instead of decoding it, and a `formats=` allowlist at every
+  `Image.open`. A 321-byte PNG used to allocate ~480 MB.
+- **S-06** MCP session cap (64) with least-recently-seen eviction.
+- **S-07** an 8 MB request-body limit, enforced before parsing and including chunked bodies with
+  no `Content-Length`. The ceiling is 8 MB rather than 2 MB because the 3D poster is 4 MB once
+  base64'd — a test pins that relationship so the two cannot drift.
+- **S-08** SSRF guard on the Ollama URL, at both the schema and the point of use. Loopback and
+  private ranges stay free so a LAN Ollama still works; link-local, public addresses, embedded
+  credentials, paths and **all hostnames except `localhost`** are refused, keeping DNS out of the
+  trust path. Prompts are never sent to a host that was not approved.
+- **S-09** dependency floors raised (`pillow>=12.3.0`, `starlette>=1.3.1`, `fastapi>=0.135`,
+  `pydantic>=2.4.0`) and **`python-multipart` removed** — verified unused, and carrying nine
+  advisories.
+- **QA-3** node mappings defined in a sibling module under a non-standard name are now resolved
+  through the import table, so classes are keyed on their registered node_id.
+- **pathsafe** filename components are capped at 255 characters instead of failing later as a raw
+  `OSError`.
 
 ### Changed
 

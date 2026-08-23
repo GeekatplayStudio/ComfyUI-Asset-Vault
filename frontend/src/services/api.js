@@ -228,6 +228,10 @@ export const api = {
   comfyUpdatePlan: (updater, signal) => get('/comfyui/update/plan', { updater }, signal),
   comfyUpdateRun: (body, signal) => post('/comfyui/update/run', body, null, signal),
   comfyUpdateStatus: (signal) => get('/comfyui/update/status', null, signal),
+  comfyOpenWorkflowPlan: (uid, launcher, signal) =>
+    get('/comfyui/open-workflow/plan', { uid, launcher }, signal),
+  comfyOpenWorkflow: (body, signal) => post('/comfyui/open-workflow', body, null, signal),
+  comfyLaunchStatus: (signal) => get('/comfyui/launch/status', null, signal),
   comfyTemplates: (query, signal) => get('/comfyui/templates', query, signal),
   comfyWorkflowOrigins: (signal) => get('/comfyui/workflow-origins', null, signal),
   comfyPathPolicy: (signal) => get('/comfyui/path-policy', null, signal),

@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 
 from ..core import config_service
+from ..core.urlsafe import UrlRejected, check_local_url
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +34,21 @@ class OllamaService:
         cfg = config_service.get_config()
         return bool(cfg.ollama_enabled)
 
+    def _checked_base_url(self) -> tuple[str | None, str]:
+        """SECURITY_REVIEW S-08, second gate.
+
+        The API schema refuses a non-local ``ollama_url``, but the value also
+        reaches here from ``vault.db`` and from an edited config file, and the
+        prompt this service sends carries the owner's workflow text.  So the
+        address is re-checked at the point of use rather than trusted because it
+        was stored.
+        """
+        try:
+            return check_local_url(self.base_url, field="ollama_url"), ""
+        except UrlRejected as exc:
+            log.warning("refusing to contact a non-local Ollama address: %s", exc)
+            return None, str(exc)
+
     def _client(self, timeout: float):
         import httpx
 
@@ -41,9 +57,12 @@ class OllamaService:
     async def check_connection(self) -> tuple[bool, str]:
         if not self.enabled:
             return False, "Ollama is disabled in settings."
+        base, reason = self._checked_base_url()
+        if base is None:
+            return False, reason
         try:
             async with self._client(CONNECT_TIMEOUT) as client:
-                res = await client.get(f"{self.base_url}/api/tags")
+                res = await client.get(f"{base}/api/tags")
             if res.status_code == 200:
                 return True, "Connected to Ollama"
             return False, f"Ollama returned HTTP {res.status_code}"
@@ -55,9 +74,12 @@ class OllamaService:
     async def list_models(self) -> list[str]:
         if not self.enabled:
             return []
+        base, _reason = self._checked_base_url()
+        if base is None:
+            return []
         try:
             async with self._client(5.0) as client:
-                res = await client.get(f"{self.base_url}/api/tags")
+                res = await client.get(f"{base}/api/tags")
             if res.status_code != 200:
                 return []
             data = res.json()
@@ -82,12 +104,15 @@ class OllamaService:
     async def generate(self, prompt: str, model: str | None = None) -> dict:
         if not self.enabled:
             return {"ok": False, "reason": "Ollama is disabled in settings.", "text": None}
+        base, reason = self._checked_base_url()
+        if base is None:
+            return {"ok": False, "reason": reason, "text": None}
         cfg = config_service.get_config()
         model = model or cfg.ollama_model or "llama3.2"
         try:
             async with self._client(GENERATE_TIMEOUT) as client:
                 res = await client.post(
-                    f"{self.base_url}/api/generate",
+                    f"{base}/api/generate",
                     json={"model": model, "prompt": prompt[:MAX_PROMPT], "stream": False},
                 )
             if res.status_code != 200:

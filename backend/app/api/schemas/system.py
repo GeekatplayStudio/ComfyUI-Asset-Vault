@@ -4,9 +4,26 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, ValidationInfo, field_validator
 
+from ...core.urlsafe import UrlRejected, check_local_url
 from .common import Lenient, Strict
+
+
+def _validated_ollama_url(value: str | None, info: ValidationInfo) -> str | None:
+    """SECURITY_REVIEW S-08: the one caller-supplied outbound address.
+
+    ``/ai/describe`` sends an asset fact sheet - a workflow's positive prompt
+    included - to whatever this names, so anything that is not loopback or a
+    private-network address is a 422 rather than a silent egress.
+    """
+    if value is None:
+        return None
+    field = getattr(info, "field_name", None) or "ollama_url"
+    try:
+        return check_local_url(value, field=field)
+    except UrlRejected as exc:
+        raise ValueError(str(exc)) from exc
 
 
 class Features(Lenient):
@@ -92,6 +109,8 @@ class ConfigPatch(Strict):
     mcp_read_only: bool | None = None
     extra_workflow_dirs: list[str] | None = None
 
+    _check_ollama_url = field_validator("ollama_url")(_validated_ollama_url)
+
 
 class ValidatePathRequest(Strict):
     path: str = Field(min_length=1, max_length=4096)
@@ -145,6 +164,8 @@ class WizardCompleteRequest(Strict):
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "llama3"
     start_scan: bool = True
+
+    _check_ollama_url = field_validator("ollama_url")(_validated_ollama_url)
 
 
 class WizardCompleteResponse(Lenient):
@@ -232,6 +253,8 @@ class ThumbsGcResponse(Lenient):
 
 class OllamaTestRequest(Strict):
     url: str | None = Field(default=None, max_length=2048)
+
+    _check_url = field_validator("url")(_validated_ollama_url)
 
 
 class OllamaTestResponse(Lenient):

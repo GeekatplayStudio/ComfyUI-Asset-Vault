@@ -142,19 +142,28 @@ def test_an_unknown_updater_id_is_refused(portable_install):
         assert response.status_code == 404, updater
 
 
+#: Every ``Popen`` this module is allowed to contain, and why.  Growing this
+#: number is a considered decision with its own tests, not a convenience - the
+#: assertions below then apply unchanged to the new call site.
+EXPECTED_POPEN_CALL_SITES = 2      # the updater, and the ComfyUI launcher
+
+
 def test_the_command_is_a_list_argv_never_a_shell_string(app_dir):
+    """Both process launches: a list argv, and no ``shell`` anywhere near them."""
     source = (app_dir / "services" / "comfyui_service.py").read_text(encoding="utf-8")
     assert "shell=True" not in source
     tree = ast.parse(source)
     popen_calls = [n for n in ast.walk(tree)
                    if isinstance(n, ast.Call)
                    and getattr(n.func, "attr", None) == "Popen"]
-    assert len(popen_calls) == 1, "there must be exactly one Popen call site"
-    call = popen_calls[0]
-    assert isinstance(call.args[0], ast.Call), "argv must be built with list(...)"
-    assert getattr(call.args[0].func, "id", None) == "list"
-    for keyword in call.keywords:
-        assert keyword.arg != "shell", "shell= must never be passed"
+    assert len(popen_calls) == EXPECTED_POPEN_CALL_SITES, (
+        f"expected exactly {EXPECTED_POPEN_CALL_SITES} Popen call sites "
+        f"(the updater and the ComfyUI launcher), found {len(popen_calls)}")
+    for call in popen_calls:
+        assert isinstance(call.args[0], ast.Call), "argv must be built with list(...)"
+        assert getattr(call.args[0].func, "id", None) == "list"
+        for keyword in call.keywords:
+            assert keyword.arg != "shell", "shell= must never be passed"
 
 
 def test_the_updater_command_never_incorporates_request_text(app_dir):
@@ -263,11 +272,10 @@ def test_the_plan_reports_can_run_false_while_comfyui_is_running(portable_instal
 # The updater path follows the configured install - SECURITY_REVIEW S-04
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="SECURITY_REVIEW S-04: the executable is derived from "
-                          "comfyui_path, which PATCH /system/config accepts, so "
-                          "any directory holding update\\update_comfyui.bat can "
-                          "become the confirmed updater",
-                   strict=False)
+# S-04 fixed: the updater routes require a verified install
+# (comfyui_version.py + main.py + models/), not merely a directory the config
+# endpoint accepted.  A failure here means a staged directory can once again
+# get its own batch file offered as the confirmed updater.
 def test_the_updater_must_live_under_the_verified_comfyui_install(client, tmp_path):
     staging = tmp_path / "AttackerStaging"
     (staging / "ComfyUI" / "models").mkdir(parents=True)
@@ -281,6 +289,12 @@ def test_the_updater_must_live_under_the_verified_comfyui_install(client, tmp_pa
     assert response.status_code == 404, (
         "an arbitrary directory was accepted as a ComfyUI install and its "
         "batch file was offered as the updater")
+    assert "comfyui_version.py" in response.json()["error"]["details"]["missing"]
+    # ...and the run route is gated independently, not only the plan route.
+    run = client.post("/api/v1/comfyui/update/run",
+                      json={"confirm_path": str(staging / "update"
+                                                / "update_comfyui.bat")})
+    assert run.status_code == 404
 
 
 def test_changing_the_install_path_changes_what_would_run(client, tmp_path):
@@ -290,6 +304,10 @@ def test_changing_the_install_path_changes_what_would_run(client, tmp_path):
     for base in (first, second):
         (base / "ComfyUI" / "models").mkdir(parents=True)
         (base / "ComfyUI" / "main.py").write_text("#\n", encoding="utf-8")
+        # A verified install since the S-04 fix; without it the updater routes
+        # refuse the directory outright, which is a different assertion.
+        (base / "ComfyUI" / "comfyui_version.py").write_text(
+            '__version__ = "0.33.0"\n', encoding="utf-8")
         (base / "update").mkdir()
         (base / "update" / "update_comfyui.bat").write_text("@echo off\r\n",
                                                             encoding="utf-8")

@@ -13,6 +13,11 @@ LONG_PATH_THRESHOLD = 240
 SEP = "\\"
 LONG_PREFIX = "\\\\?\\"
 UNC_PREFIX = "\\\\"
+#: NTFS caps a single path component at 255 characters.  Enforcing it here
+#: turns an over-long name into a 422 the user can act on, instead of a raw
+#: OSError surfacing from whichever syscall runs first - which is also what
+#: stands between a long name and a partially created folder tree.
+MAX_COMPONENT_CHARS = 255
 
 _RESERVED = {
     "CON", "PRN", "AUX", "NUL",
@@ -122,6 +127,10 @@ def validate_filename(name: str) -> None:
         raise ValidationError("Name may not contain control characters.")
     if name.endswith((".", " ")):
         raise ValidationError("Name may not end with a dot or a space.")
+    if len(name) > MAX_COMPONENT_CHARS:
+        raise ValidationError(
+            f"Name may not be longer than {MAX_COMPONENT_CHARS} characters "
+            f"(this one is {len(name)}).")
     stem = name.split(".", 1)[0].upper()
     if stem in _RESERVED:
         raise ValidationError(f"'{stem}' is a reserved Windows device name.")
