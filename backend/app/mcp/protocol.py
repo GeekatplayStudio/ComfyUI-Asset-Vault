@@ -22,7 +22,7 @@ LATEST_PROTOCOL_VERSION = "2025-06-18"
 
 SERVER_NAME = "geekatplay-comfyui-vault"
 SERVER_TITLE = "Geekatplay ComfyUI Asset Vault"
-SERVER_VERSION = "2.0.0"
+SERVER_VERSION = "2.1.0"
 
 #: DECISIONS C5.3 - replaces the read-only wording MCP_SPEC 3.2 originally had.
 INSTRUCTIONS = (

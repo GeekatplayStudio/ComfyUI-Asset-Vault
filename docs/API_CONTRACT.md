@@ -728,6 +728,47 @@ Full-resolution stream for the lightbox and `<video>`.
 `Content-Type` from `outputs.mime`. `Cache-Control: private, max-age=3600`. `X-Content-Type-Options: nosniff`.
 `Content-Disposition: inline`.
 
+### `GET /api/v1/files/text?uid=&max_bytes=`
+A capped, decoded excerpt for previewing `.txt`, `.json` and anything else that
+reads as text. `max_bytes` is clamped to 512 KB regardless of what is asked for.
+
+Whether a file counts as text is decided **from its bytes, not its extension** —
+a ComfyUI output folder holds `.pt` tensor files that are PyTorch pickles, some
+of them hundreds of megabytes, and those must not be rendered as characters.
+Nothing is unpickled, parsed or executed; JSON is validated only so the UI can
+indent it.
+
+`200` one of:
+```json
+{ "kind":"text", "text":"…", "encoding":"utf-8", "json":true,
+  "truncated":false, "bytes_read":48586, "total_bytes":48586, "lines":1648,
+  "uid":"output:903", "filename":"project.json" }
+```
+```json
+{ "kind":"binary", "total_bytes":222955084,
+  "message":"This is a binary file, so there is nothing to show as text." }
+```
+`404 NOT_FOUND` (unknown uid, or the file cannot be read) · `403 PATH_NOT_ALLOWED`.
+
+### `POST /api/v1/files/thumbnail?uid=`
+Store a poster frame the **browser** rendered for a 3D model.
+Body `{"png":"data:image/png;base64,…"}`. Requires `X-Vault-Request`.
+
+There is no server-side GL stack, and adding one to draw a `.glb` would be a
+large dependency for a picture. The browser has already loaded the model in
+order to show it, so it hands one frame back and every later view is an
+ordinary cached thumbnail. Accepted **only** for `model3d` assets, only as a
+PNG data URL, and only under 4 MB; the image is re-encoded to WebP server-side
+rather than trusted as it arrived, and written to all three size tiers.
+
+`200 {"ok":true,"uid":"output:3736","bytes":5070}`
+`422 VALIDATION_ERROR` (not a 3D asset, not a PNG data URL, or over the cap) ·
+`404 NOT_FOUND` · `403 PATH_NOT_ALLOWED` · `400 CSRF_HEADER_MISSING`.
+
+Note: while a model has no stored poster, the thumbnail read endpoint above
+serves a generated placeholder but does **not** cache it — otherwise a
+placeholder fetched after the poster was stored would overwrite it.
+
 ### `GET /api/v1/files/download?uid=`
 Same, but `Content-Disposition: attachment; filename*=UTF-8''<pct-encoded>` (RFC 5987 — required for the non-ASCII filenames present on this install).
 

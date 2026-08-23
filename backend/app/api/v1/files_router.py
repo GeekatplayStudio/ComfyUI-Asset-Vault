@@ -17,16 +17,16 @@ import sys
 import urllib.parse
 from collections.abc import Iterator
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Body, Depends, Query, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
 
 from ...core.errors import NotFoundError, PathNotAllowed, ValidationError
 from ...core.pathsafe import long_path
 from ...jobs.thumb_service import get_thumb_service
-from ...services import file_ops
+from ...services import file_ops, text_preview
 from ..deps import check_uid, require_vault_request_always
 from ..middleware import ApiError, error_response
-from ..schemas.common import BASE_ERRORS, error_responses
+from ..schemas.common import BASE_ERRORS, MUTATION_ERRORS, error_responses
 from ..schemas.fileops import RevealResponse
 
 router = APIRouter(prefix="/files", tags=["Files"])
@@ -172,6 +172,57 @@ async def thumbnail(request: Request, uid: str = Query(...),
             "Last-Modified": email.utils.formatdate(stat.st_mtime, usegmt=True),
             "X-Thumb-Source": result.source,
         })
+
+
+@router.get("/text",
+            summary="A capped, decoded excerpt of a text file",
+            responses={**BASE_ERRORS,
+                       **error_responses("NOT_FOUND", "FILE_MISSING",
+                                         "PATH_NOT_ALLOWED")})
+def text_file(uid: str = Query(...),
+              max_bytes: int = Query(text_preview.MAX_BYTES, ge=1024,
+                                     le=text_preview.MAX_BYTES)) -> dict:
+    """Preview `.txt`, `.json` and anything else that decodes as text.
+
+    Whether a file counts as text is decided from its bytes, not its
+    extension: the `.pt` tensor files in a ComfyUI output folder are pickles,
+    and rendering those as text would just produce noise.  Nothing here parses
+    or executes the file -- JSON is validated only so the UI can indent it.
+    """
+    info = _resolve(uid)
+    result = text_preview.read_preview(info["path"], max_bytes=max_bytes)
+    if result.get("kind") == "error":
+        raise ApiError("NOT_FOUND", result["message"], status=404)
+    result["uid"] = uid
+    result["filename"] = info.get("filename") or os.path.basename(info["path"])
+    return result
+
+
+@router.post("/thumbnail",
+             summary="Store a client-rendered thumbnail (3D models)",
+             dependencies=[Depends(require_vault_request_always)],
+             responses={**MUTATION_ERRORS,
+                        **error_responses("NOT_FOUND", "PATH_NOT_ALLOWED")})
+def put_thumbnail(uid: str = Query(...),
+                  payload: dict = Body(...)) -> dict:
+    """Accept a poster frame the browser rendered for a 3D model.
+
+    There is no server-side GL stack, and adding one to draw a `.glb` would be
+    a large dependency for a picture.  The browser already has WebGL and has
+    already loaded the model to show it, so it hands the frame back once and
+    every later view is a normal cached thumbnail.
+
+    Accepted only for `model3d` assets, only as a PNG data URL, and only inside
+    a size cap -- this endpoint writes to the thumbnail cache, so it stays as
+    narrow as it can be.
+    """
+    _resolve(uid)  # re-validates the path against the configured roots
+    data_url = str(payload.get("png") or "")
+    try:
+        png = get_thumb_service().store_rendered(uid, data_url)
+    except ValueError as exc:
+        raise ApiError("VALIDATION_ERROR", str(exc), status=422) from exc
+    return {"ok": True, "uid": uid, "bytes": png}
 
 
 @router.get("/raw", response_model=None,

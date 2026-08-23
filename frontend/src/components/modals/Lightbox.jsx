@@ -10,6 +10,7 @@ import MetaRow from '../details/MetaRow.jsx'
 import { parseUid, bytes, dateTime, dimensions, duration } from '../../services/format.js'
 import { useVault } from '../../state/VaultContext.jsx'
 const Model3DViewer = React.lazy(() => import('../common/Model3DViewer.jsx'))
+import TextPreview, { isTextual } from '../common/TextPreview.jsx'
 
 /*
  * Lightbox - the full size preview.
@@ -30,6 +31,9 @@ function Stage({ uid, kind, media, name, ext, size }) {
       <video className="gp-lightbox__media" src={rawUrl(uid)} controls autoPlay={false}
         preload="metadata" />
     )
+  }
+  if (isTextual(media)) {
+    return <TextPreview uid={uid} className="gp-text--full" />
   }
   if (media === 'model3d') {
     return (

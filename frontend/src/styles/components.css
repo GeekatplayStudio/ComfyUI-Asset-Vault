@@ -550,3 +550,18 @@ audio.gp-play__media{height:auto;align-self:center;padding:0 var(--gp-s-4)}
 .gp-3d__spin svg{width:13px;height:13px}
 .gp-3d__spin--on{color:var(--gp-brand-100);border-color:var(--gp-brand-300)}
 .gp-3d__spin:focus-visible{outline:2px solid var(--gp-focus);outline-offset:2px}
+
+/* --- text preview --------------------------------------------------------
+   .txt / .json rendered as text. Binary files say so instead of showing
+   mojibake -- the server decides that from the bytes, not the extension. */
+.gp-text{display:flex;flex-direction:column;min-width:0;border:1px solid var(--gp-line-100);border-radius:var(--gp-r-2);background:var(--gp-bg-inset);overflow:hidden}
+.gp-text--full{height:100%;min-height:60vh}
+.gp-text__bar{display:flex;align-items:center;gap:var(--gp-s-4);padding:var(--gp-s-3) var(--gp-s-4);border-bottom:1px solid var(--gp-line-100);background:var(--gp-bg-300)}
+.gp-text__badge{font-family:var(--gp-font-mono);font-size:var(--gp-fs-10);font-weight:var(--gp-fw-600);letter-spacing:.04em;color:var(--gp-brand-100)}
+.gp-text__meta{font-size:var(--gp-fs-10);color:var(--gp-meta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gp-text__body{margin:0;padding:var(--gp-s-4);max-height:340px;overflow:auto;font-family:var(--gp-font-mono);font-size:var(--gp-fs-11);line-height:var(--gp-lh-base);color:var(--gp-fg-200);tab-size:2;white-space:pre;word-break:normal}
+.gp-text--full .gp-text__body{max-height:none;flex:1 1 auto}
+.gp-text__note{padding:var(--gp-s-3) var(--gp-s-4);border-top:1px solid var(--gp-line-100);font-size:var(--gp-fs-10);color:var(--gp-meta)}
+.gp-text--msg{align-items:center;justify-content:center;gap:var(--gp-s-3);padding:var(--gp-s-7);text-align:center;font-size:var(--gp-fs-11);color:var(--gp-fg-300);min-height:140px}
+.gp-text__icon{width:20px;height:20px;color:var(--gp-fg-400)}
+.gp-text__sub{color:var(--gp-fg-400);font-size:var(--gp-fs-10)}
