@@ -9,6 +9,7 @@ import Badge from '../common/Badge.jsx'
 import MetaRow from '../details/MetaRow.jsx'
 import { parseUid, bytes, dateTime, dimensions, duration } from '../../services/format.js'
 import { useVault } from '../../state/VaultContext.jsx'
+const Model3DViewer = React.lazy(() => import('../common/Model3DViewer.jsx'))
 
 /*
  * Lightbox - the full size preview.
@@ -17,7 +18,7 @@ import { useVault } from '../../state/VaultContext.jsx'
  * seeks properly in a <video> element. Grid thumbnails are never blown up here.
  */
 
-function Stage({ uid, kind, media, name }) {
+function Stage({ uid, kind, media, name, ext, size }) {
   if (kind !== 'output') {
     return (
       <img className="gp-lightbox__media" src={thumbnailUrl(uid, 640)} alt={name}
@@ -28,6 +29,13 @@ function Stage({ uid, kind, media, name }) {
     return (
       <video className="gp-lightbox__media" src={rawUrl(uid)} controls autoPlay={false}
         preload="metadata" />
+    )
+  }
+  if (media === 'model3d') {
+    return (
+      <React.Suspense fallback={<div className="gp-3d gp-3d--msg"><p>Loading 3D…</p></div>}>
+        <Model3DViewer uid={uid} ext={ext} sizeBytes={size} className="gp-3d--full" />
+      </React.Suspense>
     )
   }
   if (media === 'audio') {
@@ -130,7 +138,8 @@ export default function Lightbox({ uid, items, scope, onClose, onNavigate, onOpe
       </div>
 
       <div className="gp-lightbox__stage">
-        <Stage uid={uid} kind={kind} media={record && record.media_kind} name={name} />
+        <Stage uid={uid} kind={kind} media={record && record.media_kind} name={name}
+          ext={record && record.ext} size={record && record.size} />
         <button type="button" className="gp-lightbox__nav gp-lightbox__nav--prev"
           aria-label="Previous asset" disabled={!hasPrev} onClick={() => go(-1)}>
           <ChevronLeft aria-hidden="true" />

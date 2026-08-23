@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Play } from 'lucide-react'
+import { Play, X } from 'lucide-react'
 import { rawUrl } from '../../services/api.js'
 
 /** Media kinds that have something to play. */
@@ -36,19 +36,17 @@ export default function InlinePlayer({
     if (!active) return undefined
     const el = ref.current
     if (!el) return undefined
-    const stop = () => setActive(false)
-    el.addEventListener('ended', stop)
-    // A play elsewhere pauses this one; fold the player away so the poster and
-    // its play button come back rather than leaving a dead paused element.
-    el.addEventListener('pause', stop)
+    // `ended` folds the player away and hands the poster back.  `pause` does
+    // NOT: pause has to stay pause, both for the native control and for the
+    // coordinator that pauses this one when something else starts playing.
+    // Closing is the stop button's job, and only the stop button's.
+    const close = () => setActive(false)
+    el.addEventListener('ended', close)
     const play = el.play()
     if (play && typeof play.catch === 'function') {
       play.catch(() => { /* autoplay refused; the controls are still there */ })
     }
-    return () => {
-      el.removeEventListener('ended', stop)
-      el.removeEventListener('pause', stop)
-    }
+    return () => { el.removeEventListener('ended', close) }
   }, [active])
 
   const start = useCallback((event) => {
@@ -84,11 +82,35 @@ export default function InlinePlayer({
     onDoubleClick: (e) => e.stopPropagation()
   }
 
+  const stop = (event) => {
+    event.stopPropagation()
+    event.preventDefault()
+    const el = ref.current
+    if (el) {
+      try {
+        el.pause()
+        el.currentTime = 0
+      } catch { /* a detached element can throw */ }
+    }
+    setActive(false)
+  }
+
   return (
     <div className="gp-play__stage" onClick={(e) => e.stopPropagation()}>
       {mediaKind === 'audio'
         ? <audio {...common} />
         : <video {...common} playsInline />}
+      {/* The native controls pause; this stops -- it rewinds and hands the
+          poster back, so the tile returns to how it looked before. */}
+      <button
+        type="button"
+        className="gp-play__stop"
+        onClick={stop}
+        aria-label="Stop and close the player"
+        title="Stop"
+      >
+        <X aria-hidden="true" />
+      </button>
     </div>
   )
 }

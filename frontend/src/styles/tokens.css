@@ -146,6 +146,10 @@
   --gp-grid-gap:var(--gp-s-5);
   /* Height of the player that opens over a list row. */
   --gp-row-player-h:180px;
+  /* List columns: a shared basis so rows line up as a table. */
+  --gp-row-col-w:104px;
+  --gp-row-col-num-w:78px;
+  --gp-row-actions-w:92px;
   --gp-grid-meta-h:52px;
   --gp-row-h:34px;
   --gp-tree-row-h:26px;

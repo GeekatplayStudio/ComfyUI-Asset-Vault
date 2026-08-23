@@ -57,12 +57,20 @@ function AssetListRow(props) {
     >
       <RowThumb uid={p.uid} alt="" noThumb={p.noThumb} />
       <span className="gp-row__name" title={p.title}>{p.title}</span>
+      {/* Every cell is rendered even when it has nothing to say.  Skipping the
+          empty ones used to pull the following columns left, so no two rows
+          lined up -- each row laid itself out independently. */}
       {p.rowCells.map((cell) => {
-        if (cell.node === null || cell.node === undefined || cell.node === '') return null
+        const empty = cell.node === null || cell.node === undefined || cell.node === ''
         const cls = ['gp-row__cell']
         if (cell.num) cls.push('gp-row__cell--num')
         if (cell.grow) cls.push('gp-row__cell--grow')
-        return <span key={cell.key} className={cls.join(' ')}>{cell.node}</span>
+        if (empty) cls.push('gp-row__cell--empty')
+        return (
+          <span key={cell.key} className={cls.join(' ')}>
+            {empty ? null : cell.node}
+          </span>
+        )
       })}
       <span className="gp-row__actions">
         {isPlayable(item.media_kind) ? (

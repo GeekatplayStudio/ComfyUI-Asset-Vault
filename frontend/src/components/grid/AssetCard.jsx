@@ -239,13 +239,13 @@ function AssetCard(props) {
       aria-selected={selected ? 'true' : undefined}
       data-uid={p.uid}
       onContextMenu={onContextMenu}
+      onClick={(e) => onSelect(item, e)}
+      onDoubleClick={() => onOpen(item)}
     >
       <div className="gp-card__mediawrap">
       <button
         type="button"
         className={'gp-card__thumb gp-focus-inset' + (p.wide ? ' gp-card__thumb--wide' : '')}
-        onClick={(e) => onSelect(item, e)}
-        onDoubleClick={() => onOpen(item)}
         aria-label={'Open ' + p.title}
       >
         <Thumb
