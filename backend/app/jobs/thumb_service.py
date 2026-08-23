@@ -1,8 +1,12 @@
 """Lazy thumbnail cache with in-flight dedupe.
 
-WebP q82, three sizes (160/320/640), two-level fan-out on disk.  Video, audio,
-3D and model assets get deterministic generated placeholders - there is no frame
-extraction without a user-installed ffmpeg (DECISIONS D6).
+WebP q82, three sizes (160/320/640), two-level fan-out on disk.
+
+Video posters are extracted with ffmpeg when the user has it installed, via the
+single sanctioned call site in ``jobs/video_frame.py``.  When ffmpeg is absent -
+or the file will not decode - videos fall back to the same deterministic
+placeholder as audio, 3D and model assets.  That is DECISIONS D6: frame
+extraction is available when ffmpeg is, and its absence degrades gracefully.
 """
 
 from __future__ import annotations
@@ -19,6 +23,8 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.jobs import video_frame
+
 from ..config import THUMB_DIR
 from ..core import db as dbmod
 from ..core.errors import NotFoundError
@@ -29,6 +35,14 @@ log = logging.getLogger(__name__)
 
 SIZES = (160, 320, 640)
 QUALITY = 82
+
+#: Bump when the *rendering* changes so previously cached thumbnails are
+#: replaced.  The per-file fingerprint cannot notice this: the file is
+#: identical, only our interpretation of it improved (v2 added real ffmpeg
+#: poster frames for video, which used to be placeholders).  It is folded into
+#: both the cache key and the ETag, so a bump invalidates the on-disk cache and
+#: every browser that cached a response as `immutable`.
+THUMB_VERSION = 2
 PLACEHOLDER_BG = (28, 26, 24)
 
 
@@ -49,6 +63,11 @@ def pick_size(requested: int | None) -> int:
     if n <= 320:
         return 320
     return 640
+
+
+def versioned(fingerprint: str) -> str:
+    """The cache identity: the file's fingerprint plus how we render it."""
+    return f"{fingerprint}:v{THUMB_VERSION}"
 
 
 def cache_path(uid: str, size: int) -> Path:
@@ -75,9 +94,10 @@ class ThumbService:
         if info is None:
             raise NotFoundError(f"Unknown asset '{uid}'.")
         target = cache_path(uid, size)
-        etag = f'"{info["fingerprint"]}-{size}"'
+        stamp = versioned(info["fingerprint"])
+        etag = f'"{stamp}-{size}"'
         row = self._cache_row(uid, size)
-        if row and row["fingerprint"] == info["fingerprint"] and target.is_file():
+        if row and row["fingerprint"] == stamp and target.is_file():
             self._touch(uid, size)
             return ThumbResult(str(target), etag, "cache",
                                width=row["width"], height=row["height"])
@@ -268,6 +288,18 @@ class ThumbService:
             except Exception as exc:  # noqa: BLE001 - fall back to a placeholder
                 log.debug("thumbnail decode failed for %s: %s", src_path, exc)
                 img = None
+        if img is None and src_path and info.get("media") == "video":
+            frame = video_frame.extract_frame(str(src_path), size * 2)
+            if frame:
+                try:
+                    with Image.open(io.BytesIO(frame)) as im:
+                        im.load()
+                        img = im.convert("RGB")
+                        img.thumbnail((size, size), Image.LANCZOS)
+                    source = "generated"
+                except Exception as exc:  # noqa: BLE001 - fall back to a placeholder
+                    log.debug("video frame decode failed for %s: %s", src_path, exc)
+                    img = None
         if img is None:
             img = self._placeholder(uid, size, info, Image, ImageDraw)
             source = "placeholder"
@@ -284,7 +316,7 @@ class ThumbService:
             raise NotFoundError(f"Could not write the thumbnail cache: {exc}") from exc
 
         now = dbmod.now_ms()
-        row = (uid, size, str(target), info["fingerprint"], len(data),
+        row = (uid, size, str(target), versioned(info["fingerprint"]), len(data),
                img.width, img.height, now, now)
 
         def _op(conn: sqlite3.Connection) -> None:

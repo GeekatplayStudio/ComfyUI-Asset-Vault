@@ -25,7 +25,16 @@ export function useElementWidth(ref) {
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return undefined
-    const update = () => setWidth(el.clientWidth)
+    // clientWidth INCLUDES padding, but the grid tracks are laid out in the
+    // content box.  The scroll container is padded in grid mode and flush in
+    // list mode, so measuring clientWidth made the JS column count disagree
+    // with CSS auto-fill by one column exactly when switching to grid --
+    // the extra card then wrapped into the absolutely positioned row below.
+    const update = () => {
+      const cs = getComputedStyle(el)
+      const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0)
+      setWidth(Math.max(0, el.clientWidth - pad))
+    }
     update()
     if (typeof ResizeObserver === 'undefined') {
       window.addEventListener('resize', update)

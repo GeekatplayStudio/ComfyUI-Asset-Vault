@@ -247,8 +247,14 @@ export function thumbTier(tile) {
   return 640
 }
 
+/* Renderer version, mirrored from the backend's THUMB_VERSION.  Thumbnails are
+   served `immutable`, so the URL - not just the ETag - has to change when the
+   rendering does, or a client keeps its stale copy for a year.  Bump both. */
+export const THUMB_VERSION = 2
+
 export function thumbnailUrl(uid, size) {
-  return API_BASE + '/files/thumbnail?uid=' + encodeURIComponent(uid) + '&size=' + size
+  return API_BASE + '/files/thumbnail?uid=' + encodeURIComponent(uid) +
+    '&size=' + size + '&v=' + THUMB_VERSION
 }
 
 export function rawUrl(uid) {
