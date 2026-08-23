@@ -112,13 +112,22 @@ def test_torch_zip_uses_only_zipfile_and_pickletools(app_dir):
     assert "genops" in source, "disassembly, not unpickling, is the whole point"
 
 
-def test_only_three_subprocess_call_sites_exist_in_the_whole_app(app_dir):
-    """Explorer reveal, the confirmed ComfyUI updater, and the C9 git clone.
+def test_only_four_subprocess_call_sites_exist_in_the_whole_app(app_dir):
+    """Explorer reveal, the ComfyUI updater, the C9 git clone, video posters.
 
-    The third entry is ``enable/git_fetch.py``: it is the only module in the C9
-    package permitted to import ``subprocess``, the only program it may start is
-    ``git``, and it never runs anything that arrives in the clone.  The argument
-    vector itself is asserted separately in ``test_enable_downloader.py``.
+    ``enable/git_fetch.py`` is the only module in the C9 package permitted to
+    import ``subprocess``, the only program it may start is ``git``, and it
+    never runs anything that arrives in the clone.  The argument vector itself
+    is asserted separately in ``test_enable_downloader.py``.
+
+    ``jobs/video_frame.py`` is the fourth and newest: the only module allowed to
+    start ``ffmpeg``, and the only reason ``thumb_service`` can show a real
+    poster frame for a video without importing ``subprocess`` itself.  Its argv
+    is fixed, ``shell`` is never true, the child is killed on timeout, and its
+    stdout is capped -- all asserted in ``test_video_frame.py``.
+
+    This list is deliberately hard to grow: adding a name here should be a
+    considered decision with its own tests, not a convenience.
     """
     users = []
     for path in app_dir.rglob("*.py"):
@@ -132,6 +141,7 @@ def test_only_three_subprocess_call_sites_exist_in_the_whole_app(app_dir):
             and any(a.name.split(".")[0] == "subprocess" for a in node.names))
     assert sorted(set(users)) == ["api/v1/files_router.py",
                                   "enable/git_fetch.py",
+                                  "jobs/video_frame.py",
                                   "services/comfyui_service.py"], users
 
 

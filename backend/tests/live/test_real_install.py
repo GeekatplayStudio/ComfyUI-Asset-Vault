@@ -38,7 +38,28 @@ EXPECTED = {
 DRIFT = 0.10
 
 
+#: Models whose primary file sits on a root that is still available.  Retiring a
+#: root (unplugging a drive, or turning off `read_held_extra_paths`) keeps its
+#: rows on purpose, so a bare COUNT(*) measures the vault's *history* rather
+#: than the library's current scale, and drifts every time a root comes or goes.
+ACTIVE_MODELS = """
+    SELECT COUNT(DISTINCT m.id) FROM models m
+    JOIN model_files f ON f.id = m.primary_file_id
+    JOIN roots r ON r.id = f.root_id
+    WHERE r.available = 1
+"""
+
+ACTIVE_MODEL_BYTES = """
+    SELECT COALESCE(SUM(m.total_size), 0) FROM models m
+    JOIN model_files f ON f.id = m.primary_file_id
+    JOIN roots r ON r.id = f.root_id
+    WHERE r.available = 1
+"""
+
+
 def count(conn, table: str) -> int:
+    if table == "models":
+        return conn.execute(ACTIVE_MODELS).fetchone()[0]
     return conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]  # noqa: S608
 
 
@@ -163,7 +184,7 @@ def test_every_model_has_a_file_and_a_size(live_conn):
 
 
 def test_the_library_is_the_expected_scale_on_disk(live_conn):
-    total = live_conn.execute("SELECT SUM(total_size) FROM models").fetchone()[0] or 0
+    total = live_conn.execute(ACTIVE_MODEL_BYTES).fetchone()[0] or 0
     tb = total / 1024 ** 4
     assert 1.3 <= tb <= 1.9, f"library measures {tb:.3f} TB, expected ~1.589 TB"
 

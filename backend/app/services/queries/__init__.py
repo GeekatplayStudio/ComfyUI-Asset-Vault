@@ -167,7 +167,16 @@ def format_params(n) -> str | None:
 
 
 def thumb_url(uid: str, size: int = 320) -> str:
-    return f"/api/v1/files/thumbnail?uid={uid}&size={size}"
+    """Thumbnail URL, carrying the renderer version.
+
+    Thumbnails are served ``immutable`` with a one-year max-age, so a browser
+    will not revalidate them.  That is only safe while the URL identifies the
+    bytes: when the renderer changes (v2 gave videos real poster frames instead
+    of placeholders) the URL has to change with it, or every existing client
+    keeps its stale copy for a year.
+    """
+    from app.jobs.thumb_service import THUMB_VERSION
+    return f"/api/v1/files/thumbnail?uid={uid}&size={size}&v={THUMB_VERSION}"
 
 
 def raw_url(uid: str) -> str:
