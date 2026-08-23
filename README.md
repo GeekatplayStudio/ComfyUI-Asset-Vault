@@ -449,6 +449,7 @@ opt-in; the default run is fully hermetic against synthetic fixtures.
 ```bat
 cd frontend
 npm run build
+npm run test:run
 ```
 
 ---
