@@ -37,6 +37,14 @@ DEFAULTS: dict[str, tuple[str, object]] = {
     "ollama_model": ("str", "llama3.2"),
     "smart_search_enabled": ("bool", False),
     "smart_search_min_score": ("float", 0.30),
+    # App self-update.  Checking is on by default but still cannot reach the
+    # network unless ``online_enabled`` is also on.  Downloading is opt-in and
+    # defaults OFF: fetching a new copy of the app is the owner's decision,
+    # never a background one.
+    "app_update_check_enabled": ("bool", True),
+    "app_update_auto_download": ("bool", False),
+    "app_update_last_check": ("int", 0),
+    "app_update_skipped_version": ("str", None),
     "embedding_model_id": ("str", "all-MiniLM-L6-v2-int8"),
     "embedding_state": ("str", "not_installed"),
     "embedding_model_url": ("str", "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main"),
@@ -93,6 +101,8 @@ class AppConfig:
     thumb_video_ffmpeg: bool = False
     mcp_read_only: bool = False
     smart_search_min_score: float = 0.30
+    app_update_check_enabled: bool = True
+    app_update_auto_download: bool = False
     raw: dict = field(default_factory=dict)
 
     def as_dict(self) -> dict:
@@ -269,6 +279,8 @@ def _build(values: dict) -> AppConfig:
         smart_search_min_score=max(0.05, min(0.9, float(
             values.get("smart_search_min_score") if values.get("smart_search_min_score")
             is not None else 0.30))),
+        app_update_check_enabled=bool(values.get("app_update_check_enabled")),
+        app_update_auto_download=bool(values.get("app_update_auto_download")),
         raw=values,
     )
 

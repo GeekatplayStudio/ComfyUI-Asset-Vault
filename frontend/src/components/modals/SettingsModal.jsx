@@ -13,6 +13,7 @@ import Toggle from '../common/Toggle.jsx'
 import Badge from '../common/Badge.jsx'
 import ProgressBar from '../common/ProgressBar.jsx'
 import MetaRow from '../details/MetaRow.jsx'
+import AppUpdatePanel from './AppUpdatePanel.jsx'
 import EmptyState from '../common/EmptyState.jsx'
 import ErrorBoundary from '../common/ErrorBoundary.jsx'
 import { SkeletonRows } from '../common/Skeleton.jsx'
@@ -38,6 +39,7 @@ const TABS = [
   { id: 'search', label: 'Search' },
   { id: 'jobs', label: 'Jobs' },
   { id: 'storage', label: 'Storage' },
+  { id: 'updates', label: 'Updates' },
   { id: 'activity', label: 'Activity' }
 ]
 
@@ -614,6 +616,14 @@ export default function SettingsModal({ onClose, onReindex, onWizard, initialTab
     }
     if (tab === 'search') return <SearchTab config={config} />
     if (tab === 'jobs') return <JobsTab config={config} />
+    if (tab === 'updates') {
+      // A failed update check must never take Settings down with it.
+      return (
+        <ErrorBoundary small title="The update panel could not be rendered">
+          <AppUpdatePanel config={config} />
+        </ErrorBoundary>
+      )
+    }
     if (tab === 'activity') {
       // DECISIONS C5 rail 3: Settings -> Activity. Wrapped so a malformed audit
       // row can never take the whole Settings dialog down with it.

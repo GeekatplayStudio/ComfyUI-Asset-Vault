@@ -181,6 +181,7 @@ Two mechanisms hold that, neither of which asks a mutation endpoint to remember 
   "online_enabled":true,"civitai_enabled":true,"civitai_api_key_set":false,
   "ollama_enabled":false,"ollama_url":"http://localhost:11434","ollama_model":"llama3",
   "smart_search_enabled":true,"smart_search_min_score":0.3,
+  "app_update_check_enabled":true,"app_update_auto_download":false,
   "hash_concurrency":2,"hash_throttle_mbps":0,
   "thumb_cache_max_mb":2048,"thumb_video_ffmpeg":false,
   "page_size_default":100,"trash_mode":"trash","trash_retention_days":30,
@@ -192,6 +193,8 @@ Two mechanisms hold that, neither of which asks a mutation endpoint to remember 
 `civitai_api_key` is **never** returned — only `civitai_api_key_set`.
 `smart_search_min_score` (0.05–0.9, default **0.3**) is the cosine floor the semantic arm applies: a document must be at least this similar to the query before smart search will offer it. Raise it for fewer, closer matches; lower it to cast a wider net. Without a floor the nearest-neighbour lookup always returns its top N, so a query matching nothing still filled the grid with unrelated assets. Keyword (FTS) matches are never filtered by this value.
 `mcp_read_only` switches the MCP server back to a read-only tool surface (DECISIONS C5 rail 6). Default **false** — full file-operation access is the shipped default; when `true`, every mutating MCP tool refuses and reads keep working.
+
+`app_update_check_enabled` (default **true**) asks GitHub whether a newer release of *this app* exists; it still reaches nothing unless `online_enabled` is also true. `app_update_auto_download` (default **false**) additionally downloads it. Neither ever installs anything — see §1.9.
 
 ### `PATCH /api/v1/system/config`
 Body: any subset of the writable keys above. `200` returns the full config.
@@ -270,6 +273,40 @@ Body `{"max_mb": 2048}` → `200 {"deleted":1204,"freed_bytes":318000000,"remain
 
 ### `POST /api/v1/system/ollama/test`
 Body `{"url":"…"}` → `200 {"available":true,"models":["llama3:latest"],"latency_ms":41}` or `200 {"available":false,"reason":"connection refused"}`. **Never a 5xx** — unavailability is a normal state.
+
+### 1.9 App self-update
+
+Updates come only from the pinned repository `GeekatplayStudio/ComfyUI-Asset-Vault`. That constant lives in `services/app_update_service.py`, **not** in config: no setting can aim the updater at another project. Only `api.github.com`, `github.com` and `*.githubusercontent.com` are allowlisted for this kind of fetch (`hosts.KIND_RELEASE`).
+
+Downloading and installing are separate moments. Nothing in these routes replaces a running file: a download is unpacked into `backend/data/updates/staged/` and applied by `apply_update.py`, which the launcher runs **before** the engine starts, when no module is loaded and no request is in flight.
+
+#### `GET /api/v1/system/app-update`
+```json
+{ "current_version":"2.1.0","latest_version":"2.2.0","has_update":true,
+  "state":"update_available","reason":null,
+  "notes":"### Added\n…","published_at":"2026-09-01T10:00:00Z",
+  "download_bytes":1381204,"checksum_published":true,"downloadable":true,
+  "releases_url":"https://github.com/GeekatplayStudio/ComfyUI-Asset-Vault/releases",
+  "repository":"GeekatplayStudio/ComfyUI-Asset-Vault",
+  "check_enabled":true,"auto_download":false,"online_enabled":true,
+  "last_check":1787456137060,"skipped_version":null,
+  "pending":{"version":"2.2.0","from_version":"2.1.0","sha256":"c704…","verified":true,
+             "staged_at":1787456200000,"files":214,"notes":"…"} }
+```
+`state` is one of `disabled` (checks turned off), `offline` (`online_enabled` is false), `current`, `update_available`, `error`, `unknown`. **Never a 5xx** — an unreachable GitHub is a `state`, not a failure. `pending` is the staged release awaiting a restart, or `null`.
+
+#### `POST /api/v1/system/app-update/check`
+Same body as above, bypassing the 6-hour cached answer.
+
+#### `POST /api/v1/system/app-update/download`
+`202`-style `200 {"ok":true,"pending":{…},"restart_required":true}`. Downloads the release archive, compares it to the checksum the release publishes, and unpacks it into the staging directory. Errors: `503 FEATURE_UNAVAILABLE` (outbound lookups off), `422 VALIDATION_ERROR` (already current, checksum mismatch, or an archive that fails the safety rules), `502 UPSTREAM_UNAVAILABLE`.
+
+The archive is bounded before anything is written: ≤256 MB, ≤20 000 entries, ≤100× expansion ratio, no absolute paths, no traversal, no link entries, and every member must land under `backend/app`, `frontend/dist`, `docs` or the named top-level scripts. **`backend/data` and `venv` can never be written by an update** — the owner's database, thumbnails and Python environment are outside what a release may place.
+
+The checksum proves the download arrived intact. It is **not** proof of authorship: it travels from the same host as the file. This app publishes no signed releases and the UI says so.
+
+#### `POST /api/v1/system/app-update/discard`
+`200 {"discarded":true}`. Deletes the staged tree. The running installation is untouched.
 
 ---
 

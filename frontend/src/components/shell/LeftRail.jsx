@@ -478,7 +478,7 @@ export default function LeftRail() {
         <div className="gp-rail__footer-top">
           <span className="gp-rail__footer-name">{AUTHOR}</span>
           <span className="gp-rail__footer-ver">
-            v{(state.info && state.info.version) || '2.1.0'}
+            {state.info && state.info.version ? 'v' + state.info.version : null}
           </span>
         </div>
 

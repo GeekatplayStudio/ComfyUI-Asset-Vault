@@ -56,6 +56,25 @@ else
     exit 1
 fi
 
+# ----------------------------------------------------- apply a staged update
+# Nothing is running yet and nothing is imported, which is the only safe moment
+# to replace the app's own files.  Exits 0 when nothing is staged.
+if [ -f "$ROOT/backend/data/updates/pending.json" ]; then
+    echo "[0/3] Applying the downloaded update ..."
+    set +e
+    "$PY" "$ROOT/apply_update.py"
+    APPLY_RC=$?
+    set -e
+    if [ "$APPLY_RC" -ge 2 ]; then
+        echo "[ERROR] The update failed and could not be rolled back."
+        echo "        Your previous files are in backend/data/updates/backup."
+        exit 1
+    elif [ "$APPLY_RC" -eq 1 ]; then
+        echo "[WARN]  The update failed and was rolled back. Continuing on the"
+        echo "        current version."
+    fi
+fi
+
 # ------------------------------------------------------- port in use test
 if "$PY" -c "import socket,sys; s=socket.socket(); s.settimeout(1); sys.exit(0 if s.connect_ex(('127.0.0.1',$PORT))==0 else 1)" >/dev/null 2>&1; then
     echo "[ERROR] Port $PORT is already in use."

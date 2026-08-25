@@ -256,6 +256,13 @@ button.gp-chip--selected:hover{background:var(--gp-selected-strong);border-color
 .gp-row__thumb .gp-face{gap:0;border-radius:inherit}
 .gp-row__thumb .gp-face__bar{height:2px}
 .gp-row__thumb .gp-face__icon svg{width:13px;height:13px}
+/* Release notes — GitHub markdown rendered as shape, not as HTML. */
+.gp-relnotes{max-height:260px;overflow-y:auto;padding:var(--gp-s-4);background:var(--gp-bg-inset);border:1px solid var(--gp-line-100);border-radius:var(--gp-r-2);font-size:var(--gp-fs-11);line-height:var(--gp-lh-base);color:var(--gp-fg-200)}
+.gp-relnotes__head{font-weight:var(--gp-fw-600);color:var(--gp-fg-100);margin-top:var(--gp-s-3)}
+.gp-relnotes__head:first-child{margin-top:0}
+.gp-relnotes__item{padding-left:var(--gp-s-5);position:relative}
+.gp-relnotes__item::before{content:"";position:absolute;left:var(--gp-s-3);top:.55em;width:3px;height:3px;border-radius:var(--gp-r-full);background:var(--gp-brand-200)}
+.gp-relnotes__gap{height:var(--gp-s-3)}
 /* Community stars: compact, non-interactive. */
 .gp-stars{display:inline-flex;align-items:center;gap:2px;color:var(--gp-brand-100);font-size:var(--gp-fs-10)}
 .gp-stars svg{width:10px;height:10px;fill:currentColor;stroke:none}

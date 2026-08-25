@@ -18,11 +18,15 @@ from ...indexing import walker
 from ...indexing.service import get_indexer
 from ...jobs.embed_service import get_embed_service
 from ...jobs.thumb_service import get_thumb_service
+from ...services import app_update_service
 from ...services.ollama_service import ollama_service
 from ...services.queries import models_query, nodes_query
 from ..middleware import ApiError
 from ..schemas.common import BASE_ERRORS, MUTATION_ERRORS, error_responses
 from ..schemas.system import (
+    AppUpdateDiscardResponse,
+    AppUpdateDownloadResponse,
+    AppUpdateStatus,
     ConfigPatch,
     HealthReport,
     OllamaTestRequest,
@@ -75,6 +79,8 @@ def _config_payload(cfg, *, roots_changed: bool | None = None) -> dict:
         "ollama_model": cfg.ollama_model,
         "smart_search_enabled": cfg.smart_search_enabled,
         "smart_search_min_score": cfg.smart_search_min_score,
+        "app_update_check_enabled": cfg.app_update_check_enabled,
+        "app_update_auto_download": cfg.app_update_auto_download,
         "hash_concurrency": cfg.hash_concurrency,
         "hash_throttle_mbps": cfg.hash_throttle_mbps,
         "thumb_cache_max_mb": cfg.thumb_cache_max_mb,
@@ -456,6 +462,57 @@ def thumbs_gc(body: ThumbsGcRequest) -> dict:
     return {"deleted": int(result.get("removed") or 0),
             "freed_bytes": int(result.get("freed_bytes") or 0),
             "remaining_bytes": int(result.get("remaining_bytes") or 0)}
+
+
+# ---------------------------------------------------------------------------
+# App self-update (API_CONTRACT 1.9)
+# ---------------------------------------------------------------------------
+
+@router.get("/app-update", response_model=AppUpdateStatus, responses=BASE_ERRORS,
+            summary="Current version, the newest release, and anything staged")
+def app_update_status() -> dict:
+    """Never fails: an unreachable GitHub is a ``state`` value, not a 5xx."""
+    return app_update_service.status()
+
+
+@router.post("/app-update/check", response_model=AppUpdateStatus,
+             responses=MUTATION_ERRORS,
+             summary="Re-check now, bypassing the cached answer")
+def app_update_check() -> dict:
+    return app_update_service.status(force=True)
+
+
+@router.post("/app-update/download", response_model=AppUpdateDownloadResponse,
+             responses={**error_responses("FEATURE_UNAVAILABLE", "VALIDATION_ERROR",
+                                          "UPSTREAM_UNAVAILABLE"),
+                        **MUTATION_ERRORS},
+             summary="Download and stage the newest release; applied on next launch")
+def app_update_download() -> dict:
+    """Downloads, checksum-checks and unpacks into ``backend/data/updates``.
+
+    Nothing in the running installation is touched - the swap happens in
+    ``apply_update.py`` at the next launch, when no module is loaded.
+    """
+    release = app_update_service.fetch_latest(force=True)
+    if release is None:
+        raise ApiError("UPSTREAM_UNAVAILABLE",
+                       "No published release was found to download.",
+                       details={"repository": app_update_service.REPO_NAME})
+    if not app_update_service.is_newer(release.version, buildcfg.VERSION):
+        raise ApiError("VALIDATION_ERROR",
+                       f"This install is already {buildcfg.VERSION}; "
+                       f"the newest release is {release.version}.",
+                       details={"current": buildcfg.VERSION,
+                                "latest": release.version})
+    return {"ok": True, "pending": app_update_service.stage(release),
+            "restart_required": True}
+
+
+@router.post("/app-update/discard", response_model=AppUpdateDiscardResponse,
+             responses=MUTATION_ERRORS,
+             summary="Throw away a staged update without applying it")
+def app_update_discard() -> dict:
+    return {"discarded": app_update_service.discard()}
 
 
 @router.post("/ollama/test", response_model=OllamaTestResponse,

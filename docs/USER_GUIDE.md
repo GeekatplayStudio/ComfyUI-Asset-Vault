@@ -427,6 +427,7 @@ Four sections.
 |---|---|
 | **Location** | ComfyUI path with live validation, the configured roots, `extra_model_paths.yaml` contents, Save path · Save and reindex now · Run the setup wizard |
 | **Search** | Smart search enable/rebuild and its status, match strictness, Civitai matching, the outbound-lookups master switch, local text generation with a Test button |
+| **Updates** | The installed version, the newest published release, what changed in it, Download, and the two update preferences |
 | **Jobs** | Reindex on startup when files changed, watch folders, also read `extra_model_paths.yaml.hold`, default delete mode, trash retention |
 | **Storage** | Thumbnail cache size and Trim now, the trash list with Restore and Empty |
 
@@ -453,7 +454,47 @@ See **[MCP_CLIENT_SETUP.md](MCP_CLIENT_SETUP.md)**.
 
 ---
 
-## 14. About this build
+## 14. Updating the vault itself
+
+**Settings → Updates** shows the version you are running, the newest release
+published on GitHub, and the changelog entry for it — so you can read what
+changed before deciding.
+
+Two switches, and they do different things:
+
+* **Tell me when a new release is published** (on by default) asks GitHub once
+  per launch. Like everything else that touches the network, it stays silent
+  unless *Allow outbound lookups at all* is also on.
+* **Download new releases automatically** (off by default) fetches the archive
+  as well. It does **not** install anything.
+
+Downloading and installing are deliberately separate. A downloaded update sits
+in `backend\data\updates` doing nothing until you close the vault and start it
+again; the launcher applies it before the engine starts, when no part of the
+app is loaded. That is why there is no button that restarts the app underneath
+you, and why an update can never half-apply while you are working.
+
+What an update can and cannot touch: it replaces the engine (`backend\app`),
+the interface (`frontend\dist`), the documentation and the launcher scripts.
+It can never write to `backend\data` or `venv` — your database, ratings, tags,
+notes, thumbnails and Python environment are outside what a release is allowed
+to place. The previous version is kept in `backend\data\updates\backup`, so a
+bad update can be undone by copying it back. If applying one fails part-way,
+the launcher restores the previous version automatically and tells you.
+
+The archive is checked against the checksum published with the release, which
+proves it downloaded intact. It is not proof of who built it — the checksum
+comes from the same server as the file. This app does not ship signed releases
+and does not claim to.
+
+Updates only ever come from
+`github.com/GeekatplayStudio/ComfyUI-Asset-Vault`. That is a constant in the
+source, not a setting, so nothing you or anything else can configure will point
+the updater at another project.
+
+---
+
+## 15. About this build
 
 The Asset Vault is a ground-up rebuild, not an incremental patch. Its predecessor installed
 cleanly but did not work — a full scan against a real ComfyUI installation crashed before its

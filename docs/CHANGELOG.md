@@ -8,6 +8,37 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 ### Added
 
+**The vault can update itself.** A new **Settings → Updates** panel shows the
+installed version, the newest release published on GitHub, and the changelog
+entry for it, so you can read what changed before deciding. Two preferences:
+*Tell me when a new release is published* (on by default, and still silent
+unless outbound lookups are enabled) and *Download new releases automatically*
+(off by default). Release notes are the changelog's own top section, published
+by `make_release.ps1 -Publish`, so what the panel shows can never drift from
+what actually changed.
+
+Downloading and installing are deliberately two moments. A download is
+verified against the checksum published with the release, unpacked into
+`backend/data/updates/staged`, and left inert. The swap is performed by
+`apply_update.py`, which the launcher runs **before** the engine starts — no
+module loaded, no request in flight, nothing replaced underneath a running
+app. The previous version is kept for rollback, and a failure mid-swap
+restores it automatically rather than leaving half of two versions behind.
+
+What an update may place is bounded before a byte is written: the engine, the
+interface, the docs and the launcher scripts, and nothing else. **`backend/data`
+and `venv` can never be written by a release** — the database, ratings, tags,
+notes, thumbnails and Python environment are outside the allowed set. The
+archive is additionally capped at 256 MB, 20 000 entries and a 100× expansion
+ratio, with absolute paths, traversal and link entries refused outright.
+
+The repository is a constant in the source, not a setting, and only
+`api.github.com`, `github.com` and `*.githubusercontent.com` are allowlisted
+for it — no configuration can aim the updater at another project. The checksum
+proves the download arrived intact; it is not proof of authorship, because it
+travels from the same host as the file, and the UI says so rather than
+implying more.
+
 **Your library — ratings, tags, colour labels and notes.** The user-metadata layer that has
 always existed in the schema now has an interface. Every model and output details panel carries
 a **Your library** section: a five-star rating (click the current star to clear it), a colour

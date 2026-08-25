@@ -14,6 +14,8 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
+from .. import config as buildcfg
+
 log = logging.getLogger("vault.mcp")
 
 # --- protocol ----------------------------------------------------------------
@@ -22,7 +24,9 @@ LATEST_PROTOCOL_VERSION = "2025-06-18"
 
 SERVER_NAME = "geekatplay-comfyui-vault"
 SERVER_TITLE = "Geekatplay ComfyUI Asset Vault"
-SERVER_VERSION = "2.1.0"
+#: Read from the build constants rather than repeated: the self-updater compares
+#: this app's version against a release tag, so a stale copy is a real defect.
+SERVER_VERSION = buildcfg.VERSION
 
 #: DECISIONS C5.3 - replaces the read-only wording MCP_SPEC 3.2 originally had.
 INSTRUCTIONS = (
