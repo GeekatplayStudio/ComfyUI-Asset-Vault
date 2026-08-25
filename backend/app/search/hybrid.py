@@ -110,6 +110,7 @@ def search(q: str, *, smart: bool = False, kinds: list[str] | None = None,
     rankings = [(lexical, W_LEXICAL)]
     res.arms["lexical"] = len(lexical)
 
+    vector: list = []
     if smart and smart_ok:
         vector = vec.search(q, kinds=kinds, limit=ARM_LIMIT)
         if vector:
@@ -128,6 +129,9 @@ def search(q: str, *, smart: bool = False, kinds: list[str] | None = None,
 
     hydrated = _hydrate(conn, list(fused))
     needle = q.strip().lower()
+    lex_uids = {u for u, _k, _s in lexical}
+    vec_uids = {u for u, _k, _s in vector}
+    name_uids: set[str] = set()
     scored: list[tuple[float, str]] = []
     for uid, score in fused.items():
         meta = hydrated.get(uid)
@@ -140,6 +144,7 @@ def search(q: str, *, smart: bool = False, kinds: list[str] | None = None,
         title = str(meta.get("title") or "").lower()
         if needle and needle in title:
             score += EXACT_BONUS
+            name_uids.add(uid)
             if title == needle:
                 score += EXACT_BONUS
         scored.append((score, uid))
@@ -152,9 +157,11 @@ def search(q: str, *, smart: bool = False, kinds: list[str] | None = None,
         meta = dict(hydrated[uid])
         meta["score"] = round(score, 6)
         matched = []
-        if any(uid == u for u, _k, _s in lexical):
+        if uid in name_uids:
+            matched.append("name")
+        if uid in lex_uids:
             matched.append("lexical")
-        if res.mode == "hybrid":
+        if uid in vec_uids:
             matched.append("semantic")
         meta["matched"] = matched
         items.append(meta)

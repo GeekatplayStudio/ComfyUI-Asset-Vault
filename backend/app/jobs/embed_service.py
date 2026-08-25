@@ -31,6 +31,12 @@ MODEL_ID = "all-MiniLM-L6-v2-int8"
 MAX_TOKENS = 256
 INDEX_BATCH = 32
 QUERY_CACHE = 512
+#: Default cosine floor for the vector arm, overridable per vault through
+#: ``smart_search_min_score``.  Vectors are L2-normalised, so unrelated MiniLM
+#: pairs land around 0.0-0.2; below the floor a "nearest" neighbour is just the
+#: least-unrelated document, and returning it makes smart search look arbitrary
+#: (a nonsense query would still fill the grid).
+MIN_COSINE = 0.30
 
 FILES = {
     "model.onnx": "onnx/model_quantized.onnx",
@@ -420,10 +426,12 @@ class EmbedService:
     # SCALE NOTE: brute-force matmul is ~1-2 ms at N=10k.  Revisit with IVF or
     # sqlite-vec only above N > 150_000 (ARCHITECTURE 5.3).
     def search(self, query: str, *, kinds: list[str] | None = None,
-               limit: int = 200) -> list[tuple[str, str, float]]:
+               limit: int = 200,
+               min_score: float | None = None) -> list[tuple[str, str, float]]:
         np = _np()
         if np is None or not self.available:
             return []
+        floor = MIN_COSINE if min_score is None else float(min_score)
         q = self.embed_query(query)
         if q is None:
             return []
@@ -438,10 +446,13 @@ class EmbedService:
         idx = idx[np.argsort(-scores[idx])]
         out: list[tuple[str, str, float]] = []
         for i in idx:
+            score = float(scores[i])
+            if score < floor:
+                break  # sorted descending: everything after is weaker still
             kind = doc_kinds[i]
             if kinds and kind not in kinds:
                 continue
-            out.append((uids[i], kind, float(scores[i])))
+            out.append((uids[i], kind, score))
             if len(out) >= limit:
                 break
         return out

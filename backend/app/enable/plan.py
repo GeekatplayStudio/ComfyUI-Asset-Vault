@@ -70,7 +70,8 @@ def _fingerprint(workflow_id: int, items: list[PlanItem]) -> str:
                "url": i.payload.get("source_url"),
                "target": i.payload.get("target_abs_path"),
                "size": i.payload.get("expected_size"),
-               "sha256": i.payload.get("expected_sha256")}
+               "sha256": i.payload.get("expected_sha256"),
+               "commit": i.payload.get("expected_commit")}
               for i in items], key=lambda d: d["id"])},
         ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

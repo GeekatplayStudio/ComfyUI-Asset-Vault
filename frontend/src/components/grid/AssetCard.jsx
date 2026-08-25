@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from 'react'
 import {
   Box, Package, Puzzle, Workflow, Image as ImageIcon, Film, Music, Boxes,
-  FileText, Star, AlertTriangle, ExternalLink
+  FileText, Star, ExternalLink, Layers, Aperture, Type, Eye, Sliders,
+  ZoomIn, Hash, Cpu
 } from 'lucide-react'
 import { thumbnailUrl } from '../../services/api.js'
 import InlinePlayer, { isPlayable } from '../common/InlinePlayer.jsx'
@@ -18,6 +19,83 @@ const MEDIA_ICONS = {
   image: ImageIcon, video: Film, audio: Music, model3d: Boxes, text: FileText
 }
 
+/* Category → icon + face accent class.  Matched by substring so folder
+   variants ("sdxl_loras", "controlnet_aux") land in the right family. */
+const CATEGORY_FACES = [
+  ['lora', Layers, 'lora'], ['lycoris', Layers, 'lora'],
+  ['vae', Aperture, 'vae'],
+  ['clip_vision', Eye, 'vision'], ['vision', Eye, 'vision'],
+  ['clip', Type, 'text'], ['text_encoder', Type, 'text'], ['t5', Type, 'text'],
+  ['controlnet', Sliders, 'control'], ['control', Sliders, 'control'],
+  ['upscale', ZoomIn, 'upscale'], ['esrgan', ZoomIn, 'upscale'],
+  ['embedding', Hash, 'embedding'], ['textual', Hash, 'embedding'],
+  ['gguf', Cpu, 'quant'], ['unet', Cpu, 'quant'],
+  ['motion', Film, 'motion'], ['animate', Film, 'motion'],
+  ['checkpoint', Box, 'checkpoint'], ['diffusion', Box, 'checkpoint']
+]
+
+function categoryFace(category) {
+  const key = String(category || '').toLowerCase()
+  for (const [needle, Icon, cls] of CATEGORY_FACES) {
+    if (key.includes(needle)) return { Icon, cls }
+  }
+  return { Icon: Box, cls: 'default' }
+}
+
+/* One status tone per card face: ok = usable as-is, warn = needs attention,
+   danger = broken or gone, neutral = status does not apply. */
+function modelBar(item, integrity) {
+  if (item.missing) return 'danger'
+  if (integrity && integrity !== 'ok') return 'danger'
+  if (item.hash && item.hash.state === 'failed') return 'warn'
+  return 'ok'
+}
+
+const EXT_LABELS = {
+  '.safetensors': 'safetensors', '.sft': 'safetensors', '.ckpt': 'checkpoint',
+  '.pt': 'pytorch', '.pth': 'pytorch', '.bin': 'binary', '.onnx': 'onnx',
+  '.gguf': 'gguf', '.pkl': 'pickle'
+}
+
+function extLabel(ext) {
+  const key = String(ext || '').toLowerCase()
+  return EXT_LABELS[key] || (key ? key.replace('.', '') : null)
+}
+
+function matchBadge(item) {
+  const matched = item.match && item.match.matched
+  if (!matched || !matched.length) return null
+  const semantic = matched.includes('semantic')
+  const label = matched.includes('name') ? 'name match'
+    : semantic && !matched.includes('lexical') ? 'semantic match'
+    : semantic ? 'text + semantic' : 'text match'
+  return {
+    key: 'match',
+    node: <Badge tone={semantic ? 'ai' : 'neutral'} overlay>{label}</Badge>
+  }
+}
+
+function formatDownloads(n) {
+  if (!n || n < 1) return null
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(n >= 10_000 ? 0 : 1) + 'k'
+  return String(n)
+}
+
+export function CommunityStars({ rating, downloads }) {
+  const value = Number(rating)
+  if (!value || value <= 0) return null
+  const dl = formatDownloads(downloads)
+  return (
+    <span className="gp-stars" title={'Community rating ' + value.toFixed(1)
+      + (dl ? ' · ' + dl + ' downloads' : '')}>
+      <Star aria-hidden="true" />
+      <span>{value.toFixed(1)}</span>
+      {dl ? <span>· {dl}</span> : null}
+    </span>
+  )
+}
+
 export function presentAsset(item, scope) {
   if (scope === 'models') {
     const family = item.base_model && item.base_model.family
@@ -27,21 +105,35 @@ export function presentAsset(item, scope) {
     const integrity = typeof item.integrity === 'string'
       ? item.integrity
       : (item.integrity && item.integrity.status)
+    const { Icon, cls } = categoryFace(item.category)
+    const community = item.community || {}
     return {
       uid: item.uid,
       title: item.filename || item.name,
       subtitle: humanise(item.category),
-      icon: Box,
+      icon: Icon,
       wide: false,
       inferred,
       missing: Boolean(item.missing),
       error: integrity && integrity !== 'ok',
+      // Only fetch a server thumbnail when a real preview image exists; the
+      // contextual card face replaces the generated gradient placeholder.
+      noThumb: item.has_preview === false,
+      face: {
+        Icon, cls, bar: modelBar(item, integrity),
+        type: extLabel(item.ext) || humanise(item.category),
+        sub: humanise(item.category)
+      },
+      stars: <CommunityStars rating={community.rating} downloads={community.downloads} />,
       meta: [
         bytes(item.size),
         item.precision || null,
         item.params && item.params.display ? item.params.display : null
       ].filter(Boolean),
-      badges: [{ key: 'base', node: <BaseModelBadge base={item.base_model} overlay /> }],
+      badges: [
+        { key: 'base', node: <BaseModelBadge base={item.base_model} overlay /> },
+        matchBadge(item)
+      ].filter(Boolean),
       corner: [
         { key: 'integrity', node: <IntegrityBadge status={integrity} overlay /> },
         { key: 'hash', node: <HashBadge state={item.hash && item.hash.state} overlay /> }
@@ -67,13 +159,20 @@ export function presentAsset(item, scope) {
       inferred: item.extraction && item.extraction.confidence === 'inferred',
       missing: Boolean(item.missing),
       error: false,
+      noThumb: true,
+      face: {
+        Icon: Package, cls: 'default',
+        bar: item.missing ? 'danger' : item.enabled === false ? 'warn' : 'ok',
+        type: 'node pack',
+        sub: item.author || null
+      },
       meta: [
         item.class_count + (item.class_count === 1 ? ' class' : ' classes'),
         bytes(item.size)
       ].filter(Boolean),
       badges: [item.is_official
         ? { key: 'official', node: <Badge tone="brand" overlay>official</Badge> }
-        : null].filter(Boolean),
+        : null, matchBadge(item)].filter(Boolean),
       corner: [item.update && item.update.has_update
         ? { key: 'upd', node: <Badge tone="info" overlay>update</Badge> }
         : null].filter(Boolean),
@@ -105,11 +204,17 @@ export function presentAsset(item, scope) {
       missing: false,
       error: false,
       noThumb: true,
+      face: {
+        Icon: Puzzle, cls: 'default',
+        bar: item.flags && item.flags.deprecated ? 'warn' : 'neutral',
+        type: 'node class',
+        sub: item.package ? item.package.name : null
+      },
       meta: [
         item.package ? item.package.name : null,
         outputs.length ? outputs.join(', ') : null
       ].filter(Boolean),
-      badges: [],
+      badges: [matchBadge(item)].filter(Boolean),
       corner: item.flags && item.flags.deprecated
         ? [{ key: 'dep', node: <Badge tone="warn" overlay>deprecated</Badge> }]
         : [],
@@ -137,14 +242,23 @@ export function presentAsset(item, scope) {
       inferred: item.description_source === 'derived' || item.description_source === 'ollama',
       missing: Boolean(item.missing),
       error: broken,
+      face: {
+        Icon: Workflow, cls: 'default',
+        bar: item.missing || broken ? 'danger' : 'ok',
+        type: 'workflow',
+        sub: item.base_model && item.base_model !== 'Unknown' ? item.base_model : null
+      },
       meta: [
         (item.counts && item.counts.nodes) + ' nodes',
         item.base_model && item.base_model !== 'Unknown' ? item.base_model : null,
         broken ? (missingNodes + missingModels) + ' missing' : 'runnable'
       ].filter(Boolean),
-      badges: item.base_model && item.base_model !== 'Unknown'
-        ? [{ key: 'base', node: <Badge tone="base" overlay>{item.base_model}</Badge> }]
-        : [],
+      badges: [
+        item.base_model && item.base_model !== 'Unknown'
+          ? { key: 'base', node: <Badge tone="base" overlay>{item.base_model}</Badge> }
+          : null,
+        matchBadge(item)
+      ].filter(Boolean),
       corner: broken
         ? [{ key: 'broken', node: <Badge tone="dep-missing" overlay>{missingNodes + missingModels} missing</Badge> }]
         : [{ key: 'ok', node: <Badge tone="dep-satisfied" overlay>runnable</Badge> }],
@@ -179,9 +293,18 @@ export function presentAsset(item, scope) {
         (item.duration_ms ? duration(item.duration_ms) : null),
       bytes(item.size)
     ].filter(Boolean),
-    badges: item.media_kind !== 'image'
-      ? [{ key: 'kind', node: <Badge tone="media" overlay>{item.media_kind}</Badge> }]
-      : [],
+    face: {
+      Icon: MediaIcon, cls: 'default',
+      bar: item.missing ? 'danger' : 'neutral',
+      type: item.media_kind || 'output',
+      sub: null
+    },
+    badges: [
+      item.media_kind !== 'image'
+        ? { key: 'kind', node: <Badge tone="media" overlay>{item.media_kind}</Badge> }
+        : null,
+      matchBadge(item)
+    ].filter(Boolean),
     corner: item.favorite
       ? [{ key: 'fav', node: <Badge tone="brand" overlay><Star size={9} aria-hidden="true" /></Badge> }]
       : [],
@@ -197,10 +320,32 @@ export function presentAsset(item, scope) {
 
 /* --------------------------------------------------------------------- card */
 
-function Thumb({ uid, tier, alt, placeholderIcon: Icon, inferred, noThumb }) {
+export function CardFace({ face, small, badges, corner }) {
+  const Icon = (face && face.Icon) || Box
+  const chips = [...(badges || []), ...(corner || [])]
+  return (
+    <div className={'gp-face gp-face--cat-' + ((face && face.cls) || 'default')
+      + (small ? ' gp-face--small' : '')}>
+      <span className={'gp-face__bar'
+        + (face && face.bar && face.bar !== 'ok' ? ' gp-face__bar--' + face.bar : '')} />
+      <span className="gp-face__icon"><Icon aria-hidden="true" /></span>
+      {!small && face && face.type ? <span className="gp-face__type">{face.type}</span> : null}
+      {!small && face && face.sub && face.sub !== face.type
+        ? <span className="gp-face__sub">{face.sub}</span> : null}
+      {!small && chips.length ? (
+        <div className="gp-face__badges">
+          {chips.map((b) => <React.Fragment key={b.key}>{b.node}</React.Fragment>)}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function Thumb({ uid, tier, alt, placeholderIcon: Icon, inferred, noThumb, face }) {
   const [failed, setFailed] = useState(noThumb === true)
   const onError = useCallback(() => setFailed(true), [])
   if (failed) {
+    if (face) return <CardFace face={face} />
     return (
       <div className={'gp-card__placeholder' + (inferred ? ' gp-card__placeholder--inferred' : '')}>
         <Icon aria-hidden="true" />
@@ -249,24 +394,33 @@ function AssetCard(props) {
         className={'gp-card__thumb gp-focus-inset' + (p.wide ? ' gp-card__thumb--wide' : '')}
         aria-label={'Open ' + p.title}
       >
-        <Thumb
-          uid={p.uid}
-          tier={tier}
-          alt=""
-          placeholderIcon={p.icon}
-          inferred={p.inferred}
-          noThumb={p.noThumb}
-        />
-        {p.badges.length ? (
-          <div className="gp-card__badges">
-            {p.badges.map((b) => <React.Fragment key={b.key}>{b.node}</React.Fragment>)}
-          </div>
-        ) : null}
-        {p.corner.length ? (
-          <div className="gp-card__corner">
-            {p.corner.map((b) => <React.Fragment key={b.key}>{b.node}</React.Fragment>)}
-          </div>
-        ) : null}
+        {p.noThumb && p.face ? (
+          /* Face cards keep every label in flow, below the bar, checkbox and
+             corner icon — nothing overlays the text, so nothing gets cut. */
+          <CardFace face={p.face} badges={p.badges} corner={p.corner} />
+        ) : (
+          <>
+            <Thumb
+              uid={p.uid}
+              tier={tier}
+              alt=""
+              placeholderIcon={p.icon}
+              inferred={p.inferred}
+              noThumb={p.noThumb}
+              face={p.face}
+            />
+            {p.badges.length || p.corner.length ? (
+              <div className="gp-card__top">
+                <div className="gp-card__badges">
+                  {p.badges.map((b) => <React.Fragment key={b.key}>{b.node}</React.Fragment>)}
+                </div>
+                <div className="gp-card__corner">
+                  {p.corner.map((b) => <React.Fragment key={b.key}>{b.node}</React.Fragment>)}
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
       </button>
       {isPlayable(item.media_kind) ? (
         <InlinePlayer
@@ -312,6 +466,7 @@ function AssetCard(props) {
               <span>{text}</span>
             </React.Fragment>
           ))}
+          {p.stars}
         </div>
       </div>
     </article>

@@ -1,8 +1,8 @@
 # Geekatplay ComfyUI Asset Vault - launcher (PowerShell)
 # Vladimir Chopine
 #
-# Behaves exactly like start_app.bat: starts the engine on 127.0.0.1:8127, waits
-# until it really accepts connections, then runs the interface on port 3000.
+# Behaves exactly like start_app.bat: builds the interface, starts the engine on
+# 127.0.0.1:8127, waits until it accepts connections, then opens that same port.
 #
 #   powershell -ExecutionPolicy Bypass -File .\start_app.ps1
 #
@@ -14,7 +14,6 @@ $Root   = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $Root
 
 $Port   = 8127
-$UiPort = 3000
 $Py     = Join-Path $Root 'venv\Scripts\python.exe'
 $LogFile = Join-Path $Root 'backend_log.txt'
 
@@ -71,8 +70,20 @@ Port $Port is already in use.
 "@
 }
 
+# ---------------------------------------------------------- build interface
+# Serve the production build from the engine.  This keeps hashing independent
+# of the Vite development server, so closing/reloading the UI cannot stop it.
+Write-Host '[1/3] Building the interface ...'
+Push-Location (Join-Path $Root 'frontend')
+try {
+    & npm run build
+    if ($LASTEXITCODE -ne 0) { Fail 'The interface build failed. Fix the errors above and try again.' }
+} finally {
+    Pop-Location
+}
+
 # ------------------------------------------------------------------ backend
-Write-Host "[1/3] Starting the vault engine on http://127.0.0.1:$Port ..."
+Write-Host "[2/3] Starting the vault engine on http://127.0.0.1:$Port ..."
 # Launched through cmd so stdout and stderr merge into one backend_log.txt,
 # exactly as start_app.bat does it - the troubleshooting guide points at that
 # single file.
@@ -86,7 +97,7 @@ $engine = Start-Process -FilePath $env:ComSpec -ArgumentList $argLine `
     -WorkingDirectory $Root -WindowStyle Minimized -PassThru
 
 # --------------------------------------------- wait until it really listens
-Write-Host '[2/3] Waiting for the engine to accept connections ...'
+Write-Host '[3/3] Waiting for the engine to accept connections ...'
 $ready = $false
 foreach ($i in 1..45) {
     if (Test-PortListening $Port) { $ready = $true; break }
@@ -106,26 +117,24 @@ if (-not $ready) {
 }
 Write-Host '      Engine is up.'
 
-# ----------------------------------------------------------------- frontend
-Write-Host "[3/3] Starting the interface on http://localhost:$UiPort ..."
+# ------------------------------------------------------- live verification
+try {
+    & (Join-Path $Root 'show_service_status.ps1') -Port $Port
+    if (-not $?) { throw 'The engine failed a live service check.' }
+} catch {
+    Stop-Engine
+    Fail "The engine opened its port but failed a live service check. See backend_log.txt for details. $($_.Exception.Message)"
+}
+
+# ----------------------------------------------------------------- interface
 Write-Host ''
 Write-Head '==================================================================='
-Write-Host '  Asset Vault is running.'
-Write-Host "    Interface : http://localhost:$UiPort"
+Write-Host '  Asset Vault is running independently of this launcher window.'
+Write-Host "    Interface : http://127.0.0.1:$Port/"
 Write-Host "    API docs  : http://127.0.0.1:$Port/docs"
 Write-Host ''
-Write-Host '  Close this window or run stop_app.bat to shut it down.'
+Write-Host '  Close this window freely. Run stop_app.bat only when you want to stop the vault.'
 Write-Head '==================================================================='
 Write-Host ''
 
-Start-Process "http://localhost:$UiPort"
-
-try {
-    Push-Location (Join-Path $Root 'frontend')
-    & npm run dev
-} finally {
-    Pop-Location
-    Write-Host ''
-    Write-Host 'Interface stopped. Shutting the engine down ...'
-    Stop-Engine
-}
+Start-Process "http://127.0.0.1:$Port/"

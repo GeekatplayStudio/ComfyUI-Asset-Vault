@@ -45,7 +45,7 @@ you explicitly ask for it — and even then, deletions go to a recoverable trash
 - [Testing](#testing)
 - [Security](#security)
 - [Documentation](#documentation)
-- [Roadmap / known limits](#roadmap--known-limits)
+- [Known limits](#known-limits)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -286,9 +286,9 @@ start_app.bat
 dependencies, and verifies both before it finishes.
 
 `start_app.bat` starts the vault engine on **http://127.0.0.1:8127**, waits until it actually
-accepts connections (not just until the process launches), then starts the interface on
-**http://localhost:3000** and opens it in your browser. `stop_app.bat` shuts the engine down
-cleanly.
+accepts connections (not just until the process launches), builds the interface and opens it at
+**http://127.0.0.1:8127/**. The vault and its hash queue remain running if the launcher or browser
+closes; `stop_app.bat` explicitly shuts the engine down cleanly.
 
 On first launch a short wizard asks where ComfyUI is installed, validates the folder live as you
 type, and runs the first scan.
@@ -391,8 +391,7 @@ The reference installation is a real, working ComfyUI 0.33.0 portable install (f
 Frontend bundle: ~349 kB entry, with the Storage and Activity views lazily loaded as separate
 chunks so they cost nothing on first paint.
 
-Every number above — and the full history of how it got there, including two rounds of measured
-performance regressions and fixes — is in **[docs/QA_REPORT.md](docs/QA_REPORT.md)**.
+Every number above was produced by execution against the real install, not estimated.
 
 ---
 
@@ -496,16 +495,16 @@ Engineering references, for anyone building on top of this:
 | [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | The SQLite schema |
 | [docs/MCP_SPEC.md](docs/MCP_SPEC.md) | The MCP server's protocol conformance and tool schemas |
 | [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) | The full security audit and its findings |
-| [docs/QA_REPORT.md](docs/QA_REPORT.md) | Measured performance, defect history, regression evidence |
-| [docs/DECISIONS.md](docs/DECISIONS.md) & [docs/REQUIREMENTS_R2.md](docs/REQUIREMENTS_R2.md) | The authoritative product decisions this build follows |
-| [docs/AUDIT.md](docs/AUDIT.md) | The original baseline audit this project was rebuilt from |
+| [docs/DECISIONS.md](docs/DECISIONS.md) & [docs/REQUIREMENTS_R2.md](docs/REQUIREMENTS_R2.md) | The product decisions this build follows, and why |
+| [docs/FILTER_AUDIT.md](docs/FILTER_AUDIT.md) | Every grid/album filter, traced from the UI control to the SQL predicate that answers it |
+| [docs/NODE_REGISTRY_SAFETY.md](docs/NODE_REGISTRY_SAFETY.md) | How the node registry catalogue and workflow "Enable" fetch code stay read-only until you consent |
 
 ---
 
-## Roadmap / known limits
+## Known limits
 
-Tracked honestly rather than hidden — current status in
-**[docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)** and **[docs/QA_REPORT.md](docs/QA_REPORT.md)**:
+Tracked honestly rather than hidden — current security status in
+**[docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)**:
 
 - ComfyUI 1.49.6 exposes no deep link for user-saved workflows, so **Open in ComfyUI** opens 147 of
   211 workflows directly and opens ComfyUI with the filename for the rest. The app says which case
@@ -531,6 +530,6 @@ Run the full test suite and `ruff check` before submitting — see [Testing](#te
 
 ## License
 
-© Geekatplay Studio — Vladimir Chopine. All rights reserved.
+© Geekatplay Studio — Vladimir Chopine. All rights reserved. See **[LICENSE](LICENSE)**.
 
 For licensing enquiries, contact **[Geekatplay Studio](https://www.geekatplay.com)**.

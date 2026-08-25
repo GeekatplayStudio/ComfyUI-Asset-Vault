@@ -72,6 +72,9 @@ def _filters(
     date_from: int | None = Query(None),
     date_to: int | None = Query(None),
     include_missing: bool = Query(False),
+    missing_files_only: bool | None = Query(
+        None, description="Return only outputs whose indexed file is missing."),
+    untagged: bool | None = Query(None, description="Return only outputs with no tags."),
 ) -> dict[str, Any]:
     check_enum("media_kind", media_kind, MEDIA_KINDS)
     raw = {"q": q, "smart": smart, "folder": folder, "media_kind": media_kind,
@@ -82,7 +85,8 @@ def _filters(
            "cfg_min": cfg_min, "cfg_max": cfg_max, "width_min": width_min,
            "width_max": width_max, "height_min": height_min, "height_max": height_max,
            "size_min": size_min, "size_max": size_max, "date_from": date_from,
-           "date_to": date_to, "include_missing": include_missing}
+           "date_to": date_to, "include_missing": include_missing,
+           "missing_files_only": missing_files_only, "untagged": untagged}
     return {k: v for k, v in raw.items() if v is not None}
 
 

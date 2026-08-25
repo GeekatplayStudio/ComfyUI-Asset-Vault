@@ -46,6 +46,8 @@ def _filters(
     favorite: bool | None, min_rating: int | None, has_update: bool | None,
     is_adapter: bool | None, size_min: int | None, size_max: int | None,
     date_from: int | None, date_to: int | None, include_missing: bool,
+    missing_files_only: bool | None,
+    integrity_not_ok: bool | None, unused: bool | None, untagged: bool | None,
 ) -> dict[str, Any]:
     check_enum("hash_state", hash_state, HASH_STATES)
     check_enum("integrity", integrity, INTEGRITY_STATES)
@@ -57,6 +59,9 @@ def _filters(
         "min_rating": min_rating, "has_update": has_update, "is_adapter": is_adapter,
         "size_min": size_min, "size_max": size_max, "date_from": date_from,
         "date_to": date_to, "include_missing": include_missing,
+        "missing_files_only": missing_files_only,
+        "integrity_not_ok": integrity_not_ok,
+        "unused": unused, "untagged": untagged,
     }
     return {k: v for k, v in raw.items() if v is not None}
 
@@ -84,11 +89,19 @@ def _filter_query(
     date_from: int | None = Query(None),
     date_to: int | None = Query(None),
     include_missing: bool = Query(False),
+    missing_files_only: bool | None = Query(
+        None, description="Return only models whose indexed file is missing."),
+    integrity_not_ok: bool | None = Query(
+        None, description="Return only models whose integrity state is not 'ok'."),
+    unused: bool | None = Query(
+        None, description="Return only models referenced by no workflow or output."),
+    untagged: bool | None = Query(None, description="Return only models with no tags."),
 ) -> dict[str, Any]:
     return _filters(q, smart, category, base_model, role, modality, precision,
                     hash_state, integrity, root_id, folder, album_id, tag, favorite,
                     min_rating, has_update, is_adapter, size_min, size_max, date_from,
-                    date_to, include_missing)
+                    date_to, include_missing, missing_files_only,
+                    integrity_not_ok, unused, untagged)
 
 
 @router.get("", responses={200: {"model": ModelList}, **BASE_ERRORS},

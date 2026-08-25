@@ -233,6 +233,8 @@ def _node_items(nodes: list[dict], cfg) -> list[dict]:
             "reason": None,
             "manual_steps": [],
             "never_runs": list(NEVER_RUNS[:3]),
+            "revision": None,
+            "safety": [],
         }
         try:
             dest = placement.custom_nodes_destination(str(folder), cfg=cfg)
@@ -242,6 +244,12 @@ def _node_items(nodes: list[dict], cfg) -> list[dict]:
             continue
         item["destination"] = dest.as_dict()
         item["manual_steps"] = git_fetch.manual_steps(repo_url, dest.abs_path)
+        item["safety"] = [
+            {"level": "yellow", "code": "legacy_manager_mapping",
+             "message": "This class-to-package match comes from ComfyUI-Manager's legacy map, not a signed package manifest."},
+            {"level": "yellow", "code": "no_archive_checksum",
+             "message": "Git repositories do not provide a registry archive checksum; a fetchable plan pins the exact commit instead."},
+        ]
         if not bucket["allowed"]:
             item["reason"] = (
                 f"The registry names a repository this app will not clone: "
@@ -254,6 +262,18 @@ def _node_items(nodes: list[dict], cfg) -> list[dict]:
             item["reason"] = ("git was not found on PATH, so this package can only "
                               "be reported. Run the command above yourself.")
         else:
+            revision, revision_error = git_fetch.resolve_revision(repo_url)
+            if not revision:
+                item["reason"] = ("The repository could not be resolved to an immutable commit, "
+                                  "so the vault will not install a moving branch tip. "
+                                  f"{revision_error or ''}".strip())
+                item["safety"].append({"level": "red", "code": "revision_unresolved",
+                                       "message": item["reason"]})
+                out.append(item)
+                continue
+            item["revision"] = revision
+            item["safety"].append({"level": "green", "code": "commit_pinned",
+                                   "message": f"Plan pins commit {revision[:12]}."})
             item["status"] = STATUS_FETCHABLE
             item["_payload"] = {
                 "kind": "node_package",
@@ -264,6 +284,7 @@ def _node_items(nodes: list[dict], cfg) -> list[dict]:
                 "source_host": bucket["host"],
                 "expected_size": 0,
                 "expected_sha256": None,
+                "expected_commit": revision,
                 "root_id": dest.root.id,
                 "root_path": dest.root.path,
                 "target_abs_path": dest.abs_path,

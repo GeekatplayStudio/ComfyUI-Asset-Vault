@@ -12,7 +12,8 @@ import { count as fmtCount, bytes as fmtBytes, shortDuration } from '../../servi
 export default function StatusBar(props) {
   const {
     page, elapsed, mode, selectionCount, view, patch,
-    indexStatus, hashStatus, stats, railOpen, detailsOpen, onToggleRail, onToggleDetails
+    indexStatus, hashStatus, stats, railOpen, detailsOpen, onToggleRail, onToggleDetails,
+    onShowIntegrity
   } = props
 
   const total = page && page.total !== undefined ? page.total : null
@@ -28,6 +29,7 @@ export default function StatusBar(props) {
 
   let dot = 'gp-statusbar__dot--ok'
   let statusText = 'Idle'
+  let integrityWarning = false
   if (scanning) {
     const job = indexStatus.job || {}
     dot = 'gp-statusbar__dot--busy'
@@ -41,6 +43,7 @@ export default function StatusBar(props) {
     dot = 'gp-statusbar__dot--warn'
     statusText = fmtCount(stats.integrity_issues) + ' integrity issue' +
       (stats.integrity_issues === 1 ? '' : 's')
+    integrityWarning = Boolean(onShowIntegrity)
   }
 
   return (
@@ -57,7 +60,16 @@ export default function StatusBar(props) {
           onClick={onToggleRail}
         />
         <span className={'gp-statusbar__dot ' + dot} aria-hidden="true" />
-        <span>{statusText}</span>
+        {integrityWarning ? (
+          <button
+            type="button"
+            className="gp-statusbar__alert"
+            title="Show the models with integrity issues"
+            onClick={onShowIntegrity}
+          >
+            {statusText}
+          </button>
+        ) : <span>{statusText}</span>}
       </div>
 
       <span className="gp-statusbar__sep" />

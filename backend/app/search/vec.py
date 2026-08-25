@@ -15,9 +15,19 @@ def available() -> tuple[bool, str | None]:
     return True, None
 
 
-def search(q: str, *, kinds: list[str] | None = None,
-           limit: int = 200) -> list[tuple[str, str, float]]:
-    return get_embed_service().search(q, kinds=kinds, limit=limit)
+def search(q: str, *, kinds: list[str] | None = None, limit: int = 200,
+           min_score: float | None = None) -> list[tuple[str, str, float]]:
+    """Nearest neighbours above the configured similarity floor.
+
+    ``min_score`` defaults to the vault's ``smart_search_min_score`` setting:
+    raise it for stricter, fewer semantic hits, lower it to cast wider.
+    """
+    if min_score is None:
+        from ..core import config_service
+
+        min_score = config_service.get_config().smart_search_min_score
+    return get_embed_service().search(q, kinds=kinds, limit=limit,
+                                      min_score=min_score)
 
 
 def embed_query(text: str):

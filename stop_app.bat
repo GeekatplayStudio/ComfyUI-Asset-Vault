@@ -30,8 +30,7 @@ if not defined STOPPED (
 
 if not defined QUIET (
     echo.
-    echo   Note: the interface runs in its own window. Close that window,
-    echo   or press Ctrl+C in it, to stop the dev server.
+    echo   Note: close or refresh the browser tab after stopping the vault.
     echo.
     pause
 )

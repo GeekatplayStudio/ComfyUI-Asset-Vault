@@ -305,7 +305,8 @@ class EnableService:
                  s.get("expected_sha256"), s.get("root_id"), s["target_abs_path"],
                  (s["target_abs_path"] + ".part") if s["kind"] == "model" else None,
                  now, json.dumps({"on_conflict": s.get("on_conflict", "fail"),
-                                  "root_path": s.get("root_path")},
+                                  "root_path": s.get("root_path"),
+                                  "expected_commit": s.get("expected_commit")},
                                  ensure_ascii=False))
                 for s in specs]
 
@@ -395,7 +396,7 @@ class EnableService:
                                   "ref_name": job["ref_name"],
                                   "host": job["source_host"]})
         try:
-            result = (self._clone(job) if kind == "node_package"
+            result = (self._clone(job, extra) if kind == "node_package"
                       else self._download(job, extra))
         except AppError as exc:
             result = {"state": "failed", "error_code": exc.code,
@@ -436,8 +437,9 @@ class EnableService:
                 "error_message": result.error_message,
                 "result": result.as_dict()}
 
-    def _clone(self, job: dict) -> dict:
-        result = git_fetch.clone(str(job["source_url"]), str(job["target_abs_path"]))
+    def _clone(self, job: dict, extra: dict) -> dict:
+        result = git_fetch.clone(str(job["source_url"]), str(job["target_abs_path"]),
+                                 expected_commit=extra.get("expected_commit"))
         if result.state == "failed":
             self._record_error(str(job["batch_id"]),
                                code=str(result.error_code or "UNKNOWN"),

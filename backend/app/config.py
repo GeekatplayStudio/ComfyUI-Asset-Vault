@@ -1,4 +1,4 @@
-"""Immutable build constants.
+﻿"""Immutable build constants.
 
 This module holds ONLY constants that never change at runtime.
 It deliberately does **not** know where ComfyUI is installed: that question is
@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 APP_NAME = "Geekatplay ComfyUI Asset Vault"
-AUTHOR = "Geekatplay - Vladimir Chopine"
+AUTHOR = "Geekatplay Studio - Vladimir Chopine"
 VERSION = "2.1.0"
 
 API_PREFIX = "/api/v1"
@@ -23,7 +23,7 @@ LEGACY_DB_PATH = DATA_DIR / "asset_vault.db"
 THUMB_DIR = DATA_DIR / "thumbs"
 EMBED_MODEL_DIR = DATA_DIR / "models" / "all-MiniLM-L6-v2"
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 # Parser versions.  Bumping one forces a targeted re-parse of that kind only.
 PARSER_VERSION_MODEL = 4

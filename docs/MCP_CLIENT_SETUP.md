@@ -1,6 +1,6 @@
 # Connecting an MCP client
 
-Geekatplay ComfyUI Asset Vault · **Geekatplay — Vladimir Chopine**
+Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 The vault ships a Model Context Protocol server so an MCP-capable assistant can answer questions
 about your ComfyUI library — and, if you let it, reorganise it. **26 tools**, two transports,

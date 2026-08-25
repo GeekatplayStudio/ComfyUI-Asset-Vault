@@ -37,32 +37,32 @@ What the audit could **not** break, having tried by execution:
 
 | ID | Severity | Title | Location | Owner | Status |
 |---|---|---|---|---|---|
-| **S-01** | **High** | NTFS junctions let the indexing walker read and index files outside every configured root | `app/indexing/walker.py:74,79`, `app/parsers/node_ast.py:164` | `backend-core` | **Fixed** — 2026-08-22 |
+| **S-01** | **High** | NTFS junctions let the indexing walker read and index files outside every configured root | `app/indexing/walker.py:74,79`, `app/parsers/node_ast.py:164` | `backend` | **Fixed** — 2026-08-22 |
 | **S-02** | **High** | `/api/v1/mcp` accepts a browser simple request, so any loopback-origin page can drive the destructive tool surface | `app/mcp/http.py:145`, `app/main.py:126` | `mcp` (+ architect: `MCP_SPEC §9`) | **Fixed** — 2026-08-22 |
-| **S-03** | Medium | No SSE subscriber cap — `ProgressBus._subs` is unbounded | `app/core/progress.py:26,83` | `backend-core` | **Fixed** — 2026-08-23 |
-| **S-04** | Medium | The updater executable follows `comfyui_path`, which the API accepts, so any directory holding `update\update_comfyui.bat` becomes the confirmed updater | `app/services/comfyui_service.py:240-252`, `app/api/v1/system_router.py:123` | `api-connectivity` + `backend-core` | **Fixed** — 2026-08-23 |
-| **S-05** | Medium | No `Image.MAX_IMAGE_PIXELS` budget and no `formats=` allowlist — a 324-byte PNG allocates ~480 MB | `app/jobs/thumb_service.py:258-267`, `app/parsers/image_meta.py:143` | `backend-core` | **Fixed** — 2026-08-23 |
+| **S-03** | Medium | No SSE subscriber cap — `ProgressBus._subs` is unbounded | `app/core/progress.py:26,83` | `backend` | **Fixed** — 2026-08-23 |
+| **S-04** | Medium | The updater executable follows `comfyui_path`, which the API accepts, so any directory holding `update\update_comfyui.bat` becomes the confirmed updater | `app/services/comfyui_service.py:240-252`, `app/api/v1/system_router.py:123` | `API layer` + `backend` | **Fixed** — 2026-08-23 |
+| **S-05** | Medium | No `Image.MAX_IMAGE_PIXELS` budget and no `formats=` allowlist — a 324-byte PNG allocates ~480 MB | `app/jobs/thumb_service.py:258-267`, `app/parsers/image_meta.py:143` | `backend` | **Fixed** — 2026-08-23 |
 | **S-06** | Medium | Unlimited MCP session creation defeats the per-session rate limit | `app/mcp/protocol.py:161-173` | `mcp` | **Fixed** — 2026-08-23 |
-| **S-07** | Medium | No request body size cap — a 64 MB body is fully buffered and parsed before rejection | `app/api/middleware.py`, `app/mcp/http.py:145` | `api-connectivity` | **Fixed** — 2026-08-23 |
-| **S-08** | Medium | SSRF: `/system/ollama/test` and the `ollama_url` config key accept any absolute URL | `app/api/v1/system_router.py:460`, `app/services/ollama_service.py:28` | `api-connectivity` + `backend-core` | **Fixed** — 2026-08-23 |
-| **S-09** | Low | Dependency floors admit vulnerable builds (`pillow>=10.3`, `python-multipart>=0.0.6`, no explicit `starlette` pin) | `backend/requirements.txt` | `backend-core` | **Fixed** — 2026-08-23 |
-| **S-10** | Low | `POST /system/roots` accepts any existing directory, including `C:\Windows`, widening the root guard with no warning | `app/api/v1/system_router.py:403` | `api-connectivity` | Open |
-| **S-11** | Low | `shutil.rmtree` in the permanent-delete path is gated on `os.path.isdir`, not on `kind == "node_package"` | `app/services/file_ops.py:412-414` | `backend-core` | Open |
-| **S-12** | Low | `trash_empty` calls `rmtree(force=True)` on a DB-supplied path without re-validating it is inside a root's `.vault-trash` | `app/services/file_ops.py:915-940` | `backend-core` | Open |
-| **S-13** | Low | `torch_zip` caps read size but not archive entry count | `app/parsers/torch_zip.py:70-83` | `backend-core` | Open |
-| **S-14** | Low | `/system/validate-path` caps its models/output/input walk but not its `walk_json` workflow count | `app/api/v1/system_router.py:170-175` | `api-connectivity` | Open |
-| **S-15** | Info | `keep_extension` rewrites `new_name` before validation, so a rejected-looking name silently becomes a different one | `app/services/file_ops.py:290-294` | `backend-core` | Accepted |
-| **S-16** | Info | The safetensors header cap is 200 MB; `BUILD_PLAN §7.12` says 100 MB | `app/parsers/safetensors_header.py:19` | `backend-core` | Accepted |
-| **S-17** | Info | The app's own `data/` directory is a configured root, so file operations can target it | `app/core/config_service.py` | `backend-core` | Accepted |
-| **S-18** | Info | `embed_service` downloads over `follow_redirects=True` with no host allowlist, no expected hash, and no free-space check | `app/jobs/embed_service.py:144-184` | `backend-core` | Accepted (precedent for C9 — see §5) |
-| **S-19** | Medium | A `.bat` argv is re-parsed by `cmd.exe`, so a launcher **filename** containing `&` runs a second command the confirmation never named | `app/services/comfyui_service.py` (`_start_comfyui_thread`, `_run_updater_thread`) | `backend-core` | **Fixed** — 2026-08-23 |
-| **S-20** | Medium | Launcher discovery follows `comfyui_path` with no install proof — S-04's shape, fixed for the updater and left open for the launcher | `app/services/comfyui_service.py:discover_launchers`, `app/api/v1/comfyui_router.py` | `backend-core` | **Fixed** — 2026-08-23 |
-| **S-21** | Low | `run_*.bat` is globbed in the *parent* of the ComfyUI folder — a drive root on a portable build — and offered as an executable on filename alone | `app/services/comfyui_service.py:discover_launchers` | `backend-core` | **Fixed** — 2026-08-23 |
-| **S-22** | Low | The workflow copy checks "inside a configured root" but not "inside the workflows folder", and used `shutil.copyfile` rather than an exclusive create | `app/services/comfyui_service.py:copy_into_user_workflows` | `backend-core` | **Fixed** — 2026-08-23 |
-| **S-23** | Low | A `--port` outside 1–65535 in a launcher script raises `OverflowError` on the launch thread, stranding the launch state at `starting` and never closing the SSE stream | `app/services/comfyui_service.py:_port_open,_start_comfyui_thread` | `backend-core` | **Fixed** — 2026-08-23 |
-| **S-24** | Low | A process launch is recorded only in memory; nothing the owner can read after a restart says the vault ever started ComfyUI | `app/services/comfyui_service.py:_launch_state` | `backend-core` | Open |
-| **QA-3** | Defect | A node-class mapping dict defined in a sibling module under a non-standard name was not followed across the module boundary, so the registered `node_id` was lost | `app/parsers/node_ast.py` | `backend-core` | **Fixed** — 2026-08-23 |
-| **QA-4** | Defect | `validate_filename` enforced no length limit, so a component over the NTFS 255-character maximum failed later as a raw `OSError` | `app/core/pathsafe.py:110` | `backend-core` | **Fixed** — 2026-08-23 |
+| **S-07** | Medium | No request body size cap — a 64 MB body is fully buffered and parsed before rejection | `app/api/middleware.py`, `app/mcp/http.py:145` | `API layer` | **Fixed** — 2026-08-23 |
+| **S-08** | Medium | SSRF: `/system/ollama/test` and the `ollama_url` config key accept any absolute URL | `app/api/v1/system_router.py:460`, `app/services/ollama_service.py:28` | `API layer` + `backend` | **Fixed** — 2026-08-23 |
+| **S-09** | Low | Dependency floors admit vulnerable builds (`pillow>=10.3`, `python-multipart>=0.0.6`, no explicit `starlette` pin) | `backend/requirements.txt` | `backend` | **Fixed** — 2026-08-23 |
+| **S-10** | Low | `POST /system/roots` accepts any existing directory, including `C:\Windows`, widening the root guard with no warning | `app/api/v1/system_router.py:403` | `API layer` | Open |
+| **S-11** | Low | `shutil.rmtree` in the permanent-delete path is gated on `os.path.isdir`, not on `kind == "node_package"` | `app/services/file_ops.py:412-414` | `backend` | Open |
+| **S-12** | Low | `trash_empty` calls `rmtree(force=True)` on a DB-supplied path without re-validating it is inside a root's `.vault-trash` | `app/services/file_ops.py:915-940` | `backend` | Open |
+| **S-13** | Low | `torch_zip` caps read size but not archive entry count | `app/parsers/torch_zip.py:70-83` | `backend` | Open |
+| **S-14** | Low | `/system/validate-path` caps its models/output/input walk but not its `walk_json` workflow count | `app/api/v1/system_router.py:170-175` | `API layer` | Open |
+| **S-15** | Info | `keep_extension` rewrites `new_name` before validation, so a rejected-looking name silently becomes a different one | `app/services/file_ops.py:290-294` | `backend` | Accepted |
+| **S-16** | Info | The safetensors header cap is 200 MB; `BUILD_PLAN §7.12` says 100 MB | `app/parsers/safetensors_header.py:19` | `backend` | Accepted |
+| **S-17** | Info | The app's own `data/` directory is a configured root, so file operations can target it | `app/core/config_service.py` | `backend` | Accepted |
+| **S-18** | Info | `embed_service` downloads over `follow_redirects=True` with no host allowlist, no expected hash, and no free-space check | `app/jobs/embed_service.py:144-184` | `backend` | Accepted (precedent for C9 — see §5) |
+| **S-19** | Medium | A `.bat` argv is re-parsed by `cmd.exe`, so a launcher **filename** containing `&` runs a second command the confirmation never named | `app/services/comfyui_service.py` (`_start_comfyui_thread`, `_run_updater_thread`) | `backend` | **Fixed** — 2026-08-23 |
+| **S-20** | Medium | Launcher discovery follows `comfyui_path` with no install proof — S-04's shape, fixed for the updater and left open for the launcher | `app/services/comfyui_service.py:discover_launchers`, `app/api/v1/comfyui_router.py` | `backend` | **Fixed** — 2026-08-23 |
+| **S-21** | Low | `run_*.bat` is globbed in the *parent* of the ComfyUI folder — a drive root on a portable build — and offered as an executable on filename alone | `app/services/comfyui_service.py:discover_launchers` | `backend` | **Fixed** — 2026-08-23 |
+| **S-22** | Low | The workflow copy checks "inside a configured root" but not "inside the workflows folder", and used `shutil.copyfile` rather than an exclusive create | `app/services/comfyui_service.py:copy_into_user_workflows` | `backend` | **Fixed** — 2026-08-23 |
+| **S-23** | Low | A `--port` outside 1–65535 in a launcher script raises `OverflowError` on the launch thread, stranding the launch state at `starting` and never closing the SSE stream | `app/services/comfyui_service.py:_port_open,_start_comfyui_thread` | `backend` | **Fixed** — 2026-08-23 |
+| **S-24** | Low | A process launch is recorded only in memory; nothing the owner can read after a restart says the vault ever started ComfyUI | `app/services/comfyui_service.py:_launch_state` | `backend` | Open |
+| **QA-3** | Defect | A node-class mapping dict defined in a sibling module under a non-standard name was not followed across the module boundary, so the registered `node_id` was lost | `app/parsers/node_ast.py` | `backend` | **Fixed** — 2026-08-23 |
+| **QA-4** | Defect | `validate_filename` enforced no length limit, so a component over the NTFS 255-character maximum failed later as a raw `OSError` | `app/core/pathsafe.py:110` | `backend` | **Fixed** — 2026-08-23 |
 
 ---
 
@@ -90,7 +90,7 @@ GET  /api/v1/node-classes -> class "LeakedFromOutsideRoot", parsed from a .py ou
 
 **Why it matters here.** The threat is not hypothetical: the vault's own threat model is third-party `custom_nodes` packages, and C9 will have the app help install them from git repos. A repo that ships a junction gets the vault to read whatever it points at.
 
-**Recommendation** (owner: `backend-core`). In both walkers, treat any reparse point as a non-directory. `os.scandir` exposes it without an extra syscall:
+**Recommendation** (owner: `backend`). In both walkers, treat any reparse point as a non-directory. `os.scandir` exposes it without an extra syscall:
 
 ```python
 st = entry.stat(follow_symlinks=False)
@@ -142,7 +142,7 @@ The rails still bound the blast radius correctly — trash-backed by default, `c
 
 Then flip `test_mcp_cannot_be_driven_by_a_browser_simple_request` from xfail to pass.
 
-`MCP_SPEC §9` currently names Origin validation as the anti-rebinding control and says nothing about CSRF. That statement is incomplete and should be amended by the architect: **Origin validation stops DNS rebinding; it does not stop a same-machine loopback page.**
+`MCP_SPEC §9` currently names Origin validation as the anti-rebinding control and says nothing about CSRF. That statement is incomplete: **Origin validation stops DNS rebinding; it does not stop a same-machine loopback page.**
 
 ---
 
@@ -151,12 +151,12 @@ Then flip `test_mcp_cannot_be_driven_by_a_browser_simple_request` from xfail to 
 
 ## 4. Medium and Low findings
 
-### S-03 — No SSE subscriber cap (Medium, `backend-core`)
+### S-03 — No SSE subscriber cap (Medium, `backend`)
 `ProgressBus._subs` is a plain list with no maximum; `/index/stream`, `/hash/stream`, `/embeddings/stream` and `/comfyui/update/stream` all append to it. Each subscriber holds an `asyncio.Queue(maxsize=1008)`, and every published event fans out across the whole list. `BUILD_PLAN §7.12` requires an SSE subscriber cap; there is none (`grep MAX progress.py` yields only `MAX_QUEUE`). **Fix:** add `MAX_SUBSCRIBERS` (32 is generous for a single-user desktop app) and refuse a new subscription with `503 FEATURE_UNAVAILABLE` past it. The per-subscriber `overflow` drop is already correct and should stay.
 
 **Fixed 2026-08-23.** `progress.MAX_SUBSCRIBERS = 32` per channel, with `SubscriberLimitError` raised inside `ProgressBus.subscribe` and a cheap `has_capacity()` pre-check in `deps.require_stream_capacity`, called by all five SSE routes (`/index/stream`, `/hash/stream`, `/embeddings/stream`, `/enable/stream`, `/comfyui/update/stream`) before the response headers go out — so the refusal is a real `503 FEATURE_UNAVAILABLE` envelope rather than a broken stream. The bus-level raise stays as the hard limit for any future caller that skips the pre-check. The per-subscriber `overflow` drop is untouched. *Proved by execution* (`test_the_bus_refuses_the_subscription_past_the_cap`): 32 live subscribers are registered, `subscriber_count` stops at 32, `require_stream_capacity` raises with `http_status == 503`, and the 33rd `subscribe()` raises `SubscriberLimitError`.
 
-### S-04 — The updater path follows caller-settable config (Medium, `api-connectivity` + `backend-core`)
+### S-04 — The updater path follows caller-settable config (Medium, `API layer` + `backend`)
 `discover_updaters` builds candidates as `<comfyui_path>.parent / "update" / update_comfyui.bat`. `PATCH /system/config` accepts any directory that merely contains `models/` and `main.py`. Proven by execution (`test_the_updater_must_live_under_the_verified_comfyui_install`): pointing config at a staged directory made `/comfyui/update/plan` resolve and offer that directory's `.bat` as the confirmed updater. The `confirm_path` equality check is intact — it just confirms *the attacker's* path.
 
 This needs the CSRF header, so it is not remotely reachable; it is a privilege-expansion step for anything that already has same-origin or dev-origin access (see S-02, and CORS in dev). **Fix:** (a) require a stronger install proof before a path is accepted as a ComfyUI root (`comfyui_version.py` **and** `main.py` **and** `models/`, not `models/` plus either); (b) make a `comfyui_path` change invalidate any in-flight update plan, and have `/update/plan` return a short-lived opaque `plan_token` that `/update/run` must echo alongside `confirm_path`; (c) surface a "the updater path changed since you confirmed" warning in the UI. `test_changing_the_install_path_changes_what_would_run` already asserts that a stale confirmation is rejected — keep it.
@@ -167,7 +167,7 @@ This needs the CSRF header, so it is not remotely reachable; it is a privilege-e
 
 **Not done, deliberately.** The recommended short-lived opaque `plan_token` was not added. The equality check on `confirm_path` already refuses a stale confirmation (asserted), and a token would add a second piece of server state to the one route in the app that starts a process — more moving parts guarding an entry that is now behind an install proof, a running-port check, a verbatim path echo and the CSRF header.
 
-### S-05 — Image decompression bombs (Medium, `backend-core`)
+### S-05 — Image decompression bombs (Medium, `backend`)
 `Image.MAX_IMAGE_PIXELS` is never set, so Pillow's default applies: a `DecompressionBombWarning` at 89 Mpx and a hard error only at 178 Mpx. Executed: a **324-byte** PNG declaring 20000×8000 loaded successfully and allocated ~480 MB. `thumb_service._generate` calls `im.load()` (a full decode), sets `ImageFile.LOAD_TRUNCATED_IMAGES = True` globally, and passes no `formats=` allowlist to `Image.open` — so the PSD, FITS, JPEG2000 and raw-codec paths are live on files the vault did not write. `image_meta.read_image` opens from a path string with the same exposure.
 
 The endpoint degrades correctly (a bomb over the hard limit yields a placeholder, not a 5xx — asserted), so this is memory pressure, not a crash. **Fix:** set `Image.MAX_IMAGE_PIXELS = 64_000_000` explicitly in `thumb_service` and `image_meta`, pass `formats=["PNG","JPEG","WEBP","GIF","BMP","TIFF"]` to both `Image.open` sites, and record an integrity note rather than a silent placeholder when the budget is exceeded.
@@ -189,7 +189,7 @@ The endpoint degrades correctly (a bomb over the hard limit yields a placeholder
 
 **Residual, recorded rather than papered over.** The cap fixes the unbounded-memory half of the finding. It does **not** fully fix the rate-limit half: a client can still rotate sessions to get a fresh 120-call budget, it just cannot accumulate them. The recommended per-transport call budget was **not** added, and that is a deliberate call — a process-wide counter over a shared in-process store would throttle legitimate concurrent clients (and the suite's own MCP traffic) against a limit that exists to bound one misbehaving client. The rotation is now bounded by session-creation cost, and since S-02 `/api/v1/mcp` requires `X-Vault-Request`, so it is not reachable from a browser page at all. If this is revisited, a rate limit on `initialize` — rather than on tool calls — is the shape that would not penalise real clients.
 
-### S-07 — No request body cap (Medium, `api-connectivity`)
+### S-07 — No request body cap (Medium, `API layer`)
 Neither uvicorn nor the app imposes a `Content-Length` limit. A 64 MB JSON body to `/api/v1/fileops/rename` was fully read and parsed before Pydantic's `max_length=255` rejected the field; `/api/v1/mcp` does `await request.body()` with no bound at all. `BUILD_PLAN §7.12` requires JSON size caps. **Fix:** an ASGI middleware that rejects `Content-Length` above 2 MB (and streams-with-no-length above the same budget) with `413 PAYLOAD_TOO_LARGE`, exempting nothing — no v1 endpoint has a legitimate multi-megabyte body.
 
 **Fixed 2026-08-23.** `BodySizeLimitMiddleware` (pure ASGI, in `app/api/middleware.py`) is installed inside `RequestContextMiddleware`, so a refusal still carries `X-Request-Id` and `X-API-Version`. An over-large `Content-Length` is answered without reading a byte off the wire; a chunked body that declares no length is counted as it arrives and aborted the moment it crosses the budget, so omitting the header is not a bypass. The streaming abort raises a Starlette `HTTPException(413)` rather than an `ApiError`, because FastAPI's body reader re-raises `HTTPException` unchanged and rewrites everything else into a generic 400.
@@ -198,7 +198,7 @@ Neither uvicorn nor the app imposes a `Content-Length` limit. A 64 MB JSON body 
 
 *Proved by execution*: a 32 MB body to `/fileops/rename` → `413 PAYLOAD_TOO_LARGE`; the same payload streamed in 64 KB chunks with no `Content-Length` → `413`; a 32 MB body to `/api/v1/mcp`, which reads `await request.body()` outside any Pydantic model → `413`; an ordinary body is unaffected.
 
-### S-08 — SSRF through the Ollama URL (Medium, `api-connectivity` + `backend-core`)
+### S-08 — SSRF through the Ollama URL (Medium, `API layer` + `backend`)
 Executed: with `ollama_enabled` true (settable in the same session), `POST /system/ollama/test {"url": "http://127.0.0.1:<port>"}` produced a real outbound GET to the caller-chosen host and port, and the response body reported `available`, the HTTP status and the latency — a working host/port scanner. Worse, `PATCH /system/config {"ollama_url": ...}` **persists** an arbitrary URL, and `POST /ai/describe` sends the asset fact sheet — including a workflow's `positive_prompt` — to it. That is a data-exfiltration sink, not just a probe. **Fix:** validate both `OllamaTestRequest.url` and the `ollama_url` config key against `http(s)://(localhost|127.0.0.1|[::1])(:port)?` — Ollama is a local service by definition — and reject anything else with `422`. If a LAN Ollama must be supported, gate it behind the same explicit `ALLOW_LAN` opt-in the bind uses.
 
 **Fixed 2026-08-23**, with a deliberately conservative rule in the new `app/core/urlsafe.py`, applied in two places:
@@ -210,7 +210,7 @@ Executed: with `ollama_enabled` true (settable in the same session), `POST /syst
 
 *Proved by execution* (`test_no_endpoint_accepts_a_non_local_ollama_address`, 9 payloads × 2 surfaces): `http://169.254.169.254`, a public address, a bare name, credentials in the authority, a URL with a path, `file:///`, IPv6 link-local and `0.0.0.0` are each `422` on both the probe and the config key, and the stored value is unchanged. `test_a_lan_ollama_is_still_accepted` proves the six loopback/LAN shapes still return `200`. `test_the_service_refuses_a_non_local_url_that_reached_the_database` drives `OllamaService("http://169.254.169.254")` directly: `check_connection` reports the refusal and `generate` returns `ok: False` with no text — no socket is opened either way.
 
-### S-09 — Dependency floors (Low, `backend-core`)
+### S-09 — Dependency floors (Low, `backend`)
 Every **installed** version is clean. The **floors** are not, and a fresh `pip install -r requirements.txt` on a resolver that honours them lands on vulnerable builds.
 
 | Package | Floor | Advisories affecting the floor | Fixed in | Reachable here? |
@@ -240,26 +240,26 @@ pillow>=12.3.0          # SECURITY_REVIEW S-09: 17 CVEs reachable through Image.
 *Proved by execution*: `pip install --dry-run -r requirements.txt` resolves with no conflict and nothing to install against the existing venv (fastapi 0.141.1, starlette 1.6.0, pydantic 2.13.4, pillow 12.3.0), and `test_pillow_floor_excludes_known_cves` / `test_python_multipart_is_not_pinned_at_a_vulnerable_floor` are now hard gates rather than `xfail`.
 `PyYAML`, `onnxruntime`, `tokenizers`, `uvicorn`, `httpx` and `numpy` need no change. **All three D9 dependencies are justified:** `PyYAML` for `extra_model_paths.yaml` (C2/D4, `safe_load` only), `onnxruntime` + `tokenizers` for the CPU-only local embedder that exists specifically to avoid a torch dependency (C2) — and keeping torch out of the tree is itself the single largest reduction in this app's attack surface.
 
-### S-10 — `POST /system/roots` accepts any directory (Low, `api-connectivity`)
+### S-10 — `POST /system/roots` accepts any directory (Low, `API layer`)
 Executed: `{"path": "C:\\Windows", "kind": "extra_workflows"}` returned `201`. That directory becomes a scan root and therefore a `resolve_within_roots` root, so anything indexed under it becomes a legitimate file-operation target. It is a deliberate user action behind the CSRF header and no MCP tool exposes it, hence Low — but "roots enforced" is only as strong as what may become a root. **Fix:** refuse system directories (`%WINDIR%`, `%PROGRAMFILES%`, `%SYSTEMROOT%`, a bare drive root), require the directory to contain at least one `.json` workflow, and return a `warnings[]` array the UI must display before the root is saved.
 
-### S-11 — `rmtree` is gated on `isdir`, not on kind (Low, `backend-core`)
+### S-11 — `rmtree` is gated on `isdir`, not on kind (Low, `backend`)
 `file_ops.delete` chooses `shutil.rmtree` from `is_dir = os.path.isdir(long_path(old))`. The only uid kind that should ever resolve to a directory is `node_package` (`DIRECTORY_KINDS` exists and says so), but the delete path does not consult it. A `models`/`outputs` row whose `abs_path` ever pointed at a directory would be recursively deleted. **Fix:** `if is_dir and info["kind"] not in DIRECTORY_KINDS: raise ValidationError(...)` before the `rmtree`, so the recursive branch is reachable only through the one deliberate case.
 
 The deliberate case itself was checked hard and is sound: it is trash-backed by default (a same-volume `shutil.move`, O(1)), captures the `node_classes` rows for an exact restore, warns on a dirty git checkout, and refuses rename/move on a package with a specific displayable reason.
 
-### S-12 — `trash_empty` rmtree is not re-validated (Low, `backend-core`)
+### S-12 — `trash_empty` rmtree is not re-validated (Low, `backend`)
 `_purge_slot(slot, force=True)` calls `shutil.rmtree(ignore_errors=True)` on `dirname(trash_items.trash_path)` straight from the database, with no containment check. The value is only ever written by `_to_trash` under `<root>/.vault-trash/`, so it is not attacker-controlled today — but it is the one `rmtree` in the codebase with no guard in front of it, and it runs on startup via `purge_expired()`. **Fix:** assert `is_contained(slot, root.path)` **and** that the path's parent basename is `TRASH_DIRNAME` before the `rmtree`, and skip with a logged warning otherwise.
 
-### S-13 — `torch_zip` has no entry-count cap (Low, `backend-core`)
+### S-13 — `torch_zip` has no entry-count cap (Low, `backend`)
 Read size is capped correctly (`MAX_PICKLE = 32 MB`, checked against the *declared* uncompressed size, so a zip bomb is refused in 7 ms — verified). `zf.namelist()` is unbounded: a 20,000-entry archive parsed in 152 ms, but the whole central directory is materialised in memory. `BUILD_PLAN §7.13` asks for an entry cap. **Fix:** refuse above 100,000 entries with `integrity='unsupported_format'`. Zip-slip is already a non-issue — nothing is ever extracted to disk (verified).
 
-### S-14 — `/system/validate-path` workflow walk is uncapped (Low, `api-connectivity`)
+### S-14 — `/system/validate-path` workflow walk is uncapped (Low, `API layer`)
 `_bounded_preview` enforces 60,000 entries and a 4-second deadline on the models/output/input walk, then falls through to `sum(1 for _ in walker.walk_json(directory))` for two workflow directories with **no cap and no deadline**. **Fix:** move the workflow count inside the same budget.
 
 ---
 
-### QA-3 — A cross-module node mapping lost the registered `node_id` (Defect, `backend-core`)
+### QA-3 — A cross-module node mapping lost the registered `node_id` (Defect, `backend`)
 
 **Fixed 2026-08-23.** `collect_mappings` only absorbed a dict once it could see it merged into `NODE_CLASS_MAPPINGS` *in the same module*. The common packaging idiom puts the dicts in `nodes_a.py` under a name of the author's choosing (`MAPPINGS_A = {...}`) and merges them in `__init__.py`, so the name stayed unresolved. The classes were still recovered by the S5 structural fallback, but keyed on the **Python class name** instead of the registered node_id — and a workflow references `class_type`, which is the node_id. A package indexed that way reads as a set of phantom missing dependencies.
 
@@ -267,7 +267,7 @@ New `collect_exported_dicts()` exposes every module-level dict literal, flattene
 
 *Proved by execution* (`test_s2_preserves_the_registered_node_id_across_modules`): the `pkg_s2` fixture — four merge idioms across `__init__.py`, `nodes_a.py` and `nodes_b.py` — now yields `ProbeAlpha`, `ProbeBeta`, `ProbeGamma` and `ProbeDelta` rather than `AlphaNode`…`DeltaNode`. The sibling `test_s2_augmenting_assignment_recovers_every_class` still passes, so nothing regressed on the class-name side.
 
-### QA-4 — `validate_filename` had no length limit (Defect, `backend-core`)
+### QA-4 — `validate_filename` had no length limit (Defect, `backend`)
 
 **Fixed 2026-08-23.** `pathsafe.MAX_COMPONENT_CHARS = 255` (the NTFS single-component maximum) is now enforced in `validate_filename`, so an over-long name is a `422` with a message the user can act on rather than a raw `OSError` surfacing from whichever syscall runs first. That check is also the only thing standing between a long name and a partially created folder tree: the API schema caps rename at 255, but `file_ops.create_folder` and the workflow-save route passed unbounded path components straight through.
 
@@ -283,7 +283,7 @@ ComfyUI was never started.** The two Mediums were proved by letting a *staged* l
 `.bat` that writes a marker file and exits — actually run, which is the only way to tell
 "the gate is missing" apart from "the gate is missing but nothing lands".
 
-### S-19 — a `.bat` argv is re-parsed by `cmd.exe` (Medium, `backend-core`)
+### S-19 — a `.bat` argv is re-parsed by `cmd.exe` (Medium, `backend`)
 
 **Location** `app/services/comfyui_service.py` — both `Popen` call sites.
 
@@ -338,7 +338,7 @@ marker never appears; a parenthesised install path with a space still resolves, 
 `available: true`, and `list2cmdline` still quotes it; an updater under a parent directory
 named `Portable&injected` is refused by `/update/plan` with `409`.
 
-### S-20 — the launcher followed the configured path with no install proof (Medium, `backend-core`)
+### S-20 — the launcher followed the configured path with no install proof (Medium, `backend`)
 
 **What is wrong.** Exactly S-04's shape, on the surface S-04's fix did not cover. `PATCH
 /system/config` accepts any directory holding `models/` plus `main.py` *or* `nodes.py`.
@@ -376,7 +376,7 @@ reports `details.missing`, so the plan can say *why* it offered nothing rather t
 `launcher_error` — a workflow's deep-link and copy information is still useful when the
 install cannot be started, so the whole route does not have to 404.
 
-### S-21 — a file is not a launcher because of its name (Low, `backend-core`)
+### S-21 — a file is not a launcher because of its name (Low, `backend`)
 
 `LAUNCHER_GLOB = "run_*.bat"` is matched in the **parent** of the ComfyUI folder. On the
 owner's portable build that parent is `O:\`, a drive root; the four real launchers sit there
@@ -401,7 +401,7 @@ writes its marker; the genuine `run_nvidia_gpu.bat` beside it is unaffected. Dis
 also asserted repeatable and order-stable, and the preferred name still wins over alphabetical
 order, so a `run_aaa.bat` landing in the folder does not become the recommended launcher.
 
-### S-22 — the copy was contained by the wrong boundary (Low, `backend-core`)
+### S-22 — the copy was contained by the wrong boundary (Low, `backend`)
 
 `copy_into_user_workflows` validated the filename and resolved the destination's parent
 through `resolve_within_roots` — the vault-wide rule — but never checked the narrower thing
@@ -422,7 +422,7 @@ stream, `CON.json`, a trailing dot-and-space, and a 300-character name) are each
 the workflows folder byte-identical afterwards; a file created between the plan and the write
 produces a `409` and keeps its original bytes.
 
-### S-23 — an unusable port stranded the launch subsystem (Low, `backend-core`)
+### S-23 — an unusable port stranded the launch subsystem (Low, `backend`)
 
 `_PORT_ARG_RE` reads `--port` out of the launcher script and `_port_open` passes it to
 `socket.connect_ex`, which raises **`OverflowError`** — not `OSError` — for a value outside
@@ -688,4 +688,4 @@ Still open, all Low, all hardening with no demonstrated exploit and no reproduct
 
 `backend/tests` — **1,642 passed, 4 skipped, 0 xfailed** (56 of them the new `tests/security/test_comfyui_launcher.py`), `ruff check backend` clean, hermetic, safe to run against a machine holding the real library. Library verified unchanged after the pass: **237 models / 3,834 outputs / 211 workflows / 1,866 node classes**, trash empty.
 
-*Geekatplay — Vladimir Chopine*
+*Geekatplay Studio — Vladimir Chopine*

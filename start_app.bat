@@ -7,7 +7,6 @@ set "ROOT=%~dp0"
 cd /d "%ROOT%"
 
 set "PORT=8127"
-set "UI_PORT=3000"
 
 echo ===================================================================
 echo     Geekatplay ComfyUI Asset Vault
@@ -43,12 +42,27 @@ if !errorlevel! equ 0 (
     exit /b 1
 )
 
+REM ---------------------------------------------------------- build interface
+REM Serve the production build from the engine.  This keeps hashing independent
+REM of the Vite development server, so closing/reloading the UI cannot stop it.
+echo [1/3] Building the interface ...
+pushd "%ROOT%frontend"
+call npm run build
+if errorlevel 1 (
+    popd
+    echo [ERROR] The interface build failed. Fix the errors above and try again.
+    echo.
+    pause
+    exit /b 1
+)
+popd
+
 REM ------------------------------------------------------------ backend
-echo [1/3] Starting the vault engine on http://127.0.0.1:%PORT% ...
+echo [2/3] Starting the vault engine on http://127.0.0.1:%PORT% ...
 start "Geekatplay Vault Engine" /min cmd /c ""%ROOT%venv\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port %PORT% --app-dir backend > "%ROOT%backend_log.txt" 2>&1"
 
 REM ------------------------------------------- wait until it really listens
-echo [2/3] Waiting for the engine to accept connections ...
+echo [3/3] Waiting for the engine to accept connections ...
 set "READY="
 for /L %%i in (1,1,45) do (
     if not defined READY (
@@ -75,26 +89,27 @@ if not defined READY (
 
 echo       Engine is up.
 
-REM ----------------------------------------------------------- frontend
-echo [3/3] Starting the interface on http://localhost:%UI_PORT% ...
+REM ------------------------------------------------------- live verification
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%show_service_status.ps1" -Port %PORT%
+if errorlevel 1 (
+    echo [ERROR] The engine opened its port but failed a live service check.
+    echo         See backend_log.txt for details.
+    call "%ROOT%stop_app.bat" --quiet
+    pause
+    exit /b 1
+)
+
+REM ----------------------------------------------------------- interface
 echo.
 echo ===================================================================
-echo   Asset Vault is running.
-echo     Interface : http://localhost:%UI_PORT%
+echo   Asset Vault is running independently of this launcher window.
+echo     Interface : http://127.0.0.1:%PORT%/
 echo     API docs  : http://127.0.0.1:%PORT%/docs
 echo.
-echo   Close this window or run stop_app.bat to shut it down.
+echo   Close this window freely. Run stop_app.bat only when you want to stop the vault.
 echo ===================================================================
 echo.
 
-REM Unquoted, so cmd treats the URL as the document to open rather than as the
-REM window title. The wait loop above guarantees the API answers before this.
-start http://localhost:%UI_PORT%
-cd /d "%ROOT%frontend"
-call npm run dev
-
-REM npm run dev holds the window; when it exits, stop the engine too.
-echo.
-echo Interface stopped. Shutting the engine down ...
-call "%ROOT%stop_app.bat" --quiet
+REM The wait loop above guarantees the API answers before this.
+start "" "http://127.0.0.1:%PORT%/"
 endlocal

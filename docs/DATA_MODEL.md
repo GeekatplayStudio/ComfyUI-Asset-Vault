@@ -1,5 +1,8 @@
 # Data Model — Geekatplay ComfyUI Asset Vault
-SQLite (stdlib `sqlite3`), WAL. **Schema version 6** (v2 base + v3 album identity + v4 workflow origin + v5 the Enable fetch queue, §15–§16 + v6 provided nodes and subgraph counts, §5.2 / §6). Canonical version lives in `PRAGMA user_version`.
+
+Geekatplay Studio — Vladimir Chopine
+
+SQLite (stdlib `sqlite3`), WAL. **Schema version 7** (v2 base + v3 album identity + v4 workflow origin + v5 the Enable fetch queue, §15–§16 + v6 provided nodes and subgraph counts, §5.2 / §6 + v7 Civitai rating/download count on `v_model_list`, §13). Canonical version lives in `PRAGMA user_version`.
 
 DB file: `backend/data/vault.db` (renamed from `asset_vault.db`; see §14 migration).
 
@@ -803,11 +806,14 @@ CREATE INDEX ix_trash_purge ON trash_items(purge_after);
 ```sql
 CREATE VIEW v_model_list AS
 SELECT m.id, m.name, m.category, m.model_role, m.base_model_family, m.base_model_variant,
-       m.precision, m.param_count_primary, m.total_size, m.favorite, m.user_rating,
+       m.modality, m.architecture_label, m.arch_source, m.precision, m.quantization,
+       m.param_count_primary, m.param_count_total, m.total_size, m.favorite, m.user_rating,
        m.has_update, m.integrity, m.arch_confidence, m.workflow_count, m.output_count,
-       m.updated_at, m.missing_since,
-       f.abs_path, f.rel_path, f.folder, f.filename, f.ext,
-       f.hash_state, f.autov2, f.mtime_ns, f.preview_path, f.root_id
+       m.is_bundled, m.is_adapter, m.civitai_state, m.civitai_model_id, m.civitai_url,
+       m.updated_at, m.missing_since, m.color_label,
+       m.rating, m.download_count,                    -- v7: Civitai community stats
+       f.abs_path, f.rel_path, f.folder, f.filename, f.ext, f.size AS file_size,
+       f.hash_state, f.autov2, f.sha256, f.mtime_ns, f.preview_path, f.root_id, f.id AS file_id
 FROM models m
 LEFT JOIN model_files f ON f.id = m.primary_file_id;
 
@@ -841,7 +847,7 @@ The existing DB (`backend/data/asset_vault.db`) has **0 rows in `models`, `nodes
 3. If any are non-empty (a user on a partially working build), import with a best-effort field map: `models.base_model → base_model_family` (normalized through the vocabulary table), `nodes → node_packages` + explode `node_classes` JSON into `node_classes` rows, `output_assets.prompt → outputs.positive_prompt`. Every imported row gets `parser_version = 0`, guaranteeing a full re-parse on the next scan.
 4. Rename the legacy file to `asset_vault.db.v1.bak`; never delete it.
 
-**Applied so far:** `m001_initial` (v1), `m002_import_legacy` (v2), `m003_album_identity` (v3), `m004_workflow_origin` (v4 — see §15), `m005_enable_jobs` (v5 — see §16), `m006_provided_nodes` (v6 — see §17).
+**Applied so far:** `m001_initial` (v1), `m002_import_legacy` (v2), `m003_album_identity` (v3), `m004_workflow_origin` (v4 — see §15), `m005_enable_jobs` (v5 — see §16), `m006_provided_nodes` (v6 — see §17), `m007_community_stats` (v7 — see §18).
 
 **Forward path:** each future migration is `mNNN_<name>.py` exporting `VERSION`, `NAME`, and `def up(conn)`. The runner is transactional per migration and refuses to start if `user_version > CODE_SCHEMA_VERSION` (a newer DB opened by an older build) with a clear error rather than corrupting it.
 
@@ -1150,6 +1156,17 @@ as a dependency. `subgraph_count` is how many definitions the file declares, so 
 **3. JavaScript-registered nodes → `node_classes.registration = 'javascript'`.** Discovered
 statically per package by `app/parsers/node_js.py` (strategy S7) rather than hard-coded, so the list
 cannot rot as packages change.
+
+---
+
+## 18. Community stats on the model list (v7)
+
+`PRAGMA user_version = 7`, applied by `m007_community_stats`. No table changes — `v_model_list`
+is dropped and recreated with `models.rating` and `models.download_count` appended to its
+`SELECT` list. Both columns existed since v1 (populated by the Civitai enrichment job once a
+model is hash-matched) but were never selected by the view the list endpoints read from, so the
+UI had no way to show them. Recreating a view is cheap and non-destructive; nothing in the base
+tables moves.
 
 Neither column changes the matching ladder in §6.1: the frontend and JavaScript classes are real
 `node_classes` rows, so phase 7 resolves them through the same `node_id` join as any other class and

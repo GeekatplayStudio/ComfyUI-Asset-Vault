@@ -1,4 +1,4 @@
-"""Output list / detail / graph - contract-shaped (API_CONTRACT 6)."""
+﻿"""Output list / detail / graph - contract-shaped (API_CONTRACT 6)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from . import (
     ListResult,
     Where,
     apply_id_filter,
+    attach_matches,
     clamp_page,
     date_bucket,
     download_url,
@@ -64,6 +65,8 @@ class OutputFilters:
     date_from: int | None = None
     date_to: int | None = None
     include_missing: bool = False
+    missing_files_only: bool | None = None
+    untagged: bool | None = None
 
     @classmethod
     def from_dict(cls, data: dict | None) -> OutputFilters:
@@ -81,7 +84,9 @@ class OutputFilters:
 
 def _where(f: OutputFilters) -> Where:
     w = Where()
-    if not f.include_missing:
+    if f.missing_files_only:
+        w.add("missing_since IS NOT NULL")
+    elif not f.include_missing:
         w.add("missing_since IS NULL")
     w.prefix("folder", f.folder)
     w.any_of("media_kind", f.media_kind)
@@ -106,6 +111,8 @@ def _where(f: OutputFilters) -> Where:
     w.lte("size", f.size_max)
     w.gte("created_at_file", f.date_from)
     w.lte("created_at_file", f.date_to)
+    if f.untagged:
+        w.add("NOT EXISTS (SELECT 1 FROM asset_tags WHERE uid = ('output:' || id))")
     for tag in f.tag or []:
         w.add("('output:' || id) IN (SELECT at.uid FROM asset_tags at JOIN tags t "
               "ON t.id = at.tag_id WHERE t.name_key = ?)", str(tag).lower())
@@ -146,7 +153,7 @@ def list_outputs(filters: OutputFilters | dict | None = None, sort: str = "-crea
     f = filters if isinstance(filters, OutputFilters) else OutputFilters.from_dict(filters)
     limit, offset = clamp_page(limit, offset)
 
-    ids, search_meta = search_uids(f.q, f.smart, ["output"], conn)
+    ids, search_meta, matches = search_uids(f.q, f.smart, ["output"], conn)
     w = _where(f)
     if not apply_id_filter(w, "id", ids):
         return ListResult(items=[], page=page_dict(limit, offset, 0, 0),
@@ -164,7 +171,8 @@ def list_outputs(filters: OutputFilters | dict | None = None, sort: str = "-crea
     )
     uids = [f"output:{r['id']}" for r in rows]
     tag_map = tags_for(conn, uids)
-    items = [_item(r, tag_map.get(f"output:{r['id']}", [])) for r in rows]
+    items = attach_matches(
+        [_item(r, tag_map.get(f"output:{r['id']}", [])) for r in rows], matches)
 
     groups = None
     if group in ("date", "first_letter"):

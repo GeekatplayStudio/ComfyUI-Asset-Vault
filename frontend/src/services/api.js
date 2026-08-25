@@ -152,12 +152,16 @@ export const api = {
   checkPackageUpdates: (ids, signal) =>
     post('/node-packages/check-updates', { ids: ids === undefined ? null : ids }, null, signal),
   packageUpdateStatus: (signal) => get('/node-packages/update-status', null, signal),
+  nodeRegistry: (query, signal) => get('/node-registry', query, signal),
+  nodeRegistryStatus: (refresh, signal) => get('/node-registry/status', { refresh: Boolean(refresh) }, signal),
 
   /* ---------------------------------------------------------- workflows */
   workflows: (query, signal) => get('/workflows', query, signal),
   workflow: (id, signal) => get('/workflows/' + id, null, signal),
   workflowGraph: (id, format, signal) => get('/workflows/' + id + '/graph', { format }, signal),
   workflowDependencies: (id, signal) => get('/workflows/' + id + '/dependencies', null, signal),
+  workflowEnablePlan: (id, signal) => get('/workflows/' + id + '/enable/plan', null, signal),
+  workflowEnableFetch: (id, body, signal) => post('/workflows/' + id + '/enable/fetch', body, null, signal),
 
   /* ------------------------------------------------------------ outputs */
   outputs: (query, signal) => get('/outputs', query, signal),

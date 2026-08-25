@@ -1,10 +1,9 @@
 # Design System — Geekatplay ComfyUI Asset Vault v2.0
 
-**Studio Graphite + Signal Amber** · Geekatplay — Vladimir Chopine
+**Studio Graphite + Signal Amber** · Geekatplay Studio — Vladimir Chopine
 
-Owner: `ui-design`. Consumers: `ui-dev` (React), `qa` (audits), `docs` (screenshots).
-Authority: `DECISIONS.md` C3/C4 and `ARCHITECTURE.md §7.1`. Where this document and
-those disagree, **they win** — file a change request rather than editing CSS.
+Authoritative source: `DECISIONS.md` C3/C4 and `ARCHITECTURE.md §7.1`. Where this document and
+those disagree, **they win** — reconcile the disagreement rather than editing CSS around it.
 
 | File | Purpose | min / raw |
 |---|---|---|
@@ -31,7 +30,7 @@ import './styles/utilities.css'
 
 ---
 
-## 1. The rules `ui-dev` must not break
+## 1. The rules the React code must not break
 
 1. **Class names only.** No inline styles, no CSS-in-JS, no `style` prop for appearance.
    Three carve-outs exist, all of them *computed geometry*, never styling:
@@ -149,7 +148,7 @@ cover and supplies accessible text-weight siblings.
 ### Grid sizing — one variable
 
 ```jsx
-// The ONLY appearance value ui-dev writes at runtime.
+// The ONLY appearance value written at runtime — everything else is a class.
 <div className="gp-shell" style={{ '--gp-grid-size': tile + 'px' }}>
 ```
 
@@ -357,7 +356,7 @@ Sticky uppercase `th`, hairline rows, `.gp-table__num` for right-aligned tabular
 Generic: `--neutral --brand --ai --ok --warn --danger --info --mono --lg --overlay`
 (`--overlay` adds a scrim so it stays legible on a thumbnail).
 
-Frozen enums from `API_CONTRACT §16` map **one class per value**, so `ui-dev` writes
+Frozen enums from `API_CONTRACT §16` map **one class per value**, so a component writes
 `` `gp-badge--hash-${state}` `` with no branching:
 
 | Enum | Classes |
@@ -403,7 +402,7 @@ condition — that is what a callout is for.
 
 ### 6.18 Tooltip — `.gp-tooltip`
 
-`__title` `__mono`; `--ai` `--danger`. `position: fixed`; `ui-dev` writes the coordinates.
+`__title` `__mono`; `--ai` `--danger`. `position: fixed`; the coordinates are written at runtime.
 **Do** put the detection signals and confidence in the tooltip of every inferred value.
 **Don't** put an action inside one — it has `pointer-events: none`.
 
@@ -468,8 +467,8 @@ danger`), surfaces (`bg-raised bg-inset hairline* r-1 r-2`), overflow/position/v
 media (`cover ar-1 ph-local ph-inferred ph-neutral`).
 
 * **Do** compose *inside* a component with them.
-* **Don't** build a new component out of utilities. If the same stack appears twice, ask
-  `ui-design` for a real class — that is a two-line change here and a maintenance problem
+* **Don't** build a new component out of utilities. If the same stack appears twice, promote it
+  to a real class here — that is a two-line change in this file and a maintenance problem
   everywhere else.
 
 ---

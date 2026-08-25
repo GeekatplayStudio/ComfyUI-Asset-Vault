@@ -1,6 +1,7 @@
 # Architecture — Geekatplay ComfyUI Asset Vault & Manager
-**v2.0 rebuild** · Author: Geekatplay — Vladimir Chopine · Target install: `O:\ComfyUI` (ComfyUI 0.33.0)
-Status: **FROZEN CONTRACT**. Downstream agents implement against this document.
+**v2.0 rebuild** · Author: Geekatplay Studio — Vladimir Chopine · Target install: `O:\ComfyUI` (ComfyUI 0.33.0)
+Status: **FROZEN CONTRACT.** The code implements against this document; a change to one is a
+change to both, in the same commit.
 
 ---
 
@@ -621,7 +622,7 @@ Frontend debounces keystrokes at **140 ms** and cancels the in-flight request wi
 
 **GC:** `POST /api/v1/system/thumbs/gc` (and an automatic sweep on startup if `thumbs_bytes > thumb_cache_max_mb`, default 2048) deletes by LRU `atime` and orphan check.
 
-**Slider mapping (frozen, shared with `ui-dev`):**
+**Slider mapping (frozen):**
 ```
 slider ∈ [96 … 384] px  (step 8, default 208)
 served = 160  if slider <= 160
@@ -641,7 +642,7 @@ The `<img>` gets `width`/`height` attributes from the stored dimensions to reser
 * **SSE:** a single `EventSource` per active job, opened on demand, closed on `done`. `item` events patch the local cache in place (no full refetch), which is what makes progressive Civitai/hash enrichment feel live.
 * **Details panel:** lazy — selecting a card fires `GET /:id` for the deep record (heavy fields like the full graph, component breakdown, and usage list are not in the list payload).
 
-### 7.1 Design tokens — Geekatplay identity (frozen; `ui-design` and `ui-dev` share this)
+### 7.1 Design tokens — Geekatplay identity (frozen; shared by the CSS and the React components)
 
 Same *structure* as the reference, deliberately different *identity*. The current build's cyan-on-blue-black is retired.
 
@@ -831,7 +832,7 @@ All three go through `fileops_service`, which:
 
 ---
 
-## 10. Performance budgets (anchored to AUDIT.md measurements)
+## 10. Performance budgets (anchored to measurements against the reference install)
 
 | Metric | Measured baseline (audit) | Budget | Method |
 |---|---|---|---|

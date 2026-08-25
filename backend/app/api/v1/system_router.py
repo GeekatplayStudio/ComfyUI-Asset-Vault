@@ -74,6 +74,7 @@ def _config_payload(cfg, *, roots_changed: bool | None = None) -> dict:
         "ollama_url": cfg.ollama_url,
         "ollama_model": cfg.ollama_model,
         "smart_search_enabled": cfg.smart_search_enabled,
+        "smart_search_min_score": cfg.smart_search_min_score,
         "hash_concurrency": cfg.hash_concurrency,
         "hash_throttle_mbps": cfg.hash_throttle_mbps,
         "thumb_cache_max_mb": cfg.thumb_cache_max_mb,

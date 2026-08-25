@@ -1,6 +1,6 @@
 # Installation
 
-Geekatplay ComfyUI Asset Vault · **Geekatplay — Vladimir Chopine**
+Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 ---
 
@@ -98,18 +98,24 @@ What the launcher does, in order:
    with all output going to `backend_log.txt`,
 4. polls the port for up to 45 seconds and **only then** opens the browser; if the engine never
    comes up it prints the last 20 lines of `backend_log.txt` and stops,
-5. starts the interface on **http://localhost:3000** and opens it.
+5. builds the interface, serves it from the engine on **http://127.0.0.1:8127/**,
+   and opens it. The hashing service keeps running if the browser or launcher closes.
+
+Before opening the browser, the launcher prints a **Live service report** from the running API:
+the engine PID, interface response, hash queue/workers, indexer, embeddings, and every health
+check. A port opening alone is not treated as a successful startup.
 
 On the reference machine the engine answers `/api/v1/ping` about **one second** after launch.
 
-Closing the launcher window, or `stop_app.bat`, shuts the engine down.
+Closing the launcher window does **not** shut the engine down. Use `stop_app.bat` when you
+explicitly want to stop the vault; queued hashing resumes safely after a restart.
 
 ### Two ways to open the interface
 
 | | URL | When |
 |---|---|---|
-| Development server | `http://localhost:3000` | What `start_app.bat` opens. Hot reload; proxies `/api` to the engine. |
-| Served by the engine | `http://127.0.0.1:8127/` | Available once `npm run build` has been run. One process, one port, no Node needed at run time. |
+| Served by the engine | `http://127.0.0.1:8127/` | What `start_app.bat` opens. One process, one port, no Node needed at run time. |
+| Development server | `http://localhost:3000` | Optional for development: run `cd frontend && npm run dev`. It proxies `/api` to the engine. |
 
 Both talk to the same engine and the same database. The interactive API reference is always at
 `http://127.0.0.1:8127/docs`.

@@ -20,7 +20,9 @@ SYSTEM_ALBUMS: tuple[tuple[str, str, str, dict], ...] = (
     ("Favorites", "all", "star", {"favorite": True}),
     ("Needs hashing", "models", "hash", {"hash_state": ["unhashed", "failed", "stale"]}),
     ("Updates available", "all", "arrow-up", {"has_update": True}),
-    ("Missing files", "all", "alert", {"include_missing": True, "missing_only": True}),
+    # This is deliberately distinct from workflow ``missing_only``, which
+    # means unresolved workflow dependencies rather than an absent file.
+    ("Missing files", "all", "alert", {"missing_files_only": True}),
     ("Integrity issues", "models", "shield", {"integrity_not_ok": True}),
     ("Unused models", "models", "box", {"unused": True}),
     ("Broken workflows", "workflows", "unlink", {"runnable": False}),

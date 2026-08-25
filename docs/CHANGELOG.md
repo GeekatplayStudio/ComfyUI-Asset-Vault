@@ -1,6 +1,6 @@
 # Changelog
 
-Geekatplay ComfyUI Asset Vault · **Geekatplay — Vladimir Chopine**
+Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 ---
 
@@ -24,6 +24,56 @@ cold start loads every installed node package, so the wait is measured, not assu
 **Launcher discovery.** The `run_*.bat` scripts beside the ComfyUI folder are found on disk and
 listed with their resolved paths, the same way the updater is discovered rather than assumed.
 `main.py` with the interpreter that ships with the install is the fallback.
+
+**Node Registry.** A read-only catalogue (Nodes → Registry) combining the official Comfy Registry
+metadata cache with the local ComfyUI-Manager legacy class-to-package map, searchable and
+filterable by source and installed state. It never installs anything on its own — installation
+stays tied to a workflow's specific missing classes and a reviewed plan. **Resolve missing nodes**
+turns that report into an action: it pins the remote's exact commit before showing the plan, clones
+into a staging directory with credential helpers, `file://`/`ext::` transports, hooks, tags and
+submodules all disabled, verifies the pinned commit after clone, and only then atomically releases
+the result — never running `pip`, `requirements.txt`, `install.py`, or any submodule.
+
+**Contextual card faces.** Assets with no real preview image no longer get a randomly-hued
+generated gradient. They get a flat card face instead: a thin status bar across the top (green
+usable, amber needs attention, red broken or missing), a category-tinted icon for the file kind
+(checkpoint, LoRA, VAE, CLIP/text encoder, CLIP-vision, ControlNet, upscaler, embedding, GGUF/UNet,
+motion module), and the format spelled out. Thumbnail generation is skipped entirely for assets the
+UI now renders as a face — outputs, workflows-with-previews and models-with-previews keep real
+generated thumbnails; node packages and preview-less models no longer trigger a server-side render.
+
+**Search match transparency.** Every list result returned by a search now carries why it matched —
+*name match*, *text match*, *semantic match*, or *text + semantic* — shown as a badge on the card.
+The semantic (embedding) arm previously had no similarity floor, so a nearest-neighbour lookup
+always returned its top results even for a query matching nothing at all. It now enforces a cosine
+floor before offering a semantic result, configurable from Settings → Search → **Match strictness**
+(Strict / Balanced / Loose / Widest), so a query with no real match returns nothing instead of the
+least-unrelated files in the library.
+
+**Community rating.** Civitai's rating and download count, already fetched and stored on a
+hash-matched model, are now shown — a small star-and-count line on the card and in the details
+panel's provenance section.
+
+**More left-rail filters for Models** — Type (checkpoint/LoRA/VAE/…), Precision, and a
+personal-rating filter (5★ / 4★+ / 3★+) — plus a **Geekatplay Spotlight** section in the Nodes and
+Workflows rails to surface Geekatplay-authored packages and workflows.
+
+**The status bar's integrity warning is now a link.** Clicking "N integrity issues" jumps straight
+to the Models tab filtered to the affected files, instead of only announcing the count.
+
+### Fixed — filters, and a staged-clone disk leak
+
+Several grid and album filters were displayed while their query parameter was silently ignored by
+the API, so **Missing files** and **Integrity issues** on Models returned the whole library instead
+of the filtered one. Every filter across all five asset kinds was re-audited end to end — UI
+control → HTTP parameter → SQL predicate — and the gaps closed; the full trace is in
+[FILTER_AUDIT.md](FILTER_AUDIT.md). Node Packages and Workflows also gained `sort=-created`, so
+**Recently added** works instead of failing with an unsupported-sort error.
+
+A node-package clone staged under `custom_nodes/.vault-staging` was left on disk if the process was
+killed mid-clone or an unhandled error occurred between clone and release — nothing ever swept it.
+The clone path is now wrapped so a half-finished stage is always cleaned up, and a sweep on the next
+clone removes anything still orphaned from a prior crash.
 
 ### Security — the launcher review (S-19 … S-24)
 
@@ -213,8 +263,7 @@ Every open finding from the internal audit is closed in this release; each fix r
 ## 2.0.0 — 2026-08-22
 
 A rebuild, not a release. Version 1 installed cleanly and did nothing: a full scan against a real
-ComfyUI installation crashed before the first commit, so **every table was empty**. The baseline
-audit is preserved in `AUDIT.md`; the verification of this release is in `QA_REPORT.md`.
+ComfyUI installation crashed before the first commit, so **every table was empty**.
 
 Every claim below was confirmed by executing it against a real install of ComfyUI 0.33.0 holding
 237 models (1.589 TB), 34 node packages, 1,866 node classes, 211 workflows and 3,834 outputs.
@@ -381,7 +430,7 @@ so this is event-loop starvation from thread contention, not query cost. It is a
 23 ms measured earlier in the build; the likely contributors are the per-entry reparse-point check
 added for S-01 and increased worker-thread contention. **It has not been diagnosed to a specific
 cause, and the budget has deliberately not been relaxed to hide it.** See
-`TROUBLESHOOTING.md` and `QA_REPORT.md`.
+`TROUBLESHOOTING.md`.
 
 **Two launcher tests skip** for environmental reasons — the live test cannot attribute a ping to
 the launcher when something already holds 8127.
@@ -408,4 +457,4 @@ npm run build          348 kB entry + 64.67 kB storage chunk
 
 ## 1.0.0
 
-The original release. Preserved only as the baseline `AUDIT.md` measures against.
+The original release — kept here for the record. Superseded entirely by the 2.0.0 rebuild above.

@@ -164,4 +164,20 @@
   --gp-placeholder-local:linear-gradient(135deg,#23232B 0%,#2E2E38 45%,#3A3020 100%);
   --gp-placeholder-inferred:linear-gradient(135deg,#23232B 0%,#2E2E38 45%,#2A2540 100%);
   --gp-placeholder-neutral:linear-gradient(135deg,#1A1A20 0%,#23232B 100%);
+
+  /* 2.10 Card-face category hues — one muted accent per asset family, used
+     for the icon and type label on flat card faces (no gradients).  All meet
+     AA (>=4.5:1) on --gp-bg-100/200 surfaces. */
+  --gp-cat-checkpoint:#D9AE6B;   /* checkpoints / diffusion models */
+  --gp-cat-lora:#93C08F;         /* LoRA / LyCORIS / adapters */
+  --gp-cat-vae:#7FA8F0;          /* VAE */
+  --gp-cat-text:#BE96D6;         /* CLIP / text encoders */
+  --gp-cat-vision:#8FBFD9;       /* CLIP vision / IP-Adapter vision */
+  --gp-cat-control:#D98F8F;      /* ControlNet / conditioning */
+  --gp-cat-upscale:#7FC0BA;      /* upscalers */
+  --gp-cat-embedding:#BFB684;    /* embeddings / textual inversion */
+  --gp-cat-quant:#9AA3B8;        /* GGUF / unet / quantised runtimes */
+  --gp-cat-motion:#D9A08A;       /* motion / video modules */
+  --gp-cat-default:#A29B8E;
+  --gp-face-bg:var(--gp-bg-100);
 }

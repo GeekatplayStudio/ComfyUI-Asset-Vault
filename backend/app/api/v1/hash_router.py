@@ -125,7 +125,20 @@ async def hash_stream(request: Request):
              responses=MUTATION_ERRORS,
              summary="Change concurrency / throttle without a restart")
 def hash_settings(body: HashSettingsRequest) -> dict:
-    patch = body.model_dump(exclude_unset=True)
-    cfg = config_service.set_config(patch) if patch else config_service.get_config()
+    raw = body.model_dump(exclude_unset=True)
+    # The public hash API uses concise names; the shared configuration
+    # namespace prefixes them with ``hash_``.
+    patch = {}
+    if "concurrency" in raw:
+        patch["hash_concurrency"] = raw["concurrency"]
+    if "throttle_mbps" in raw:
+        patch["hash_throttle_mbps"] = raw["throttle_mbps"]
+    if patch:
+        cfg = config_service.set_config(patch)
+        # An increased limit applies immediately; a lowered one retires workers
+        # after their current file so an in-flight hash is never interrupted.
+        get_hash_service().refresh_workers()
+    else:
+        cfg = config_service.get_config()
     return {"concurrency": cfg.hash_concurrency,
             "throttle_mbps": cfg.hash_throttle_mbps}

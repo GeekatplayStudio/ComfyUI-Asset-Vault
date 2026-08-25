@@ -138,7 +138,7 @@ class HashStatus(Lenient):
 
 
 class HashSettingsRequest(Strict):
-    concurrency: int | None = Field(default=None, ge=1, le=4)
+    concurrency: int | None = Field(default=None, ge=1, le=8)
     throttle_mbps: int | None = Field(default=None, ge=0, le=10_000)
 
 

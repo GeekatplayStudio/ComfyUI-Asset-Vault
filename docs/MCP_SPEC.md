@@ -158,19 +158,17 @@ the 3 job-control tools C5.2 promotes to writable — `vault_hash_enqueue`,
 `vault_hash_cancel`, `vault_embeddings_rebuild` (§5.14–§5.16 below) — and the 2 workflow
 "Enable" tools `REQUIREMENTS_R2.md` C9.9 requires (§5.17–§5.18).
 
-> **Resolved 2026-08-22 (coordinator).** An earlier revision said "total 21" while also
-> naming those three, which were never among the 13 — the count and the list contradicted
-> each other. They are **first-class tools**, not arguments on `vault_reindex`:
-> `tools/list` is how an agent discovers a capability, and nothing would lead it to guess
-> that hashing hides behind a tool named "reindex". 13 + 8 + 3 = **24**, and C9.9's two
-> Enable tools bring the shipped catalogue to **26**.
+> These three are **first-class tools**, not arguments on `vault_reindex`: `tools/list` is
+> how an agent discovers a capability, and nothing would lead it to guess that hashing hides
+> behind a tool named "reindex". 13 + 8 + 3 = **24**, and C9.9's two Enable tools bring the
+> shipped catalogue to **26**.
 
-The architect originally recommended a read-only surface. **The owner reviewed that risk and
-chose full access; that decision stands.** Implement the mutating tools completely — do not
-narrow them back. The safety rails in DECISIONS.md C5 (trash-by-default, `confirm:true` for
-permanent deletion, `mcp_audit` logging, 200-item batch cap, uid-only input, roots enforced
-via `core/pathsafe.py`) are mandatory and mirror the UI's own semantics, so an MCP agent is
-never more dangerous than a user click.
+A read-only surface was the safer starting option; full access was chosen deliberately instead,
+after weighing the risk explicitly (see DECISIONS.md C5). **That decision stands** — the mutating
+tools are implemented completely, not narrowed back. The safety rails in DECISIONS.md C5
+(trash-by-default, `confirm:true` for permanent deletion, `mcp_audit` logging, 200-item batch
+cap, uid-only input, roots enforced via `core/pathsafe.py`) are mandatory and mirror the UI's
+own semantics, so an MCP client is never more dangerous than a user click.
 
 ### 5.0 Common result envelope
 

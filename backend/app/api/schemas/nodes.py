@@ -142,3 +142,37 @@ class UpdateStatusResponse(Lenient):
     with_update: int = 0
     checked: int = 0
     total: int = 0
+
+
+class RegistryNodeItem(Lenient):
+    """Read-only package metadata from Comfy Registry or a legacy map."""
+    id: str
+    name: str
+    description: str | None = None
+    publisher: str | None = None
+    repository: str | None = None
+    source: str
+    official: bool = False
+    installed: bool = False
+    version: str | None = None
+    published_at: str | int | None = None
+    dependencies: list[str] = []
+    classes: list[str] = []
+    compatibility: str | None = None
+    warnings: list[str] = []
+
+
+class RegistryMeta(Lenient):
+    online_enabled: bool
+    fetched_at: int | None = None
+    fresh: bool = False
+    cache_ttl_ms: int
+    error: str | None = None
+    source: str
+    legacy_source: str | None = None
+
+
+class RegistryNodeList(Lenient):
+    items: list[RegistryNodeItem]
+    page: PageInfo
+    meta: RegistryMeta

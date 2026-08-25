@@ -1,4 +1,4 @@
-"""Workflow list / detail / graph / dependencies - contract-shaped (API_CONTRACT 5)."""
+﻿"""Workflow list / detail / graph / dependencies - contract-shaped (API_CONTRACT 5)."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from . import (
     ListResult,
     Where,
     apply_id_filter,
+    attach_matches,
     clamp_page,
     date_bucket,
     json_list,
@@ -25,7 +26,7 @@ from . import (
 )
 
 SORTS = {
-    "name": "name COLLATE NOCASE", "modified": "mtime_ns", "size": "size",
+    "name": "name COLLATE NOCASE", "created": "created_at", "modified": "mtime_ns", "size": "size",
     "nodes": "node_count", "missing": "missing_node_count", "relevance": "id",
 }
 GROUPS = {"folder": "folder", "base_model": "base_model_family",
@@ -50,6 +51,8 @@ class WorkflowFilters:
     date_from: int | None = None
     date_to: int | None = None
     include_missing: bool = False
+    missing_files_only: bool | None = None
+    untagged: bool | None = None
 
     @classmethod
     def from_dict(cls, data: dict | None) -> WorkflowFilters:
@@ -67,7 +70,9 @@ class WorkflowFilters:
 
 def _where(f: WorkflowFilters) -> Where:
     w = Where()
-    if not f.include_missing:
+    if f.missing_files_only:
+        w.add("missing_since IS NOT NULL")
+    elif not f.include_missing:
         w.add("missing_since IS NULL")
     w.prefix("folder", f.folder)
     w.any_of("base_model_family", f.base_model)
@@ -91,6 +96,8 @@ def _where(f: WorkflowFilters) -> Where:
     for tag in f.tag or []:
         w.add("('workflow:' || id) IN (SELECT at.uid FROM asset_tags at JOIN tags t "
               "ON t.id = at.tag_id WHERE t.name_key = ?)", str(tag).lower())
+    if f.untagged:
+        w.add("NOT EXISTS (SELECT 1 FROM asset_tags WHERE uid = ('workflow:' || id))")
     return w
 
 
@@ -182,7 +189,7 @@ def list_workflows(filters: WorkflowFilters | dict | None = None, sort: str = "-
     f = filters if isinstance(filters, WorkflowFilters) else WorkflowFilters.from_dict(filters)
     limit, offset = clamp_page(limit, offset)
 
-    ids, search_meta = search_uids(f.q, f.smart, ["workflow"], conn)
+    ids, search_meta, matches = search_uids(f.q, f.smart, ["workflow"], conn)
     w = _where(f)
     if not apply_id_filter(w, "id", ids):
         return ListResult(items=[], page=page_dict(limit, offset, 0, 0),
@@ -216,7 +223,7 @@ def list_workflows(filters: WorkflowFilters | dict | None = None, sort: str = "-
                 conn, f"SELECT {col} AS k, COUNT(*) n FROM workflows "  # noqa: S608
                       f"WHERE {where_sql} GROUP BY k ORDER BY n DESC", args)
         ]
-    return ListResult(items=[_item(r) for r in rows],
+    return ListResult(items=attach_matches([_item(r) for r in rows], matches),
                       page=page_dict(limit, offset, total, len(rows)),
                       groups=groups,
                       meta=meta_dict(t0, sort=f"{sort},id", **search_meta))

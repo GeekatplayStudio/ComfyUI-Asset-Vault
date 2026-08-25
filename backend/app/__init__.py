@@ -1,1 +1,1 @@
-# Geekatplay Vladimir Chopine - ComfyUI Asset Vault Backend
+# Geekatplay Studio - Vladimir Chopine - ComfyUI Asset Vault Backend

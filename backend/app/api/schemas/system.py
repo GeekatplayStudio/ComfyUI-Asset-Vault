@@ -69,6 +69,7 @@ class SystemConfig(Lenient):
     ollama_url: str
     ollama_model: str
     smart_search_enabled: bool
+    smart_search_min_score: float
     hash_concurrency: int
     hash_throttle_mbps: int
     thumb_cache_max_mb: int
@@ -96,7 +97,9 @@ class ConfigPatch(Strict):
     ollama_url: str | None = None
     ollama_model: str | None = None
     smart_search_enabled: bool | None = None
-    hash_concurrency: int | None = Field(default=None, ge=1, le=4)
+    # How close a semantic hit must be to the query. Higher = stricter.
+    smart_search_min_score: float | None = Field(default=None, ge=0.05, le=0.9)
+    hash_concurrency: int | None = Field(default=None, ge=1, le=8)
     hash_throttle_mbps: int | None = Field(default=None, ge=0, le=10_000)
     thumb_cache_max_mb: int | None = Field(default=None, ge=64, le=1_000_000)
     thumb_video_ffmpeg: bool | None = None

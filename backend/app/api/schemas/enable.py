@@ -56,6 +56,8 @@ class EnableNodeItem(Lenient):
     reason: str | None = None
     manual_steps: list[str] = []
     never_runs: list[str] = []
+    revision: str | None = None
+    safety: list[dict[str, Any]] = []
 
 
 class EnableVolume(Lenient):

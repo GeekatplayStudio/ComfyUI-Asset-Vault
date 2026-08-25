@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Query
 
 from ...core import config_service
 from ...services.queries import nodes_query
+from ...services import node_registry_service
 from ..deps import Page, apply_fields, check_group, check_sort, csv_param, page_params
 from ..middleware import ApiError
 from ..schemas.common import BASE_ERRORS, MUTATION_ERRORS, error_responses
@@ -20,11 +21,13 @@ from ..schemas.nodes import (
     NodeClassList,
     NodePackageDetail,
     NodePackageList,
+    RegistryNodeList,
     UpdateStatusResponse,
 )
 
 packages_router = APIRouter(prefix="/node-packages", tags=["Nodes"])
 classes_router = APIRouter(prefix="/node-classes", tags=["Nodes"])
+registry_router = APIRouter(prefix="/node-registry", tags=["Nodes"])
 
 
 def _package_filters(
@@ -37,10 +40,14 @@ def _package_filters(
     tag: list[str] | None = Query(None),
     update_state: list[str] | None = Query(None),
     include_missing: bool = Query(False),
+    missing_files_only: bool | None = Query(
+        None, description="Return only packages whose indexed folder is missing."),
+    untagged: bool | None = Query(None, description="Return only packages with no tags."),
 ) -> dict[str, Any]:
     raw = {"q": q, "smart": smart, "official": official, "enabled": enabled,
            "has_update": has_update, "author": author, "tag": tag,
-           "update_state": update_state, "include_missing": include_missing}
+           "update_state": update_state, "include_missing": include_missing,
+           "missing_files_only": missing_files_only, "untagged": untagged}
     return {k: v for k, v in raw.items() if v is not None}
 
 
@@ -53,10 +60,14 @@ def _class_filters(
     deprecated: bool | None = Query(None),
     experimental: bool | None = Query(None),
     confidence: list[str] | None = Query(None),
+    missing_files_only: bool | None = Query(
+        None, description="Return only classes from a missing package."),
+    untagged: bool | None = Query(None, description="Return only classes with no tags."),
 ) -> dict[str, Any]:
     raw = {"q": q, "smart": smart, "package_id": package_id, "category": category,
            "official": official, "deprecated": deprecated,
-           "experimental": experimental, "confidence": confidence}
+           "experimental": experimental, "confidence": confidence,
+           "missing_files_only": missing_files_only, "untagged": untagged}
     return {k: v for k, v in raw.items() if v is not None}
 
 
@@ -202,3 +213,28 @@ def get_node_class(class_id: int) -> dict:
         raise ApiError("NOT_FOUND", f"Node class {class_id} does not exist.",
                        details={"uid": f"node_class:{class_id}"})
     return item
+
+
+# ---------------------------------------------------------------------------
+# Read-only registry catalogue
+# ---------------------------------------------------------------------------
+
+@registry_router.get("", response_model=RegistryNodeList, responses=BASE_ERRORS,
+                     summary="Search Comfy Registry and local legacy node mappings")
+def list_node_registry(
+    q: str | None = Query(None, max_length=512),
+    installed: bool | None = Query(None),
+    source: str | None = Query(None, pattern="^(comfy_registry|manager_legacy_map)$"),
+    refresh: bool = Query(False, description="Refresh the metadata cache; never downloads packages."),
+    page: Page = Depends(page_params),
+) -> dict:
+    """Metadata only. Package installation remains workflow-plan driven."""
+    return node_registry_service.list_registry(q=q, installed=installed, source=source,
+                                               refresh=refresh, limit=page.limit,
+                                               offset=page.offset)
+
+
+@registry_router.get("/status", responses=BASE_ERRORS,
+                     summary="Registry cache provenance and freshness")
+def node_registry_status(refresh: bool = Query(False)) -> dict:
+    return node_registry_service.status(refresh=refresh)
