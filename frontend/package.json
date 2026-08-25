@@ -27,6 +27,6 @@
     "vitest": "^1.6.1"
   },
   "description": "Geekatplay ComfyUI Asset Vault - local library manager for models, node packages, workflows and outputs.",
-  "author": "Geekatplay - Vladimir Chopine",
+  "author": "Geekatplay Studio - Vladimir Chopine",
   "license": "UNLICENSED"
 }

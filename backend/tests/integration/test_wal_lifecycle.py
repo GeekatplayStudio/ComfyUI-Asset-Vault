@@ -1,4 +1,4 @@
-"""The write-ahead log must not grow without bound (QA_REPORT: WAL defect).
+"""The write-ahead log must not grow without bound.
 
 The owner's `-wal` reached 2.03 GB — 492,123 frames of 4 KB — against a 35.6 MB,
 8,688-page database, and `PRAGMA wal_checkpoint(TRUNCATE)` answered

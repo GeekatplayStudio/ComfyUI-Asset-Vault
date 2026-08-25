@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Trash2, Pencil, ExternalLink } from 'lucide-react'
 import { thumbnailUrl } from '../../services/api.js'
-import { presentAsset } from './AssetCard.jsx'
+import { presentAsset, CardFace } from './AssetCard.jsx'
 import InlinePlayer, { isPlayable } from '../common/InlinePlayer.jsx'
 
 /*
@@ -9,10 +9,19 @@ import InlinePlayer, { isPlayable } from '../common/InlinePlayer.jsx'
  * sizes and counts line up in the tabular monospace face.
  */
 
-function RowThumb({ uid, alt, noThumb }) {
+function RowThumb({ uid, alt, noThumb, face }) {
   const [failed, setFailed] = useState(Boolean(noThumb))
   const onError = useCallback(() => setFailed(true), [])
-  if (failed) return <span className="gp-row__thumb gp-u-ph-local" aria-hidden="true" />
+  if (failed) {
+    if (face) {
+      return (
+        <span className="gp-row__thumb" aria-hidden="true">
+          <CardFace face={face} small />
+        </span>
+      )
+    }
+    return <span className="gp-row__thumb gp-u-ph-local" aria-hidden="true" />
+  }
   return (
     <img
       className="gp-row__thumb"
@@ -56,7 +65,7 @@ function AssetListRow(props) {
       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onOpen(item) } }}
       onContextMenu={onContextMenu}
     >
-      <RowThumb uid={p.uid} alt="" noThumb={p.noThumb} />
+      <RowThumb uid={p.uid} alt="" noThumb={p.noThumb} face={p.face} />
       <span className="gp-row__name" title={p.title}>{p.title}</span>
       {/* Every cell is rendered even when it has nothing to say.  Skipping the
           empty ones used to pull the following columns left, so no two rows

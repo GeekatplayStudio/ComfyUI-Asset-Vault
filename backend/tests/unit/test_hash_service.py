@@ -124,6 +124,37 @@ def test_hashing_reports_an_error_code_instead_of_raising(tmp_path):
     assert code, "a missing file must yield an error code, not an exception"
 
 
+def test_an_unexpected_file_failure_does_not_escape_the_hash_worker(temp_vault, monkeypatch):
+    """A single bad file may fail, but it must not terminate the hash queue."""
+    service = hash_service.HashService()
+    job = {"id": 1, "model_file_id": 2, "abs_path": "broken", "fsize": 1,
+           "batch_id": None, "attempts": 0}
+    seen = []
+    claims = iter((job, None))
+    monkeypatch.setattr(service, "_retire_if_over_capacity", lambda: False)
+    monkeypatch.setattr(service, "_claim", lambda: next(claims))
+    monkeypatch.setattr(service, "_process_job", lambda _job: (_ for _ in ()).throw(OSError("boom")))
+    monkeypatch.setattr(service, "_finish", lambda *args, **kwargs: seen.append(kwargs))
+
+    service._worker()
+
+    assert seen == [{"state": "failed", "code": "HASH_WORKER_ERROR", "attempts": 1}]
+
+
+def test_hash_settings_persist_the_slider_value(hermetic_client):
+    response = hermetic_client.post(
+        "/api/v1/hash/settings", json={"concurrency": 8, "throttle_mbps": 125},
+        headers={"X-Vault-Request": "1"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == {"concurrency": 8, "throttle_mbps": 125}
+
+    config = hermetic_client.get("/api/v1/system/config")
+    assert config.status_code == 200
+    assert config.json()["hash_concurrency"] == 8
+    assert config.json()["hash_throttle_mbps"] == 125
+
+
 def test_hashing_is_cancellable_mid_file(tmp_path):
     p = tmp_path / "cancel.bin"
     p.write_bytes(os.urandom(8 * 1024 * 1024))
@@ -231,6 +262,21 @@ def test_hash_state_vocabulary_is_the_documented_one():
     src = (APP_DIR / "jobs" / "hash_service.py").read_text(encoding="utf-8")
     for state in ("queued", "hashing", "done", "failed"):
         assert f'"{state}"' in src or f"'{state}'" in src, f"state {state!r} is not used"
+
+
+def test_hash_concurrency_supports_the_full_ui_slider_range(temp_vault):
+    """The UI slider is 1..8, so persisted and worker limits must match it."""
+    from app.api.schemas.jobs import HashSettingsRequest
+    from app.api.schemas.system import ConfigPatch
+    from app.core import config_service
+
+    assert HashSettingsRequest(concurrency=8).concurrency == 8
+    assert ConfigPatch(hash_concurrency=8).hash_concurrency == 8
+    config_service.set_config({"hash_concurrency": 8})
+    assert config_service.get_config().hash_concurrency == 8
+
+    service = hash_service.HashService()
+    assert service.status()["concurrency"] == 8
 
 
 def test_the_fingerprint_key_is_path_size_mtime(temp_vault):

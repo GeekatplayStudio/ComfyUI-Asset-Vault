@@ -274,6 +274,15 @@ function LocationTab({ config, onSaved, onReindex, onWizard }) {
 
 /* -------------------------------------------------------------------- search */
 
+/* Cosine floors for the semantic arm.  Named rather than numeric: the raw
+   value means nothing to anyone who has not read the embedding code. */
+const STRICTNESS_LEVELS = [
+  { value: '0.45', label: 'Strict - only close matches' },
+  { value: '0.3', label: 'Balanced (default)' },
+  { value: '0.2', label: 'Loose - more, looser matches' },
+  { value: '0.1', label: 'Widest - anything the model ranks' }
+]
+
 function SearchTab({ config }) {
   const { state, toast, toastError, refreshConfig } = useVault()
   const embeddings = useResource('embeddings-status', (s) => api.embeddingsStatus(s),
@@ -360,6 +369,23 @@ function SearchTab({ config }) {
                     onClick={() => api.embeddingsRebuild({ kinds: null, force: false })} />
                 ) : null}
               </div>
+            </div>
+          </div>
+
+          <div className="gp-formgrid gp-u-mt-5">
+            <label className="gp-formgrid__label" htmlFor="smart-min-score">Match strictness</label>
+            <div className="gp-field">
+              <Select id="smart-min-score"
+                value={String(config.smart_search_min_score ?? 0.3)}
+                ariaLabel="How close a semantic match must be"
+                onChange={(v) => patch({ smart_search_min_score: Number(v) })}
+                options={STRICTNESS_LEVELS} />
+              <span className="gp-field__hint">
+                How similar a result must be before smart search will offer it. Stricter
+                returns fewer, closer matches; looser casts a wider net and can surface
+                items whose connection to the query is not obvious. Keyword matches are
+                never filtered by this.
+              </span>
             </div>
           </div>
         </>

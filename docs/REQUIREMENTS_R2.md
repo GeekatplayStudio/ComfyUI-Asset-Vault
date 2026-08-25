@@ -1,8 +1,8 @@
-# Owner Requirements — Round 2 (2026-08-22)
+# Product Decisions — Round 2
 
-> AUTHORITATIVE, same standing as `DECISIONS.md`. Added after Wave 3.
-> These are REQUIRED scope, not optional polish. Where they extend ARCHITECTURE.md /
-> API_CONTRACT.md / DATA_MODEL.md, the owning agent updates that document too.
+Required scope, same standing as [DECISIONS.md](DECISIONS.md). Where these extend
+ARCHITECTURE.md / API_CONTRACT.md / DATA_MODEL.md, that document is kept in sync in the same
+change.
 
 ## C6 — No AI-assistant attribution anywhere in the product
 
@@ -12,11 +12,7 @@ files only, **never** to third-party dependency source under `venv/` or `node_mo
 
 MCP client names must be generic ("desktop MCP client", "mcp-client"), never a vendor brand.
 
-The product is authored by **Geekatplay — Vladimir Chopine**, full stop.
-
-*Status: already applied to `README.md`, `docs/AUDIT.md`, `docs/MCP_SPEC.md`, and
-`frontend/vite.config.js` (proxy corrected to 8127). Every agent must keep this true in
-anything it writes from here on.*
+The product is authored by **Geekatplay Studio — Vladimir Chopine**, full stop.
 
 ## C7 — Changing the ComfyUI path must fully work, end to end
 
@@ -33,9 +29,9 @@ re-index against it. Required behaviour, **verified by execution, not assumed**:
    and make the UI say which.
 4. Multiple roots remain supported (`extra_model_paths.yaml`); changing the primary root must not
    silently orphan extra roots.
-5. The `node_registry` root-keying bug fixed in Wave 1 must stay fixed — a path change previously
-   killed node-class enrichment silently (1,866 → 1,855). Add a regression test that changes the
-   path and asserts enrichment still runs.
+5. The `node_registry` root-keying bug must stay fixed — a path change previously killed
+   node-class enrichment silently (1,866 → 1,855). A regression test changes the path and
+   asserts enrichment still runs.
 
 ## C8 — Official ComfyUI workflows, version awareness, and updating ComfyUI
 
@@ -112,7 +108,7 @@ Must show:
 ## C11 — UI arrangement: dense but not crowded
 
 The maintenance data must be "well arranged, easy to see, detailed, but not overcrowded."
-Rules for `ui-design` / `ui-dev`:
+Rules for the storage view's design and implementation:
 
 - **Progressive disclosure**: a summary layer that answers "where did my terabyte go?" at a
   glance, with detail on demand — never a wall of numbers.

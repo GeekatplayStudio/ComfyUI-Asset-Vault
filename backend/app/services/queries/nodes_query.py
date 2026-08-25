@@ -1,4 +1,4 @@
-"""Node package / node class queries - contract-shaped (API_CONTRACT 4)."""
+﻿"""Node package / node class queries - contract-shaped (API_CONTRACT 4)."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from . import (
     ListResult,
     Where,
     apply_id_filter,
+    attach_matches,
     clamp_page,
     json_list,
     json_obj,
@@ -25,7 +26,7 @@ from . import (
 
 PACKAGE_SORTS = {
     "name": "display_name COLLATE NOCASE", "author": "author COLLATE NOCASE",
-    "classes": "class_count", "updated": "updated_at", "size": "total_size",
+    "classes": "class_count", "created": "created_at", "updated": "updated_at", "size": "total_size",
     "relevance": "id",
 }
 CLASS_SORTS = {
@@ -53,6 +54,8 @@ class NodeFilters:
     experimental: bool | None = None
     confidence: list[str] = field(default_factory=list)
     include_missing: bool = False
+    missing_files_only: bool | None = None
+    untagged: bool | None = None
 
     @classmethod
     def from_dict(cls, data: dict | None) -> NodeFilters:
@@ -74,7 +77,9 @@ class NodeFilters:
 
 def _pkg_where(f: NodeFilters) -> Where:
     w = Where()
-    if not f.include_missing:
+    if f.missing_files_only:
+        w.add("missing_since IS NOT NULL")
+    elif not f.include_missing:
         w.add("missing_since IS NULL")
     w.bool_eq("is_official", f.official)
     w.bool_eq("enabled", f.enabled)
@@ -84,6 +89,8 @@ def _pkg_where(f: NodeFilters) -> Where:
     for tag in f.tag or []:
         w.add("('node_package:' || id) IN (SELECT at.uid FROM asset_tags at "
               "JOIN tags t ON t.id = at.tag_id WHERE t.name_key = ?)", str(tag).lower())
+    if f.untagged:
+        w.add("NOT EXISTS (SELECT 1 FROM asset_tags WHERE uid = ('node_package:' || id))")
     return w
 
 
@@ -128,7 +135,7 @@ def list_node_packages(filters: NodeFilters | dict | None = None, sort: str = "n
     f = filters if isinstance(filters, NodeFilters) else NodeFilters.from_dict(filters)
     limit, offset = clamp_page(limit, offset)
 
-    ids, search_meta = search_uids(f.q, f.smart, ["node_package"], conn)
+    ids, search_meta, matches = search_uids(f.q, f.smart, ["node_package"], conn)
     w = _pkg_where(f)
     if not apply_id_filter(w, "id", ids):
         return ListResult(items=[], page=page_dict(limit, offset, 0, 0),
@@ -155,7 +162,7 @@ def list_node_packages(filters: NodeFilters | dict | None = None, sort: str = "n
                 conn, f"SELECT {col} AS k, COUNT(*) n FROM node_packages "  # noqa: S608
                       f"WHERE {where_sql} GROUP BY k ORDER BY n DESC", args)
         ]
-    return ListResult(items=[_pkg_item(r) for r in rows],
+    return ListResult(items=attach_matches([_pkg_item(r) for r in rows], matches),
                       page=page_dict(limit, offset, total, len(rows)),
                       groups=groups,
                       meta=meta_dict(t0, sort=f"{sort},id", **search_meta))
@@ -219,6 +226,10 @@ def _class_where(f: NodeFilters) -> Where:
     w.bool_eq("nc.is_experimental", f.experimental)
     w.any_of("nc.confidence", f.confidence)
     w.bool_eq("p.is_official", f.official)
+    if f.missing_files_only:
+        w.add("p.missing_since IS NOT NULL")
+    if f.untagged:
+        w.add("NOT EXISTS (SELECT 1 FROM asset_tags WHERE uid = ('node_class:' || nc.id))")
     return w
 
 
@@ -265,7 +276,7 @@ def list_node_classes(filters: NodeFilters | dict | None = None,
     f = filters if isinstance(filters, NodeFilters) else NodeFilters.from_dict(filters)
     limit, offset = clamp_page(limit, offset)
 
-    ids, search_meta = search_uids(f.q, f.smart, ["node_class"], conn)
+    ids, search_meta, matches = search_uids(f.q, f.smart, ["node_class"], conn)
     w = _class_where(f)
     if not apply_id_filter(w, "nc.id", ids):
         return ListResult(items=[], page=page_dict(limit, offset, 0, 0),
@@ -298,7 +309,7 @@ def list_node_classes(filters: NodeFilters | dict | None = None,
                       f"JOIN node_packages p ON p.id = nc.package_id WHERE {where_sql} "
                       "GROUP BY k ORDER BY n DESC", args)
         ]
-    return ListResult(items=[_class_item(r) for r in rows],
+    return ListResult(items=attach_matches([_class_item(r) for r in rows], matches),
                       page=page_dict(limit, offset, total, len(rows)),
                       groups=groups,
                       meta=meta_dict(t0, sort=f"{sort},id", **search_meta))

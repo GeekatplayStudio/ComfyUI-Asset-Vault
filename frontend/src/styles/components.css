@@ -216,14 +216,56 @@ button.gp-chip--selected:hover{background:var(--gp-selected-strong);border-color
 .gp-vgrid,.gp-vgrid__spacer{position:relative;width:100%}
 .gp-vgrid__row{position:absolute;left:0;right:0;gap:0 var(--gp-grid-gap)}
 .gp-card{position:relative;display:flex;flex-direction:column;min-width:0;overflow:hidden;text-align:left;transition:border-color var(--gp-tr-micro),background var(--gp-tr-micro)}
-.gp-card__thumb{position:relative;aspect-ratio:1/1;background:var(--gp-placeholder-neutral);overflow:hidden}
+.gp-card__thumb{position:relative;display:block;width:100%;aspect-ratio:1/1;background:var(--gp-face-bg);overflow:hidden}
 .gp-card__thumb--wide{aspect-ratio:16/10}
 .gp-card__media{width:100%;height:100%;object-fit:cover;display:block}
 .gp-card__placeholder{width:100%;height:100%;background:var(--gp-placeholder-local);color:var(--gp-meta)}
 .gp-card__placeholder--inferred{background:var(--gp-placeholder-inferred)}
 .gp-card__placeholder svg{width:28px;height:28px}
-.gp-card__badges{position:absolute;top:var(--gp-s-3);left:var(--gp-s-3);right:var(--gp-s-3);display:flex;align-items:flex-start;gap:var(--gp-s-2);flex-wrap:wrap;pointer-events:none}
-.gp-card__corner{position:absolute;top:var(--gp-s-3);right:var(--gp-s-3);display:flex;gap:var(--gp-s-2)}
+/* Card face — the flat, contextual front for assets with no real preview.
+   One thin status bar on top (green working / amber attention / red broken),
+   a category-tinted type icon, and the file kind spelled out. No gradients. */
+.gp-face{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:var(--gp-s-3);width:100%;height:100%;padding:36px var(--gp-s-4) var(--gp-s-3);background:var(--gp-face-bg);--gp-face-accent:var(--gp-cat-default)}
+/* The status bar crosses the entire top of the card, thick enough to read
+   at a glance from across the grid. */
+.gp-face__bar{position:absolute;top:0;left:0;right:0;height:5px;background:var(--gp-ok)}
+.gp-face__bar--warn{background:var(--gp-warn)}
+.gp-face__bar--danger{background:var(--gp-danger)}
+.gp-face__bar--neutral{background:var(--gp-line-300)}
+/* Small type glyph tucked into the top-right corner, clear of the checkbox
+   (top-left) and of every text row below. */
+.gp-face__icon{position:absolute;top:calc(5px + var(--gp-s-3));right:var(--gp-s-3);color:var(--gp-face-accent)}
+.gp-face__icon svg{width:16px;height:16px;stroke-width:1.75}
+.gp-face__type{font-size:var(--gp-fs-10);font-weight:var(--gp-fw-600);letter-spacing:.12em;text-transform:uppercase;color:var(--gp-face-accent)}
+.gp-face__sub{font-size:var(--gp-fs-10);color:var(--gp-meta);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gp-face__badges{display:flex;flex-wrap:wrap;gap:var(--gp-s-2);margin-top:auto;max-width:100%;pointer-events:none}
+.gp-face--small{align-items:center;justify-content:center;padding:0;gap:0}
+.gp-face--small .gp-face__icon{position:static}
+.gp-face--small .gp-face__bar{height:2px}
+.gp-face--cat-checkpoint{--gp-face-accent:var(--gp-cat-checkpoint)}
+.gp-face--cat-lora{--gp-face-accent:var(--gp-cat-lora)}
+.gp-face--cat-vae{--gp-face-accent:var(--gp-cat-vae)}
+.gp-face--cat-text{--gp-face-accent:var(--gp-cat-text)}
+.gp-face--cat-vision{--gp-face-accent:var(--gp-cat-vision)}
+.gp-face--cat-control{--gp-face-accent:var(--gp-cat-control)}
+.gp-face--cat-upscale{--gp-face-accent:var(--gp-cat-upscale)}
+.gp-face--cat-embedding{--gp-face-accent:var(--gp-cat-embedding)}
+.gp-face--cat-quant{--gp-face-accent:var(--gp-cat-quant)}
+.gp-face--cat-motion{--gp-face-accent:var(--gp-cat-motion)}
+/* The face scaled down into a 24px list-row thumb. */
+.gp-row__thumb .gp-face{gap:0;border-radius:inherit}
+.gp-row__thumb .gp-face__bar{height:2px}
+.gp-row__thumb .gp-face__icon svg{width:13px;height:13px}
+/* Community stars: compact, non-interactive. */
+.gp-stars{display:inline-flex;align-items:center;gap:2px;color:var(--gp-brand-100);font-size:var(--gp-fs-10)}
+.gp-stars svg{width:10px;height:10px;fill:currentColor;stroke:none}
+/* One overlay row: badges left, status corner right.  The two groups share
+   the width instead of stacking on the same pixels, and a long badge label
+   truncates rather than running under its neighbour. */
+.gp-card__top{position:absolute;top:var(--gp-s-3);left:var(--gp-s-3);right:var(--gp-s-3);display:flex;align-items:flex-start;justify-content:space-between;gap:var(--gp-s-2);pointer-events:none}
+.gp-card__badges{display:flex;align-items:flex-start;gap:var(--gp-s-2);flex-wrap:wrap;min-width:0}
+.gp-card__badges .gp-badge{max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;display:inline-block;line-height:16px}
+.gp-card__corner{display:flex;gap:var(--gp-s-2);flex-shrink:0}
 .gp-card__check{position:absolute;top:var(--gp-s-3);left:var(--gp-s-3);opacity:0;transition:opacity var(--gp-tr-micro)}
 .gp-card:is(:hover,:focus-within,.gp-card--selected) .gp-card__check{opacity:1}
 /* Card action: same reveal-on-hover contract as the checkbox, opposite corner. */

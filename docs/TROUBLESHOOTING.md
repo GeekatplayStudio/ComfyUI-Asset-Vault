@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Geekatplay ComfyUI Asset Vault · **Geekatplay — Vladimir Chopine**
+Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 Organised by symptom. Two things solve most problems:
 
@@ -405,8 +405,6 @@ interface stays usable; it stutters.
 **What to do:** nothing, unless it bothers you — in which case let the full scan finish before
 scrolling a large grid. Prefer the ordinary incremental re-index (`F5`) over a forced full one;
 you only need a full re-parse after changing the ComfyUI path or upgrading the app.
-
-Tracked in `docs/QA_REPORT.md`, owned by the engine team.
 
 ---
 

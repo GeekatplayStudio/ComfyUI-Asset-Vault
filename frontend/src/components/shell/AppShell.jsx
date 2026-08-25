@@ -101,6 +101,29 @@ export default function AppShell() {
     poll: () => api.indexStatus()
   })
 
+  // An SSE connection can remain open across a laptop sleep, browser extension
+  // interruption, or proxy hiccup while missing the final `done` event.  Never
+  // leave the Reindex control spinning on stale client state: while the UI
+  // believes a scan is active, verify that belief against the authoritative
+  // status endpoint until it clears.
+  useEffect(() => {
+    if (!state.indexStatus || !state.indexStatus.active) return undefined
+    let disposed = false
+    const refreshIndexStatus = () => {
+      api.indexStatus()
+        .then((next) => {
+          if (!disposed) dispatch({ type: 'set-index-status', status: next })
+        })
+        .catch(() => {})
+    }
+    refreshIndexStatus()
+    const timer = setInterval(refreshIndexStatus, 2000)
+    return () => {
+      disposed = true
+      clearInterval(timer)
+    }
+  }, [state.indexStatus && state.indexStatus.active, dispatch])
+
   useEffect(() => {
     let alive = true
     api.searchStatus()
@@ -318,6 +341,13 @@ export default function AppShell() {
         detailsOpen={state.detailsOpen}
         onToggleRail={() => dispatch({ type: 'set-panel', key: 'railOpen', value: !state.railOpen })}
         onToggleDetails={() => dispatch({ type: 'set-panel', key: 'detailsOpen', value: !state.detailsOpen })}
+        onShowIntegrity={() => {
+          dispatch({ type: 'set-tab', tab: 'models' })
+          dispatch({
+            type: 'patch-view', tab: 'models',
+            patch: { railKey: null, filters: { integrity_not_ok: true } }
+          })
+        }}
       />
 
       {state.lightbox ? (

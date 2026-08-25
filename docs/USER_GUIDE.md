@@ -1,6 +1,6 @@
 # User Guide
 
-Geekatplay ComfyUI Asset Vault · **Geekatplay — Vladimir Chopine**
+Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 Everything below describes the app running against a real ComfyUI 0.33.0 install with 237 models,
 34 node packages, 1,866 node classes, 211 workflows and 3,834 outputs. The numbers you see are
@@ -61,6 +61,13 @@ took and which engine answered (`lexical` or `hybrid`).
 (INSTALL §5); until then the toggle reads as unavailable and tells you why. Search itself is never
 blocked by this.
 
+Every result carries a badge saying why it matched — *name match*, *text match*, *semantic match*,
+or *text + semantic* — so a surprising hit can always be explained. A semantic result has to clear
+a similarity threshold before it is offered at all; a query that matches nothing returns nothing
+rather than the closest unrelated files. Settings › Search › **Match strictness** moves that
+threshold: stricter gives fewer, closer matches, looser casts a wider net. Keyword matches are
+never affected by it.
+
 ### Left rail
 
 Contents change per tab, and every entry carries its own count and byte total.
@@ -69,6 +76,10 @@ Contents change per tab, and every entry carries its own count and byte total.
   `Missing files`, `Integrity issues`, `Unused models`, `Untagged`, plus any you create.
 * **Folders** — the real folder tree under each root, with per-folder counts and sizes.
 * **Base model / Source / Authors / State / Media / When** — depending on the tab.
+
+Built-in albums are contextual: a tab shows only albums whose filter applies to that asset type.
+`Missing files` means an indexed file is absent; `Broken workflows` instead means unresolved
+model or node dependencies.
 
 Clicking a rail entry filters the grid. Clicking it again clears it. **All** at the top of the
 rail resets everything.
@@ -406,7 +417,7 @@ Four sections.
 | Section | Contains |
 |---|---|
 | **Location** | ComfyUI path with live validation, the configured roots, `extra_model_paths.yaml` contents, Save path · Save and reindex now · Run the setup wizard |
-| **Search** | Smart search enable/rebuild and its status, Civitai matching, the outbound-lookups master switch, local text generation with a Test button |
+| **Search** | Smart search enable/rebuild and its status, match strictness, Civitai matching, the outbound-lookups master switch, local text generation with a Test button |
 | **Jobs** | Reindex on startup when files changed, watch folders, also read `extra_model_paths.yaml.hold`, default delete mode, trash retention |
 | **Storage** | Thumbnail cache size and Trim now, the trash list with Restore and Empty |
 
@@ -417,8 +428,8 @@ regardless of the other toggles.
 
 ## 13. Connecting an assistant
 
-The vault ships an MCP server with 26 tools — reading, searching, full file operations, and the
-over both stdio and HTTP. Deletions are trash-backed, permanent deletion needs an explicit
+The vault ships an MCP server with 26 tools — reading, searching, and full file operations —
+exposed over both stdio and HTTP. Deletions are trash-backed, permanent deletion needs an explicit
 confirmation, a single call can touch at most 200 items, and every mutation is written to an
 `mcp_audit` row in the database with its arguments, the items it touched and the outcome.
 
@@ -430,3 +441,25 @@ are marked apart from other writes and failures apart from successes. The log is
 nothing in the app can edit or remove a line of it.
 
 See **[MCP_CLIENT_SETUP.md](MCP_CLIENT_SETUP.md)**.
+
+---
+
+## 14. About this build
+
+The Asset Vault is a ground-up rebuild, not an incremental patch. Its predecessor installed
+cleanly but did not work — a full scan against a real ComfyUI installation crashed before its
+first commit, leaving every table empty. This build was written from scratch and verified the
+opposite way round: every claim in this guide and in the README was confirmed by running it
+against a real, large install (237 models totalling 1.59 TB, 34 node packages, 1,866 node
+classes, 211 workflows, 3,834 outputs) rather than assumed from the code.
+
+Two High-severity findings turned up during that process — a filesystem-junction escape in the
+scanner and a cross-origin request path into the MCP server — and were fixed, reproduced-as-fixed,
+and turned into permanent regression tests before release. The full write-up, including every
+Medium and Low finding and their current status, is in
+**[SECURITY_REVIEW.md](SECURITY_REVIEW.md)**. The product decisions behind specific behaviours —
+why hashing is background and opt-in, why the MCP server gets full file access instead of
+read-only, why the palette is amber and violet — are recorded in
+**[DECISIONS.md](DECISIONS.md)** and **[REQUIREMENTS_R2.md](REQUIREMENTS_R2.md)**.
+
+Built and maintained by **Geekatplay Studio — Vladimir Chopine**.

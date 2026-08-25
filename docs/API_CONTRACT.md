@@ -1,6 +1,6 @@
 # API Contract v1 — Geekatplay ComfyUI Asset Vault
 **FROZEN.** Base URL `http://127.0.0.1:8127`. Prefix **`/api/v1`**.
-Downstream agents MUST NOT invent endpoints, parameters, or field names. Changes go through the architect.
+No endpoint, parameter, or field name is added without updating this document in the same change.
 
 ---
 
@@ -114,6 +114,7 @@ Default sorts: models `name`, node_packages `name`, node_classes `display_name`,
 | `precision` | string, repeatable | models |
 | `hash_state` | enum, repeatable | models |
 | `integrity` | enum, repeatable | models |
+| `integrity_not_ok` | bool | models — every non-`ok` integrity state |
 | `root_id` | int, repeatable | all |
 | `folder` | string (prefix match) | models, workflows, outputs |
 | `album_id` | int | all |
@@ -129,7 +130,10 @@ Default sorts: models `name`, node_packages `name`, node_classes `display_name`,
 | `workflow_id` | int | outputs |
 | `node_class` | string | workflows |
 | `runnable` | bool | workflows |
-| `missing_only` | bool | workflows (missing deps) |
+| `missing_files_only` | bool | models, node packages/classes, workflows, outputs — indexed record whose on-disk source is now missing |
+| `missing_only` | bool | workflows only — unresolved model or node dependency (not a missing workflow file) |
+| `unused` | bool | models — no workflow or output reference |
+| `untagged` | bool | models, node packages/classes, workflows, outputs |
 | `size_min` / `size_max` | int bytes | all |
 | `date_from` / `date_to` | epoch ms | all |
 | `include_missing` | bool (default `false`) | all |
@@ -164,7 +168,7 @@ Two mechanisms hold that, neither of which asks a mutation endpoint to remember 
 `200` — never fails, no config required.
 ```json
 { "app":"Geekatplay ComfyUI Asset Vault","version":"2.0.0",
-  "author":"Geekatplay — Vladimir Chopine","api_version":1,"schema_version":2,
+  "author":"Geekatplay Studio — Vladimir Chopine","api_version":1,"schema_version":2,
   "python":"3.12.10","platform":"win32",
   "features":{"smart_search":true,"civitai":true,"ollama":false,"mcp":true,"video_thumbnails":false} }
 ```
@@ -176,7 +180,7 @@ Two mechanisms hold that, neither of which asks a mutation endpoint to remember 
   "auto_reindex":true,"watch_enabled":false,
   "online_enabled":true,"civitai_enabled":true,"civitai_api_key_set":false,
   "ollama_enabled":false,"ollama_url":"http://localhost:11434","ollama_model":"llama3",
-  "smart_search_enabled":true,
+  "smart_search_enabled":true,"smart_search_min_score":0.3,
   "hash_concurrency":2,"hash_throttle_mbps":0,
   "thumb_cache_max_mb":2048,"thumb_video_ffmpeg":false,
   "page_size_default":100,"trash_mode":"trash","trash_retention_days":30,
@@ -186,6 +190,7 @@ Two mechanisms hold that, neither of which asks a mutation endpoint to remember 
   "roots":[{"id":1,"kind":"comfyui","path":"O:\\ComfyUI","label":"ComfyUI","available":true,"is_default":true,"source":"config"}] }
 ```
 `civitai_api_key` is **never** returned — only `civitai_api_key_set`.
+`smart_search_min_score` (0.05–0.9, default **0.3**) is the cosine floor the semantic arm applies: a document must be at least this similar to the query before smart search will offer it. Raise it for fewer, closer matches; lower it to cast a wider net. Without a floor the nearest-neighbour lookup always returns its top N, so a query matching nothing still filled the grid with unrelated assets. Keyword (FTS) matches are never filtered by this value.
 `mcp_read_only` switches the MCP server back to a read-only tool surface (DECISIONS C5 rail 6). Default **false** — full file-operation access is the shipped default; when `true`, every mutating MCP tool refuses and reads keep working.
 
 ### `PATCH /api/v1/system/config`
@@ -341,6 +346,8 @@ Query: §0.3 pagination + §0.4 sort/group/filters.
      "integrity":"ok",
      "civitai":{"state":"none","model_id":null,"url":null,"has_update":false},
      "thumbnail_url":"/api/v1/files/thumbnail?uid=model:41&size=320",
+     "has_preview":false,
+     "community":{"rating":null,"downloads":null},
      "favorite":false,"user_rating":null,"tags":[],
      "counts":{"workflows":3,"outputs":128},
      "missing":false }
@@ -349,7 +356,9 @@ Query: §0.3 pagination + §0.4 sort/group/filters.
   "groups":[{"key":"checkpoints","label":"Checkpoints","count":21,"bytes":181234567890,"offset":0}],
   "meta":{"elapsed_ms":6,"sort":"name,id","smart_available":true,"mode":"lexical"} }
 ```
-Notes: `params.display` is server-formatted so every surface agrees. `thumbnail_url` is always present (placeholder generation guarantees a 200). `abs_path` is display-only.
+Notes: `params.display` is server-formatted so every surface agrees. `thumbnail_url` is always present (placeholder generation guarantees a 200), but `has_preview` says whether a real preview image exists — when it is `false` the client draws its own card face instead of requesting a generated placeholder. `community` carries the Civitai stats (`rating` 0–5, `downloads`) once the model has been hash-matched. `abs_path` is display-only.
+
+When the request carried `q`, every list item that came out of the search engine also carries `"match":{"score":0.0164,"matched":["name","lexical","semantic"]}` — the fused ranking score and which arms matched (`name` exact-title, `lexical` FTS, `semantic` embedding). This applies to models, workflows, outputs, node packages and node classes alike.
 
 ### `GET /api/v1/models/facets`
 ```json
@@ -434,7 +443,8 @@ Body (any subset): `{"favorite":true,"user_rating":4,"user_notes":"…","tags":[
 ## 4. Nodes
 
 ### `GET /api/v1/node-packages`
-Filters: `q`, `official`, `enabled`, `has_update`, `author`, `tag`, `update_state`.
+Filters: `q`, `official`, `enabled`, `has_update`, `author`, `tag`, `update_state`,
+`missing_files_only`, `untagged`.
 ```json
 { "items":[
    { "uid":"node_package:7","id":7,"folder_name":"ComfyUI-KJNodes",
@@ -461,7 +471,8 @@ For `__comfyui_core__` (`is_official:true`) it reports `comfyui_version`, `class
 Paginated `node_classes` scoped to the package. Same shape as `/node-classes`.
 
 ### `GET /api/v1/node-classes`
-Filters: `q`, `package_id`, `category`, `official`, `deprecated`, `experimental`, `confidence`.
+Filters: `q`, `package_id`, `category`, `official`, `deprecated`, `experimental`, `confidence`,
+`missing_files_only`, `untagged`.
 ```json
 { "items":[
    { "uid":"node_class:9182","id":9182,"node_id":"ImageCrop",
@@ -487,12 +498,35 @@ Adds `workflows_using` (top 20) and the raw `input_types_json`.
 ### `POST /api/v1/node-packages/check-updates`
 Body `{"ids":[…] | null}` → `202 {"job_id":"upd-9","queued":25}`. Progress via `GET /api/v1/node-packages/update-status`.
 
+### `GET /api/v1/node-registry`
+Read-only catalogue metadata for discoverable custom nodes. Filters: `q`,
+`installed`, `source=comfy_registry|manager_legacy_map`, pagination, and
+`refresh=true`. Refresh only updates the metadata cache; it never downloads,
+installs, or executes a package.
+```json
+{"items":[{"id":"vendor.example-node","name":"Example Node",
+ "source":"comfy_registry","official":true,"installed":false,
+ "version":"1.2.0","repository":"https://github.com/vendor/example-node",
+ "dependencies":["example-lib>=2"],"classes":[],
+ "warnings":["Registry metadata has no archive checksum/signature; installation requires a separate explicit review."]}],
+ "page":{"limit":100,"offset":0,"total":1,"returned":1},
+ "meta":{"online_enabled":true,"fetched_at":1760000000000,"fresh":true,
+ "cache_ttl_ms":86400000,"error":null,"source":"https://api.comfy.org"}}
+```
+`manager_legacy_map` records are intentionally warning-level: they map a class
+to a repository but are not an independently signed package identity.
+
+### `GET /api/v1/node-registry/status`
+Returns the same cache provenance/freshness metadata without returning catalogue
+items. `?refresh=true` refreshes metadata only.
+
 ---
 
 ## 5. Workflows
 
 ### `GET /api/v1/workflows`
-Filters: `q`, `folder`, `base_model`, `runnable`, `missing_only`, `node_class`, `model_id`, `root_id`, date/size.
+Filters: `q`, `folder`, `base_model`, `runnable`, `missing_only` (dependencies),
+`missing_files_only` (the workflow file), `untagged`, `node_class`, `model_id`, `root_id`, date/size.
 ```json
 { "items":[
    { "uid":"workflow:12","id":12,"name":"wan22_animate_mix_character_replacement",
@@ -547,7 +581,7 @@ Adds `node_breakdown` (class → count, resolved, package), `positive_prompt`, `
 ## 6. Outputs
 
 ### `GET /api/v1/outputs`
-Filters: `q`, `folder`, `media_kind`, `model_id`, `workflow_id`, `album_id`, `favorite`, `min_rating`, `tag`, date/size, `has_metadata`, plus generation-metadata filters `sampler`, `seed`, `steps_min`/`steps_max`, `cfg_min`/`cfg_max`, `width_min`/`width_max`, `height_min`/`height_max`.
+Filters: `q`, `folder`, `media_kind`, `model_id`, `workflow_id`, `album_id`, `favorite`, `min_rating`, `tag`, `missing_files_only`, `untagged`, date/size, `has_metadata`, plus generation-metadata filters `sampler`, `seed`, `steps_min`/`steps_max`, `cfg_min`/`cfg_max`, `width_min`/`width_max`, `height_min`/`height_max`.
 ```json
 { "items":[
    { "uid":"output:930","id":930,"filename":"Anima_00021_.png","ext":".png",

@@ -1,4 +1,4 @@
-"""Model list / detail / facets / groups / usage - contract-shaped (API_CONTRACT 3)."""
+﻿"""Model list / detail / facets / groups / usage - contract-shaped (API_CONTRACT 3)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from . import (
     ListResult,
     Where,
     apply_id_filter,
+    attach_matches,
     clamp_page,
     date_bucket,
     first_letter,
@@ -72,6 +73,10 @@ class ModelFilters:
     date_from: int | None = None
     date_to: int | None = None
     include_missing: bool = False
+    missing_files_only: bool | None = None
+    integrity_not_ok: bool | None = None
+    unused: bool | None = None
+    untagged: bool | None = None
 
     @classmethod
     def from_dict(cls, data: dict | None) -> ModelFilters:
@@ -89,7 +94,11 @@ class ModelFilters:
 
 def _where(f: ModelFilters, *, skip: str | None = None) -> Where:
     w = Where()
-    if not f.include_missing:
+    # ``include_missing`` widens the normal result set; it does not mean
+    # "only missing".  System albums need the latter behaviour.
+    if f.missing_files_only:
+        w.add("missing_since IS NOT NULL")
+    elif not f.include_missing:
         w.add("missing_since IS NULL")
     if skip != "category":
         w.any_of("category", f.category)
@@ -105,6 +114,8 @@ def _where(f: ModelFilters, *, skip: str | None = None) -> Where:
         w.any_of("hash_state", f.hash_state)
     if skip != "integrity":
         w.any_of("integrity", f.integrity)
+    if f.integrity_not_ok:
+        w.add("integrity <> 'ok'")
     if skip != "root":
         w.any_of("root_id", f.root_id)
     w.prefix("folder", f.folder)
@@ -112,6 +123,10 @@ def _where(f: ModelFilters, *, skip: str | None = None) -> Where:
     w.gte("user_rating", f.min_rating)
     w.bool_eq("has_update", f.has_update)
     w.bool_eq("is_adapter", f.is_adapter)
+    if f.unused:
+        w.add("workflow_count = 0 AND output_count = 0")
+    if f.untagged:
+        w.add("NOT EXISTS (SELECT 1 FROM asset_tags WHERE uid = ('model:' || id))")
     w.gte("total_size", f.size_min)
     w.lte("total_size", f.size_max)
     w.gte("updated_at", f.date_from)
@@ -153,6 +168,8 @@ def _row_to_item(row: sqlite3.Row, tags: list[str]) -> dict:
         "civitai": {"state": row["civitai_state"], "model_id": row["civitai_model_id"],
                     "url": row["civitai_url"], "has_update": bool(row["has_update"])},
         "thumbnail_url": thumb_url(uid),
+        "has_preview": row["preview_path"] is not None,
+        "community": {"rating": row["rating"], "downloads": row["download_count"]},
         "favorite": bool(row["favorite"]), "user_rating": row["user_rating"],
         "color_label": row["color_label"], "tags": tags,
         "counts": {"workflows": int(row["workflow_count"] or 0),
@@ -169,7 +186,7 @@ def list_models(filters: ModelFilters | dict | None = None, sort: str = "name",
     f = filters if isinstance(filters, ModelFilters) else ModelFilters.from_dict(filters)
     limit, offset = clamp_page(limit, offset)
 
-    ids, search_meta = search_uids(f.q, f.smart, ["model"], conn)
+    ids, search_meta, matches = search_uids(f.q, f.smart, ["model"], conn)
     w = _where(f)
     if not apply_id_filter(w, "id", ids):
         return ListResult(items=[], page=page_dict(limit, offset, 0, 0),
@@ -192,7 +209,8 @@ def list_models(filters: ModelFilters | dict | None = None, sort: str = "name",
     )
     uids = [f"model:{r['id']}" for r in rows]
     tag_map = tags_for(conn, uids)
-    items = [_row_to_item(r, tag_map.get(f"model:{r['id']}", [])) for r in rows]
+    items = attach_matches(
+        [_row_to_item(r, tag_map.get(f"model:{r['id']}", [])) for r in rows], matches)
 
     groups = None
     if group and group != "none":
@@ -415,13 +433,15 @@ def model_tree(filters: ModelFilters | dict | None = None,
     for r in rows:
         cat = str(r["category"] or "")
         node = tree.setdefault(cat, {"key": cat, "label": _label("category", cat),
-                                     "count": 0, "bytes": 0, "children": []})
+                                     "count": 0, "bytes": 0,
+                                     "query": {"category": cat}, "children": []})
         node["count"] += int(r["n"])
         node["bytes"] += int(r["b"])
         folder = str(r["folder"] or "")
         if folder:
             node["children"].append({
                 "key": f"{cat}/{folder}", "label": folder.rsplit("/", 1)[-1],
-                "count": int(r["n"]), "bytes": int(r["b"]), "children": [],
+                "count": int(r["n"]), "bytes": int(r["b"]),
+                "query": {"category": cat, "folder": folder}, "children": [],
             })
     return {"group": "folder", "nodes": sorted(tree.values(), key=lambda n: n["key"])}

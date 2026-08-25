@@ -235,22 +235,40 @@ def first_letter(name: str | None) -> str:
 
 
 def search_uids(q: str | None, smart: bool, kinds: list[str],
-                conn: sqlite3.Connection) -> tuple[list[int] | None, dict]:
-    """Run the search engine and return the matching row ids for one kind."""
+                conn: sqlite3.Connection) -> tuple[list[int] | None, dict, dict[int, dict]]:
+    """Run the search engine and return the matching row ids for one kind.
+
+    The third value maps each row id to ``{"score", "matched"}`` so a list
+    endpoint can tell the user why an item is in a search result set.
+    """
     if not (q or "").strip():
-        return None, {"mode": "lexical", "smart_available": False}
+        return None, {"mode": "lexical", "smart_available": False}, {}
     from ...search import hybrid
 
     res = hybrid.search(q, smart=bool(smart), kinds=kinds, limit=MAX_LIMIT * 2,
                         offset=0, conn=conn)
     ids: list[int] = []
+    matches: dict[int, dict] = {}
     for item in res.items:
         try:
-            ids.append(int(str(item["uid"]).split(":", 1)[1]))
+            row_id = int(str(item["uid"]).split(":", 1)[1])
         except (KeyError, IndexError, ValueError):
             continue
+        ids.append(row_id)
+        matches[row_id] = {"score": item.get("score"),
+                           "matched": list(item.get("matched") or [])}
     return ids, {"mode": res.mode, "smart_available": res.smart_available,
-                 "smart_reason": res.smart_reason}
+                 "smart_reason": res.smart_reason}, matches
+
+
+def attach_matches(items: list[dict], matches: dict[int, dict]) -> list[dict]:
+    """Merge per-item search scores into list items, keyed on ``id``."""
+    if matches:
+        for item in items:
+            match = matches.get(item.get("id"))
+            if match:
+                item["match"] = match
+    return items
 
 
 def apply_id_filter(where: Where, column: str, ids: list[int] | None) -> bool:

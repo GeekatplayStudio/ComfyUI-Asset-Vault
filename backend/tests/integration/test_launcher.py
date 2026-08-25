@@ -34,6 +34,7 @@ from c6 import bare_token_hits
 REPO = Path(__file__).resolve().parent.parent.parent.parent
 COMSPEC = os.environ.get("COMSPEC") or shutil.which("cmd") or "cmd.exe"
 START_BAT = REPO / "start_app.bat"
+STATUS_SCRIPT = REPO / "show_service_status.ps1"
 PING_TIMEOUT_S = 30
 
 
@@ -49,6 +50,13 @@ def launcher_text() -> str:
 
 def test_the_launcher_exists():
     assert START_BAT.exists(), f"{START_BAT} is missing"
+
+
+def test_the_launcher_uses_a_live_service_verification_report():
+    assert STATUS_SCRIPT.exists(), "the launcher must have a live service status check"
+    text = launcher_text().lower()
+    assert "show_service_status.ps1" in text, (
+        "the launcher must display the report after the engine starts")
 
 
 def test_the_launcher_does_not_pass_the_nonexistent_cwd_option():
@@ -106,13 +114,23 @@ def test_the_launcher_fails_loudly_when_the_venv_is_missing():
 def test_the_launcher_waits_for_the_backend_before_opening_a_browser():
     """Opening the UI before the API answers shows the user an error page."""
     text = launcher_text().lower()
-    opens_browser = "start http" in text or "explorer http" in text
+    opens_browser = ("start http" in text or "explorer http" in text
+                     or "start \"\" \"http" in text)
     if not opens_browser:
         pytest.skip("launcher does not open a browser")
     waits = any(tok in text for tok in ("ping", "timeout", "curl", "waitfor", ":waitloop"))
     assert waits, (
         "the launcher opens a browser without waiting for the backend to listen. "
         "Owner: docs agent (BUILD_PLAN 9 requires a wait-for-listening loop).")
+
+
+def test_the_launcher_does_not_make_hashing_depend_on_vite():
+    """Closing a development server must never shut down durable hash work."""
+    text = launcher_text().lower()
+    assert "npm run build" in text, "the launcher must build the interface for the engine to serve"
+    assert "npm run dev" not in text, "the production launcher must not depend on Vite"
+    assert "interface stopped" not in text, (
+        "a frontend exit must not automatically stop the backend and its hash queue")
 
 
 def test_no_ai_tool_attribution_in_the_launcher():

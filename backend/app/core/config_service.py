@@ -36,6 +36,7 @@ DEFAULTS: dict[str, tuple[str, object]] = {
     "ollama_url": ("str", "http://localhost:11434"),
     "ollama_model": ("str", "llama3.2"),
     "smart_search_enabled": ("bool", False),
+    "smart_search_min_score": ("float", 0.30),
     "embedding_model_id": ("str", "all-MiniLM-L6-v2-int8"),
     "embedding_state": ("str", "not_installed"),
     "embedding_model_url": ("str", "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main"),
@@ -91,6 +92,7 @@ class AppConfig:
     trash_retention_days: int = 30
     thumb_video_ffmpeg: bool = False
     mcp_read_only: bool = False
+    smart_search_min_score: float = 0.30
     raw: dict = field(default_factory=dict)
 
     def as_dict(self) -> dict:
@@ -248,7 +250,7 @@ def _build(values: dict) -> AppConfig:
         ollama_url=str(values.get("ollama_url") or ""),
         ollama_model=str(values.get("ollama_model") or ""),
         smart_search_enabled=bool(values.get("smart_search_enabled")),
-        hash_concurrency=max(1, min(4, int(values.get("hash_concurrency") or 2))),
+        hash_concurrency=max(1, min(8, int(values.get("hash_concurrency") or 2))),
         hash_throttle_mbps=max(0, int(values.get("hash_throttle_mbps") or 0)),
         thumb_cache_max_mb=max(64, int(values.get("thumb_cache_max_mb") or 2048)),
         page_size_default=max(1, min(500, int(values.get("page_size_default") or 100))),
@@ -262,6 +264,11 @@ def _build(values: dict) -> AppConfig:
         trash_retention_days=max(0, int(values.get("trash_retention_days") or 30)),
         thumb_video_ffmpeg=bool(values.get("thumb_video_ffmpeg")),
         mcp_read_only=bool(values.get("mcp_read_only")),
+        # Clamped to a band where the floor still means something: 0 would
+        # return the whole neighbour list, 0.9 would reject near-paraphrases.
+        smart_search_min_score=max(0.05, min(0.9, float(
+            values.get("smart_search_min_score") if values.get("smart_search_min_score")
+            is not None else 0.30))),
         raw=values,
     )
 

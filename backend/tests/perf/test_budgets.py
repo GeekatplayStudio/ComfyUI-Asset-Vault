@@ -9,7 +9,8 @@ Everything here is timing-sensitive, so it is marked ``perf``.  The tests that
 need the owner's 1.5 TB install to be meaningful are additionally marked ``live``.
 Both are deselected from the default run.
 
-Every number this file measures is recorded in ``docs/QA_REPORT.md``.
+The headline numbers this file measures against are in the README's "Scale it was built and
+measured against" section.
 """
 
 from __future__ import annotations

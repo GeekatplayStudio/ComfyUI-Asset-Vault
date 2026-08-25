@@ -249,12 +249,22 @@ class HashService:
         self._stopping = True
         self._cancel.set()
 
+    def refresh_workers(self) -> None:
+        """Apply the current concurrency setting to an active queue.
+
+        Increasing the setting starts additional workers at once.  Lowering it
+        is cooperative: surplus workers finish the file they already own, then
+        retire before claiming another job.
+        """
+        if self.running() or _queued_count() > 0:
+            self._ensure_workers()
+
     def _ensure_workers(self) -> None:
         with self._lock:
             if self._stopping:
                 return
             self._cancel = threading.Event() if self._cancel.is_set() else self._cancel
-            want = max(1, min(4, config_service.get_config().hash_concurrency))
+            want = max(1, min(8, config_service.get_config().hash_concurrency))
             self._workers = [t for t in self._workers if t.is_alive()]
             if self._started_at is None or not self._workers:
                 self._started_at = dbmod.now_ms()
@@ -304,46 +314,26 @@ class HashService:
         return str(row["sha256"]) if row else None
 
     def _worker(self) -> None:
-        cfg = config_service.get_config()
         while not self._cancel.is_set() and not self._stopping:
+            if self._retire_if_over_capacity():
+                break
             job = self._claim()
             if job is None:
                 break
             job_id = int(job["id"])
             file_id = int(job["model_file_id"])
-            path = str(job["abs_path"])
-            batch_id = job.get("batch_id")
-            self._active[job_id] = {
-                "model_file_id": file_id, "path": path, "size": int(job["fsize"] or 0),
-                "bytes_done": 0,
-            }
-            if batch_id in self._batch_cancel:
-                self._finish(job_id, file_id, state="cancelled")
+            try:
+                if self._process_job(job):
+                    break
+            except Exception:
+                log.exception("hash worker failed on file %s; continuing the queue", file_id)
+                try:
+                    self._finish(job_id, file_id, state="failed", code="HASH_WORKER_ERROR",
+                                 attempts=int(job["attempts"] or 0) + 1)
+                except Exception:
+                    log.exception("could not record the failure for job %s", job_id)
+            finally:
                 self._active.pop(job_id, None)
-                continue
-
-            reused = self._reuse(job)
-            if reused:
-                self._finish(job_id, file_id, state="done", sha=reused, reused=True)
-                self._active.pop(job_id, None)
-                continue
-
-            digest, code, _read = compute_sha256(
-                path, cancel=self._cancel, throttle_mbps=cfg.hash_throttle_mbps,
-                on_chunk=self._chunk_reporter(job_id, path))
-            self._active.pop(job_id, None)
-            if digest:
-                self._finish(job_id, file_id, state="done", sha=digest)
-            elif code == "CANCELLED":
-                self._finish(job_id, file_id, state="cancelled")
-                break
-            else:
-                attempts = int(job["attempts"] or 0) + 1
-                retry = attempts < MAX_ATTEMPTS and code == errors.FILE_LOCKED
-                self._finish(job_id, file_id, state="queued" if retry else "failed",
-                             code=code, attempts=attempts)
-                if retry:
-                    time.sleep(BACKOFF_S[min(attempts - 1, len(BACKOFF_S) - 1)])
         with self._lock:
             self._workers = [t for t in self._workers if t.is_alive() and t is not
                              threading.current_thread()]
@@ -352,6 +342,54 @@ class HashService:
                 self.bus.publish("done", {"phase": "hash", "status": "idle",
                                           **{k: v for k, v in self.status().items()
                                              if k in ("hashed", "unhashed")}})
+
+    def _process_job(self, job: dict) -> bool:
+        """Hash one claimed job and return whether the worker should stop."""
+        job_id = int(job["id"])
+        file_id = int(job["model_file_id"])
+        path = str(job["abs_path"])
+        batch_id = job.get("batch_id")
+        self._active[job_id] = {
+            "model_file_id": file_id, "path": path, "size": int(job["fsize"] or 0),
+            "bytes_done": 0,
+        }
+        if batch_id in self._batch_cancel:
+            self._finish(job_id, file_id, state="cancelled")
+            return False
+
+        reused = self._reuse(job)
+        if reused:
+            self._finish(job_id, file_id, state="done", sha=reused, reused=True)
+            return False
+
+        cfg = config_service.get_config()
+        digest, code, _read = compute_sha256(
+            path, cancel=self._cancel, throttle_mbps=cfg.hash_throttle_mbps,
+            on_chunk=self._chunk_reporter(job_id, path))
+        if digest:
+            self._finish(job_id, file_id, state="done", sha=digest)
+        elif code == "CANCELLED":
+            self._finish(job_id, file_id, state="cancelled")
+            return True
+        else:
+            attempts = int(job["attempts"] or 0) + 1
+            retry = attempts < MAX_ATTEMPTS and code == errors.FILE_LOCKED
+            self._finish(job_id, file_id, state="queued" if retry else "failed",
+                         code=code, attempts=attempts)
+            if retry:
+                time.sleep(BACKOFF_S[min(attempts - 1, len(BACKOFF_S) - 1)])
+        return False
+
+    def _retire_if_over_capacity(self) -> bool:
+        """Retire this idle worker when a lower concurrency has been selected."""
+        with self._lock:
+            self._workers = [t for t in self._workers if t.is_alive()]
+            want = max(1, min(8, config_service.get_config().hash_concurrency))
+            current = threading.current_thread()
+            if current in self._workers and len(self._workers) > want:
+                self._workers.remove(current)
+                return True
+        return False
 
     def _chunk_reporter(self, job_id: int, path: str):
         """Bound per job, so the callback never closes over a loop variable."""

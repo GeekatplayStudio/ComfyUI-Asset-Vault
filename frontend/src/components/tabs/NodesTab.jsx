@@ -10,6 +10,7 @@ import Button from '../common/Button.jsx'
 import { useVault, useTabView } from '../../state/VaultContext.jsx'
 import { SORTS, GROUPS } from '../../state/actions.js'
 import { count as fmtCount } from '../../services/format.js'
+import NodeRegistryPanel from './NodeRegistryPanel.jsx'
 
 /*
  * NodesTab - two views over the same domain: the installed packages, and the
@@ -21,6 +22,7 @@ import { count as fmtCount } from '../../services/format.js'
 export default function NodesTab({ onStatus, onOpenUid, registerApi }) {
   const { state, dispatch, toast, toastError } = useVault()
   const { view: rawView } = useTabView('nodes')
+  const registry = rawView.mode === 'registry'
   const classes = rawView.mode === 'classes'
   const scope = classes ? 'node_classes' : 'node_packages'
 
@@ -102,6 +104,10 @@ export default function NodesTab({ onStatus, onOpenUid, registerApi }) {
     ]
   }, [classes, categoryFacet.data, buildFacet, buildBoolFacet])
 
+  if (registry) {
+    return <NodeRegistryPanel onMode={setMode} />
+  }
+
   const empty = list.error ? (
     <EmptyState tone="error" icon={AlertTriangle} title="Could not load the node list"
       text={list.error.message}
@@ -147,6 +153,11 @@ export default function NodesTab({ onStatus, onOpenUid, registerApi }) {
               className={'gp-segment__item' + (classes ? ' gp-segment__item--active' : '')}
               aria-pressed={classes} onClick={() => setMode('classes')}>
               Classes
+            </button>
+            <button type="button"
+              className="gp-segment__item"
+              aria-pressed={false} onClick={() => setMode('registry')}>
+              Registry
             </button>
           </div>
         )}

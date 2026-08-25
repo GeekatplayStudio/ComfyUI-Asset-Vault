@@ -1,11 +1,12 @@
-# Confirmed Decisions — authoritative
+# Product Decisions
 
-> This file overrides any conflicting statement in ARCHITECTURE.md, DATA_MODEL.md,
-> API_CONTRACT.md, MCP_SPEC.md, or BUILD_PLAN.md. Where they disagree, **this file wins.**
-> Every entry below was confirmed by the project owner (Vladimir Chopine).
-> **See also `REQUIREMENTS_R2.md`** — owner requirements C6-C11 (added 2026-08-22), same authority as this file.
+The confirmed product-behaviour decisions this build follows, and why. Where another document
+(ARCHITECTURE.md, DATA_MODEL.md, API_CONTRACT.md, MCP_SPEC.md, BUILD_PLAN.md) states something
+that conflicts with an entry here, this file is the one to trust — update the other document to
+match rather than the reverse. See also [REQUIREMENTS_R2.md](REQUIREMENTS_R2.md) for the second
+round of decisions (C6–C11), same standing as the ones below.
 
-## Owner-confirmed product decisions
+## Product decisions
 
 ### C1 — Hashing: background, opt-in, resumable
 
@@ -33,7 +34,7 @@ FTS5 and the UI shows Smart as unavailable with a reason — never an error toas
 Keep the proven structure (left album/group tree with counts, top toolbar with search + Smart
 toggle + grouping dropdown + facet chips + actions, center grid, right DETAILS panel, bottom
 status bar with count + per-page selector). Original palette, typography, iconography, spacing,
-and branding under **Geekatplay — Vladimir Chopine**. Must not read as a reskin of the reference.
+and branding under **Geekatplay Studio — Vladimir Chopine**. Must not read as a reskin of the reference.
 
 ### C4 — Palette: Studio Graphite + Signal Amber + Vault Violet
 
@@ -44,9 +45,10 @@ The amber/violet split is a **functional convention, not decoration**:
 
 ### C5 — MCP: FULL file-operation access, including delete  ⚠️ OVERRIDES D7
 
-**This reverses the architect's read-only recommendation.** The owner was shown the risk —
-a hallucinated tool call can destroy models that take hours to re-download — and chose full
-access deliberately. Implement it fully; do not silently narrow it back to read-only.
+**Deliberately reverses the safer, read-only-by-default option.** The risk was weighed
+explicitly — a hallucinated tool call can destroy models that take hours to re-download — and full
+access was chosen anyway, with real rails instead of a blanket restriction. Do not silently narrow
+it back to read-only.
 
 External MCP agents get the complete file-operation set: **rename, move, delete, trash restore,
 trash empty, create folder, album/tag assignment, plus hash and embedding job control.**
@@ -136,10 +138,7 @@ These three carry
 `mcp_audit` rows like every other mutating tool and are refused in read-only mode.
 
 **Count, stated plainly so nobody re-derives it:** 13 (MCP_SPEC §5.1–§5.13) + 8 (the table
-above) + 3 (this table) = **24 tools**. An earlier revision of this entry said "total 21"
-while also naming the three promoted tools, which were never part of the 13 — that was a
-drafting error, resolved by the coordinator on 2026-08-22 in favour of 24 explicit tools.
-MCP_SPEC §10 conformance check 4 expects 24.
+above) + 3 (this table) = **24 tools**. MCP_SPEC §10 conformance check 4 expects 24.
 
 #### C5.3 — Spec passages superseded
 
@@ -164,7 +163,7 @@ Security posture that still holds unchanged from MCP_SPEC §9: loopback-only bin
 validation, bearer token when `ALLOW_LAN=1`, uid-only input, no file-content reads, no network
 egress on the agent's behalf, rate limiting.
 
-## Architect decisions adopted as defaults (D1–D10)
+## Foundational decisions (D1–D10)
 
 | # | Decision | Status |
 |---|---|---|
@@ -186,4 +185,4 @@ egress on the agent's behalf, rate limiting.
 - Windows-first. Long paths, non-ASCII/emoji/CJK filenames, and file locking (ComfyUI may be
   running) must all be handled.
 - Local-first and offline-capable. Civitai and Ollama are optional and degrade gracefully.
-- Branding throughout: **Geekatplay — Vladimir Chopine**.
+- Branding throughout: **Geekatplay Studio — Vladimir Chopine**.

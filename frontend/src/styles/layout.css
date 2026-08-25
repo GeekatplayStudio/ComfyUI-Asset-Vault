@@ -247,6 +247,9 @@
 .gp-statusbar__dot--ok{background:var(--gp-ok)}
 .gp-statusbar__dot--busy{background:var(--gp-brand-200);animation:gp-pulse 1.4s var(--gp-ease) infinite}
 .gp-statusbar__dot--warn{background:var(--gp-warn)}
+/* A status warning that leads somewhere: reads as text, affords as a link. */
+.gp-statusbar__alert{background:none;border:0;padding:0;font:inherit;color:var(--gp-warn-100);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.gp-statusbar__alert:hover{color:var(--gp-fg-100)}
 .gp-statusbar__dot--error{background:var(--gp-danger)}
 
 @keyframes gp-pulse{0%,100%{opacity:1}50%{opacity:.35}}

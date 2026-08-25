@@ -9,6 +9,7 @@ import Badge, { IntegrityBadge, BaseModelBadge, ConfidenceBadge } from '../commo
 import { SkeletonMeta } from '../common/Skeleton.jsx'
 import EmptyState from '../common/EmptyState.jsx'
 import MetaRow, { Section, DetailsFallback } from './MetaRow.jsx'
+import { CommunityStars } from '../grid/AssetCard.jsx'
 import ComponentBreakdown from './ComponentBreakdown.jsx'
 import HashStatus from './HashStatus.jsx'
 import UsageList from './UsageList.jsx'
@@ -291,6 +292,10 @@ export default function ModelDetails({ id, onOpenUid, onLightbox }) {
             <MetaRow label="source" value={model.download && model.download.source} />
             <MetaRow label="civitai" value={civitai.state}
               empty={civitai.hint || 'Not matched.'} />
+            <MetaRow label="community" value={model.community && model.community.rating
+              ? <CommunityStars rating={model.community.rating}
+                  downloads={model.community.downloads} />
+              : null} empty="No community stats yet." />
           </div>
           {model.download && model.download.url ? (
             <a className="gp-btn gp-btn--sm gp-u-mt-4" href={model.download.url}

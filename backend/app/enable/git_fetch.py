@@ -2,8 +2,9 @@
 
 This is the **only** module in ``app/enable`` permitted to import
 ``subprocess``, and the only program it may start is ``git``, with a frozen
-argument list, ``shell=False`` and a wall-clock timeout.  Nothing that arrives
-in the clone is ever run:
+argument list, ``shell=False`` and a wall-clock timeout. A remote revision is
+captured before the consent plan, then the clone is staged and checked out at
+that exact commit before release. Nothing that arrives in the clone is ever run:
 
 * no ``pip install``, no ``python setup.py``, no ``install.py``, no
   ``requirements.txt`` processing, no post-clone hook - not automatically and
@@ -26,6 +27,8 @@ import os
 import shutil
 import subprocess  # one call site, `git` only, frozen argv, shell=False
 import tempfile
+import time
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -56,6 +59,32 @@ _CLONE_FLAGS = (
     "--no-tags",
     "--no-recurse-submodules",             # `--recurse-submodules` is never passed
 )
+
+
+def resolve_revision(repo_url: str, *, timeout_s: int = 45) -> tuple[str | None, str | None]:
+    """Resolve the remote's current HEAD to a commit before issuing a plan.
+
+    A branch name is mutable.  The exact object id becomes part of the plan and
+    clone fails closed if the remote moves before that object can be checked
+    out.  This still does not make an unverified legacy mapping official; it
+    merely prevents a plan from silently installing a different branch tip.
+    """
+    checked = hosts.check(repo_url, kind=hosts.KIND_GIT)
+    git = git_path()
+    if git is None:
+        return None, "git was not found on PATH"
+    argv = [git, *_HARDENING, "ls-remote", "--exit-code", "--", checked.url, "HEAD"]
+    try:
+        proc = _run_git(argv, timeout_s=timeout_s)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return None, f"could not resolve the remote revision: {exc}"
+    if proc.returncode != 0:
+        return None, "git could not resolve the remote HEAD"
+    for line in (proc.stdout or "").splitlines():
+        commit = line.split("\t", 1)[0].strip().lower()
+        if len(commit) == 40 and all(ch in "0123456789abcdef" for ch in commit):
+            return commit, None
+    return None, "remote HEAD did not return an immutable commit id"
 
 
 @dataclass
@@ -106,6 +135,16 @@ def _env() -> dict:
     return env
 
 
+def _run_git(argv: list[str], *, cwd: str | None = None, timeout_s: int) -> subprocess.CompletedProcess:
+    """The sole subprocess call site: only a frozen, validated git argv reaches it."""
+    return subprocess.run(  # noqa: S603
+        argv, cwd=cwd, env=_env(), stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        encoding="utf-8", errors="replace", timeout=timeout_s, check=False,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+
+
 def build_argv(git: str, repo_url: str, target: str, hooks_dir: str) -> list[str]:
     """The exact argument vector, exposed so a test can assert its shape."""
     return [
@@ -117,9 +156,9 @@ def build_argv(git: str, repo_url: str, target: str, hooks_dir: str) -> list[str
     ]
 
 
-def clone(repo_url: str, target_abs_path: str, *,
+def clone(repo_url: str, target_abs_path: str, *, expected_commit: str | None = None,
           timeout_s: int = CLONE_TIMEOUT_S) -> CloneResult:
-    """Shallow-clone one registry-declared repository.  Runs nothing from it."""
+    """Stage and release one pinned registry repository.  Runs nothing from it."""
     checked = hosts.check(repo_url, kind=hosts.KIND_GIT)
     git = git_path()
     target = str(target_abs_path)
@@ -129,6 +168,12 @@ def clone(repo_url: str, target_abs_path: str, *,
             error_message="git was not found on PATH, so node packages can only be "
                           "reported, not fetched.",
             manual_steps=manual_steps(checked.url, target))
+    commit = str(expected_commit or "").lower()
+    if len(commit) != 40 or any(ch not in "0123456789abcdef" for ch in commit):
+        return CloneResult(state="failed", repo_url=checked.url, error_code="VALIDATION_ERROR",
+                           error_message="No immutable commit was captured in the reviewed plan. "
+                                         "Request a fresh plan and try again.",
+                           manual_steps=manual_steps(checked.url, target))
     if os.path.exists(long_path(target)):
         raise ConflictError(
             "A folder with that name already exists in custom_nodes; nothing was "
@@ -143,46 +188,63 @@ def clone(repo_url: str, target_abs_path: str, *,
                            error_code="PATH_NOT_ALLOWED",
                            error_message=str(exc)[:300])
 
-    with tempfile.TemporaryDirectory(prefix="vault-nohooks-") as hooks_dir:
-        argv = build_argv(git, checked.url, target, hooks_dir)
-        try:
-            # The one subprocess in this package.  argv is a list (shell=False),
-            # the executable is `git` resolved from PATH, and every element
-            # except the validated remote and the derived target is a constant.
-            proc = subprocess.run(  # noqa: S603
-                argv, cwd=parent, env=_env(), stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                encoding="utf-8", errors="replace", timeout=timeout_s, check=False,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
-        except subprocess.TimeoutExpired:
-            _cleanup(target)
+    stage_parent = os.path.join(parent, ".vault-staging")
+    stage = os.path.join(stage_parent, f"{os.path.basename(target)}-{uuid.uuid4().hex[:12]}")
+    try:
+        os.makedirs(long_path(stage_parent), exist_ok=True)
+    except OSError as exc:
+        return CloneResult(state="failed", repo_url=checked.url, error_code="PATH_NOT_ALLOWED",
+                           error_message=str(exc)[:300])
+    _sweep_stale_staging(stage_parent)
+    try:
+        with tempfile.TemporaryDirectory(prefix="vault-nohooks-") as hooks_dir:
+            argv = build_argv(git, checked.url, stage, hooks_dir)
+            try:
+                proc = _run_git(argv, cwd=parent, timeout_s=timeout_s)
+            except subprocess.TimeoutExpired:
+                return CloneResult(
+                    state="failed", repo_url=checked.url, error_code="UPSTREAM_UNAVAILABLE",
+                    error_message=f"git clone exceeded its {timeout_s}s time limit.",
+                    manual_steps=manual_steps(checked.url, target))
+            except OSError as exc:
+                return CloneResult(state="failed", repo_url=checked.url,
+                                   error_code="UPSTREAM_UNAVAILABLE",
+                                   error_message=str(exc)[:300],
+                                   manual_steps=manual_steps(checked.url, target))
+
+        output = (proc.stdout or "")[:MAX_OUTPUT_CHARS]
+        if proc.returncode != 0:
             return CloneResult(
                 state="failed", repo_url=checked.url, error_code="UPSTREAM_UNAVAILABLE",
-                error_message=f"git clone exceeded its {timeout_s}s time limit.",
+                error_message=f"git clone exited {proc.returncode}: {output.strip()[:300]}",
                 manual_steps=manual_steps(checked.url, target))
-        except OSError as exc:
-            _cleanup(target)
-            return CloneResult(state="failed", repo_url=checked.url,
-                               error_code="UPSTREAM_UNAVAILABLE",
-                               error_message=str(exc)[:300],
+
+        checkout = [git, "-C", stage, *_HARDENING, "checkout", "--detach", "--force", commit]
+        try:
+            verified = _run_git(checkout, timeout_s=timeout_s)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return CloneResult(state="failed", repo_url=checked.url, error_code="UPSTREAM_UNAVAILABLE",
+                               error_message=f"could not verify planned commit: {exc}"[:300])
+        if verified.returncode != 0:
+            return CloneResult(state="failed", repo_url=checked.url, error_code="INTEGRITY_MISMATCH",
+                               error_message="The repository changed after the plan was reviewed; no package was installed.",
                                manual_steps=manual_steps(checked.url, target))
-
-    output = (proc.stdout or "")[:MAX_OUTPUT_CHARS]
-    if proc.returncode != 0:
-        _cleanup(target)
+        findings = inspect_clone(stage)
+        try:
+            os.replace(long_path(stage), long_path(target))
+        except OSError as exc:
+            return CloneResult(state="failed", repo_url=checked.url, error_code="PATH_NOT_ALLOWED",
+                               error_message=f"could not release verified staged package: {exc}"[:300])
         return CloneResult(
-            state="failed", repo_url=checked.url, error_code="UPSTREAM_UNAVAILABLE",
-            error_message=f"git clone exited {proc.returncode}: {output.strip()[:300]}",
-            manual_steps=manual_steps(checked.url, target))
-
-    findings = inspect_clone(target)
-    return CloneResult(
-        state="done", abs_path=target, repo_url=checked.url,
-        bytes_written=_tree_bytes(target), findings=findings,
-        manual_steps=post_clone_steps(target, findings),
-        notes=_notes(findings),
-    )
+            state="done", abs_path=target, repo_url=checked.url,
+            bytes_written=_tree_bytes(target), findings=findings,
+            manual_steps=post_clone_steps(target, findings),
+            notes=_notes(findings),
+        )
+    finally:
+        # On success os.replace already moved the stage away; on every failure,
+        # handled or not, the half-finished clone is removed here.
+        _cleanup(stage)
 
 
 def inspect_clone(target: str) -> dict:
@@ -283,6 +345,26 @@ def _cleanup(target: str) -> None:
         shutil.rmtree(long_path(target), ignore_errors=True)
     except OSError as exc:
         log.warning("could not clean up a failed clone at %s: %s", target, exc)
+
+
+def _sweep_stale_staging(stage_parent: str) -> None:
+    """Remove staging leftovers from a process that died mid-clone.
+
+    Entries younger than twice the clone timeout are left alone so a clone in
+    another process is never pulled out from under it.
+    """
+    try:
+        entries = os.listdir(long_path(stage_parent))
+    except OSError:
+        return
+    cutoff = time.time() - 2 * CLONE_TIMEOUT_S
+    for name in entries:
+        path = os.path.join(stage_parent, name)
+        try:
+            if os.path.getmtime(long_path(path)) < cutoff:
+                _cleanup(path)
+        except OSError:
+            continue
 
 
 def report_only(repo_url: str, target: str, reason: str) -> CloneResult:

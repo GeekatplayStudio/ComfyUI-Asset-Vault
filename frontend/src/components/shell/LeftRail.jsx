@@ -27,6 +27,21 @@ const MEDIA_ICONS = {
   image: ImageIcon, video: Film, audio: Music, model3d: Boxes, text: FileText
 }
 
+/* System albums are shared records, but not every asset type owns every
+   property.  Never offer an album in a tab where its query cannot mean what
+   its name promises.  User-created albums remain visible in their declared
+   scope; their query is intentionally user-defined. */
+const SYSTEM_ALBUMS_BY_VIEW = {
+  models: new Set(['All', 'Recently added', 'Favorites', 'Needs hashing',
+    'Updates available', 'Missing files', 'Integrity issues', 'Unused models', 'Untagged']),
+  node_packages: new Set(['All', 'Recently added', 'Updates available', 'Missing files',
+    'Untagged']),
+  node_classes: new Set(['All', 'Missing files', 'Untagged']),
+  workflows: new Set(['All', 'Recently added', 'Missing files', 'Broken workflows',
+    'Untagged']),
+  outputs: new Set(['All', 'Recently added', 'Favorites', 'Missing files', 'Untagged'])
+}
+
 /** Build a rail section from a list endpoint's groups[] response. */
 function useGroupSection(scope, field, loader, epoch, enabled) {
   const key = enabled ? 'rail:' + scope + ':' + field : null
@@ -52,6 +67,7 @@ function toNodes(groups, iconOf) {
         label: c.label,
         count: c.count,
         bytes: c.bytes,
+        raw: c,
         icon: iconOf ? iconOf(c) : undefined,
         children: []
       }))
@@ -73,6 +89,10 @@ export default function LeftRail() {
     (s) => api.modelGroups({ group: 'folder' }, s), epoch, tab === 'models')
   const modelBase = useGroupSection('models', 'base_model',
     (s) => api.models({ group: 'base_model', limit: 1 }, s), epoch, tab === 'models')
+  const modelCategories = useGroupSection('models', 'category',
+    (s) => api.models({ group: 'category', limit: 1 }, s), epoch, tab === 'models')
+  const modelPrecision = useGroupSection('models', 'precision',
+    (s) => api.models({ group: 'precision', limit: 1 }, s), epoch, tab === 'models')
 
   /* ----------------------------------------------------------------- nodes */
   const nodeAuthors = useGroupSection('nodes', 'author',
@@ -132,7 +152,13 @@ export default function LeftRail() {
 
   const albumNodes = useMemo(() => {
     const nodes = (albums.data && albums.data.nodes) || []
-    const walk = (list) => list.map((a) => ({
+    const viewKind = tab === 'nodes'
+      ? (view.mode === 'classes' ? 'node_classes' : 'node_packages')
+      : tab
+    const allowedSystemAlbums = SYSTEM_ALBUMS_BY_VIEW[viewKind] || new Set(['All'])
+    const walk = (list) => list
+      .filter((a) => a.kind !== 'system' || allowedSystemAlbums.has(a.name))
+      .map((a) => ({
       key: String(a.id),
       label: a.name,
       count: a.item_count || null,
@@ -142,7 +168,7 @@ export default function LeftRail() {
       children: walk(a.children || [])
     }))
     return walk(nodes)
-  }, [albums.data])
+  }, [albums.data, tab, view.mode])
 
   const storageNodes = useMemo(() => STORAGE_SECTIONS.map((sct) => ({
     key: sct.id,
@@ -185,7 +211,7 @@ export default function LeftRail() {
       id: 'folders',
       title: 'Folders',
       nodes: toNodes(modelFolders.data && modelFolders.data.nodes, () => Folder),
-      field: 'category',
+      field: '__model_folder__',
       loading: modelFolders.loading
     })
     sections.push({
@@ -195,7 +221,41 @@ export default function LeftRail() {
       field: 'base_model',
       loading: modelBase.loading
     })
+    sections.push({
+      id: 'type',
+      title: 'Type',
+      nodes: toNodes(modelCategories.data && modelCategories.data.groups),
+      field: 'category',
+      loading: modelCategories.loading
+    })
+    sections.push({
+      id: 'precision',
+      title: 'Precision',
+      nodes: toNodes(modelPrecision.data && modelPrecision.data.groups),
+      field: 'precision',
+      loading: modelPrecision.loading
+    })
+    sections.push({
+      id: 'rating',
+      title: 'My rating',
+      nodes: [
+        { key: '5', label: '5 stars', icon: Star, children: [] },
+        { key: '4', label: '4 stars & up', icon: Star, children: [] },
+        { key: '3', label: '3 stars & up', icon: Star, children: [] }
+      ],
+      field: 'min_rating',
+      loading: false
+    })
   } else if (tab === 'nodes') {
+    sections.push({
+      id: 'spotlight',
+      title: 'Spotlight',
+      nodes: [{ key: 'geekatplay', label: 'Geekatplay nodes', icon: Star,
+        title: 'Node packages by ' + AUTHOR, raw: { query: { q: 'geekatplay' } },
+        children: [] }],
+      field: '__spotlight__',
+      loading: false
+    })
     sections.push({
       id: 'source',
       title: 'Source',
@@ -206,13 +266,15 @@ export default function LeftRail() {
       field: 'official',
       loading: false
     })
-    sections.push({
-      id: 'authors',
-      title: 'Authors',
-      nodes: toNodes(nodeAuthors.data && nodeAuthors.data.groups, () => Users),
-      field: 'author',
-      loading: nodeAuthors.loading
-    })
+    if (view.mode !== 'classes') {
+      sections.push({
+        id: 'authors',
+        title: 'Authors',
+        nodes: toNodes(nodeAuthors.data && nodeAuthors.data.groups, () => Users),
+        field: 'author',
+        loading: nodeAuthors.loading
+      })
+    }
     if (view.mode === 'classes') {
       sections.push({
         id: 'categories',
@@ -223,6 +285,15 @@ export default function LeftRail() {
       })
     }
   } else if (tab === 'workflows') {
+    sections.push({
+      id: 'spotlight',
+      title: 'Spotlight',
+      nodes: [{ key: 'geekatplay', label: 'Geekatplay workflows', icon: Star,
+        title: 'Workflows by ' + AUTHOR, raw: { query: { q: 'geekatplay' } },
+        children: [] }],
+      field: '__spotlight__',
+      loading: false
+    })
     sections.push({
       id: 'state',
       title: 'State',
@@ -369,6 +440,24 @@ export default function LeftRail() {
                       delete filters.date_to
                     }
                     patch({ group: 'date', filters, railKey: '__date__:' + node.key })
+                    return
+                  }
+                  if (section.field === '__spotlight__') {
+                    const railKey = section.field + ':' + node.key
+                    if (view.railKey === railKey) {
+                      patch({ railKey: null, filters: {} })
+                    } else {
+                      patch({ railKey, filters: (node.raw && node.raw.query) || {} })
+                    }
+                    return
+                  }
+                  if (section.field === '__model_folder__') {
+                    const railKey = section.field + ':' + node.key
+                    if (view.railKey === railKey) {
+                      patch({ railKey: null, filters: {} })
+                    } else {
+                      patch({ railKey, filters: (node.raw && node.raw.query) || {} })
+                    }
                     return
                   }
                   select(section.field, node)

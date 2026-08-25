@@ -41,12 +41,16 @@ def _filters(
     date_from: int | None = Query(None),
     date_to: int | None = Query(None),
     include_missing: bool = Query(False),
+    missing_files_only: bool | None = Query(
+        None, description="Return only workflows whose indexed file is missing."),
+    untagged: bool | None = Query(None, description="Return only workflows with no tags."),
 ) -> dict[str, Any]:
     raw = {"q": q, "smart": smart, "folder": folder, "base_model": base_model,
            "runnable": runnable, "missing_only": missing_only, "node_class": node_class,
            "model_id": model_id, "root_id": root_id, "album_id": album_id, "tag": tag,
            "size_min": size_min, "size_max": size_max, "date_from": date_from,
-           "date_to": date_to, "include_missing": include_missing}
+           "date_to": date_to, "include_missing": include_missing,
+           "missing_files_only": missing_files_only, "untagged": untagged}
     return {k: v for k, v in raw.items() if v is not None}
 
 

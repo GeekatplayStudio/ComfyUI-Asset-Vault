@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react'
 import {
-  AlertTriangle, FolderOpen, Download, Maximize2, Image as ImageIcon, ExternalLink
+  AlertTriangle, FolderOpen, Download, Maximize2, Image as ImageIcon, ExternalLink, PackageSearch
 } from 'lucide-react'
 import api, { thumbnailUrl, downloadUrl } from '../../services/api.js'
 import useResource from '../../hooks/useResource.js'
@@ -11,6 +11,7 @@ import EmptyState from '../common/EmptyState.jsx'
 import MetaRow, { Section, DetailsFallback } from './MetaRow.jsx'
 import DependencyList from './DependencyList.jsx'
 import OpenInComfyUIDialog from '../modals/OpenInComfyUIDialog.jsx'
+import ResolveNodesDialog from '../modals/ResolveNodesDialog.jsx'
 import { bytes, dateTime, count as fmtCount } from '../../services/format.js'
 import { useVault } from '../../state/VaultContext.jsx'
 
@@ -23,6 +24,7 @@ export default function WorkflowDetails({ id, onOpenUid, onLightbox }) {
   const { state, toastError } = useVault()
   const epoch = state.dataEpoch
   const [openInComfy, setOpenInComfy] = useState(false)
+  const [resolveNodes, setResolveNodes] = useState(false)
 
   const detail = useResource('workflow:' + id, (s) => api.workflow(id, s), { epoch })
   const deps = useResource('workflow-deps:' + id, (s) => api.workflowDependencies(id, s), { epoch })
@@ -97,6 +99,9 @@ export default function WorkflowDetails({ id, onOpenUid, onLightbox }) {
             label="Open in ComfyUI"
             title="Open this workflow in ComfyUI, starting ComfyUI first if you confirm it"
             onClick={() => setOpenInComfy(true)} />
+          {counts.missing_nodes ? <Button size="sm" icon={PackageSearch}
+            label="Resolve missing nodes" title="Review safe package sources for this workflow"
+            onClick={() => setResolveNodes(true)} /> : null}
         </div>
 
         {missing ? (
@@ -238,6 +243,8 @@ export default function WorkflowDetails({ id, onOpenUid, onLightbox }) {
         <OpenInComfyUIDialog uid={wf.uid} name={wf.name}
           onClose={() => setOpenInComfy(false)} />
       ) : null}
+      {resolveNodes ? <ResolveNodesDialog workflowId={id} workflowName={wf.name}
+        onClose={() => setResolveNodes(false)} /> : null}
     </>
   )
 }
