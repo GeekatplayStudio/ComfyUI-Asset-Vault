@@ -362,6 +362,24 @@ button.gp-chip--selected:hover{background:var(--gp-selected-strong);border-color
 .gp-rating__star--on{color:var(--gp-brand-200)}
 .gp-rating__star:hover{color:var(--gp-brand-100)}
 .gp-rating--readonly .gp-rating__star{pointer-events:none}
+/* Annotations — the user's own metadata block in the details panels. */
+.gp-annotations{display:flex;flex-direction:column;gap:var(--gp-s-4)}
+.gp-labelpick{display:inline-flex;align-items:center;gap:var(--gp-s-2)}
+.gp-labelpick__swatch{width:14px;height:14px;border-radius:var(--gp-r-full);border:1px solid var(--gp-line-ctl);background:var(--gp-bg-inset);cursor:pointer;transition:transform var(--gp-tr-micro)}
+.gp-labelpick__swatch:hover{transform:scale(1.15)}
+.gp-labelpick__swatch--on{box-shadow:0 0 0 2px var(--gp-bg-200),0 0 0 3px currentColor}
+.gp-labelpick__swatch--amber{background:var(--gp-brand-200);color:var(--gp-brand-200)}
+.gp-labelpick__swatch--violet{background:var(--gp-vio-200);color:var(--gp-vio-200)}
+.gp-labelpick__swatch--green{background:var(--gp-ok);color:var(--gp-ok)}
+.gp-labelpick__swatch--blue{background:var(--gp-info);color:var(--gp-info)}
+.gp-labelpick__swatch--red{background:var(--gp-danger);color:var(--gp-danger)}
+.gp-tagedit{display:flex;flex-wrap:wrap;align-items:center;gap:var(--gp-s-2)}
+.gp-tagedit__chip{display:inline-flex;align-items:center;gap:var(--gp-s-2);height:20px;padding:0 var(--gp-s-2) 0 var(--gp-s-3);border:1px solid var(--gp-line-200);border-radius:var(--gp-r-1);background:var(--gp-bg-inset);color:var(--gp-fg-200);font-size:var(--gp-fs-10)}
+.gp-tagedit__remove{display:grid;place-items:center;width:14px;height:14px;border:0;border-radius:var(--gp-r-1);background:none;color:var(--gp-meta);cursor:pointer}
+.gp-tagedit__remove:hover{color:var(--gp-danger-100);background:var(--gp-danger-ghost)}
+.gp-tagedit__remove svg{width:9px;height:9px}
+.gp-tagedit__input{width:110px;height:22px;font-size:var(--gp-fs-11);padding:0 var(--gp-s-3)}
+.gp-notes{width:100%;resize:vertical;min-height:56px;font-size:var(--gp-fs-11);line-height:var(--gp-lh-base)}
 .gp-kbd{min-width:18px;height:18px;padding:0 var(--gp-s-2);border:1px solid var(--gp-line-ctl);border-bottom-width:2px;border-radius:var(--gp-r-1);background:var(--gp-bg-400);color:var(--gp-meta);font-size:var(--gp-fs-10);line-height:1}
 
 /* == 18. Progress · meter · spinner ==

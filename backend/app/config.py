@@ -1,4 +1,4 @@
-﻿"""Immutable build constants.
+"""Immutable build constants.
 
 This module holds ONLY constants that never change at runtime.
 It deliberately does **not** know where ComfyUI is installed: that question is

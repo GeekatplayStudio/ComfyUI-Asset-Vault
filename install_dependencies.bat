@@ -97,6 +97,12 @@ REM ------------------------------------------------ [4/5] frontend packages
 echo [4/5] Installing the interface's Node packages ...
 where npm >nul 2>&1
 if !errorlevel! neq 0 (
+    if exist "%ROOT%frontend\dist\index.html" (
+        echo       Node.js is not installed, and it is not needed: this archive
+        echo       ships the interface pre-built at frontend\dist. The engine
+        echo       serves it directly at http://127.0.0.1:8127/.
+        goto :done
+    )
     echo.
     echo [WARN]  Node.js was not found on PATH, so the interface was skipped.
     echo         Install Node.js 18 or newer from https://nodejs.org and run

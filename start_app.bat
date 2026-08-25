@@ -23,12 +23,22 @@ if not exist "venv\Scripts\python.exe" (
     exit /b 1
 )
 
-if not exist "frontend\node_modules" (
-    echo [ERROR] Frontend dependencies not installed at "%ROOT%frontend\node_modules".
-    echo         Run install_dependencies.bat first.
-    echo.
-    pause
-    exit /b 1
+REM Release archives ship a pre-built interface, so Node.js is only needed to
+REM build one from source.  With node_modules present (a dev checkout) the
+REM interface is always rebuilt so source edits are never served stale.
+set "PREBUILT="
+if not exist "frontend\node_modules" if exist "frontend\dist\index.html" set "PREBUILT=1"
+
+if not defined PREBUILT (
+    if not exist "frontend\node_modules" (
+        echo [ERROR] No built interface at "%ROOT%frontend\dist" and no frontend
+        echo         dependencies at "%ROOT%frontend\node_modules".
+        echo         Run install_dependencies.bat first, or use a release archive
+        echo         that ships the interface pre-built.
+        echo.
+        pause
+        exit /b 1
+    )
 )
 
 REM ------------------------------------------------------- port in use test
@@ -45,17 +55,21 @@ if !errorlevel! equ 0 (
 REM ---------------------------------------------------------- build interface
 REM Serve the production build from the engine.  This keeps hashing independent
 REM of the Vite development server, so closing/reloading the UI cannot stop it.
-echo [1/3] Building the interface ...
-pushd "%ROOT%frontend"
-call npm run build
-if errorlevel 1 (
+if defined PREBUILT (
+    echo [1/3] Interface build already present - reusing frontend\dist
+) else (
+    echo [1/3] Building the interface ...
+    pushd "%ROOT%frontend"
+    call npm run build
+    if errorlevel 1 (
+        popd
+        echo [ERROR] The interface build failed. Fix the errors above and try again.
+        echo.
+        pause
+        exit /b 1
+    )
     popd
-    echo [ERROR] The interface build failed. Fix the errors above and try again.
-    echo.
-    pause
-    exit /b 1
 )
-popd
 
 REM ------------------------------------------------------------ backend
 echo [2/3] Starting the vault engine on http://127.0.0.1:%PORT% ...

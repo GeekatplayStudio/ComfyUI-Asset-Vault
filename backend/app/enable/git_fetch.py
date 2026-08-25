@@ -61,30 +61,36 @@ _CLONE_FLAGS = (
 )
 
 
-def resolve_revision(repo_url: str, *, timeout_s: int = 45) -> tuple[str | None, str | None]:
-    """Resolve the remote's current HEAD to a commit before issuing a plan.
+def resolve_revision(repo_url: str, *, ref: str | None = None,
+                     timeout_s: int = 45) -> tuple[str | None, str | None]:
+    """Resolve the remote's tip to a commit - HEAD, or one named branch.
 
-    A branch name is mutable.  The exact object id becomes part of the plan and
+    A branch name is mutable.  The exact object id becomes part of a plan and
     clone fails closed if the remote moves before that object can be checked
     out.  This still does not make an unverified legacy mapping official; it
     merely prevents a plan from silently installing a different branch tip.
+    The update checker asks the same question with ``ref`` set to a package's
+    recorded branch; a ref the remote no longer has falls back to HEAD.
     """
     checked = hosts.check(repo_url, kind=hosts.KIND_GIT)
     git = git_path()
     if git is None:
         return None, "git was not found on PATH"
-    argv = [git, *_HARDENING, "ls-remote", "--exit-code", "--", checked.url, "HEAD"]
+    target = f"refs/heads/{ref}" if ref else "HEAD"
+    argv = [git, *_HARDENING, "ls-remote", "--exit-code", "--", checked.url, target]
     try:
         proc = _run_git(argv, timeout_s=timeout_s)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return None, f"could not resolve the remote revision: {exc}"
     if proc.returncode != 0:
+        if ref:  # branch renamed or deleted upstream - HEAD is still an answer
+            return resolve_revision(repo_url, timeout_s=timeout_s)
         return None, "git could not resolve the remote HEAD"
     for line in (proc.stdout or "").splitlines():
         commit = line.split("\t", 1)[0].strip().lower()
         if len(commit) == 40 and all(ch in "0123456789abcdef" for ch in commit):
             return commit, None
-    return None, "remote HEAD did not return an immutable commit id"
+    return None, "the remote did not return an immutable commit id"
 
 
 @dataclass
@@ -168,17 +174,18 @@ def clone(repo_url: str, target_abs_path: str, *, expected_commit: str | None = 
             error_message="git was not found on PATH, so node packages can only be "
                           "reported, not fetched.",
             manual_steps=manual_steps(checked.url, target))
+    # R8 first: an existing folder is never touched, whatever else is wrong.
+    if os.path.exists(long_path(target)):
+        raise ConflictError(
+            "A folder with that name already exists in custom_nodes; nothing was "
+            "cloned.",
+            details={"path": target, "repo_url": checked.url})
     commit = str(expected_commit or "").lower()
     if len(commit) != 40 or any(ch not in "0123456789abcdef" for ch in commit):
         return CloneResult(state="failed", repo_url=checked.url, error_code="VALIDATION_ERROR",
                            error_message="No immutable commit was captured in the reviewed plan. "
                                          "Request a fresh plan and try again.",
                            manual_steps=manual_steps(checked.url, target))
-    if os.path.exists(long_path(target)):
-        raise ConflictError(
-            "A folder with that name already exists in custom_nodes; nothing was "
-            "cloned.",
-            details={"path": target, "repo_url": checked.url})
 
     parent = os.path.dirname(target)
     try:

@@ -10,8 +10,13 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 |---|---|---|
 | Windows | 10 or 11, 64-bit | Windows 11 Pro 26200 |
 | Python on PATH | 3.10 | **3.12.10** |
-| Node.js on PATH | 18 | **22.22.0** (npm 10.9.4) |
+| Node.js on PATH | 18 — **source checkouts only**; a release archive ships the interface pre-built and never needs Node | **22.22.0** (npm 10.9.4) |
 | A ComfyUI installation | any | **ComfyUI 0.33.0** portable, frontend package 1.49.6 |
+
+Linux and macOS are **experimental**: use `./install_dependencies.sh` and `./start_app.sh` in
+place of the `.bat` files below. The engine, indexing, search and file operations are
+platform-neutral; the ComfyUI start/update integration still expects the Windows portable
+layout, and the platform test suites have not yet been run there.
 
 Free space for the vault's own data — the database, its write-ahead log and the thumbnail cache —
 budget **2–3 GB** for a library the size of the reference install. The thumbnail cache has its own
@@ -54,8 +59,9 @@ The installer:
    itself later.
 
 Any failure stops the installer with an explanation rather than continuing into a broken state.
-Step 4 is skipped with a warning if Node is missing — the engine and its API still work; only the
-interface needs Node.
+Steps 4–5 are skipped when Node is missing: with a release archive that is normal and silent
+(the interface ships pre-built in `frontend\dist`), and with a source checkout it is a warning —
+the engine and its API still work; only *building* the interface needs Node.
 
 ### Doing it by hand
 

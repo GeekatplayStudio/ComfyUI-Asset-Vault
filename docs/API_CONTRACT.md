@@ -493,10 +493,10 @@ Filters: `q`, `package_id`, `category`, `official`, `deprecated`, `experimental`
 Adds `workflows_using` (top 20) and the raw `input_types_json`.
 
 ### `POST /api/v1/node-packages/{id}/check-update`
-`202 {"state":"pending"}` · `503 FEATURE_UNAVAILABLE` (offline) · `200 {"state":"suspect_remote","reason":"remote does not match folder"}` for `was-ns`-class cases · `429 RATE_LIMITED` with `details.retry_after_ms`.
+Runs one `git ls-remote` against the recorded remote (same hardened runner and host allowlist as the Enable clone path — nothing is cloned, nothing runs) and compares its tip to the recorded local commit. Responses: `202 {"state":"ok","reason":null,"has_update":true,"latest_commit":"<40-hex>"}` (or `"reason":"up to date"` with `has_update:false`) · `{"state":"error","reason":"…"}` when the remote is unreachable or not allowlisted (persisted to `update_check_state`) · `{"state":"suspect_remote",…}` — a suspect remote is never contacted · `{"state":"none",…}` when no remote or no local commit is recorded · `503 FEATURE_UNAVAILABLE` when online checks are off or git is missing. `commits_behind` is deliberately never populated: counting it would need a fetch; "the tip moved" is what one ls-remote can honestly establish.
 
 ### `POST /api/v1/node-packages/check-updates`
-Body `{"ids":[…] | null}` → `202 {"job_id":"upd-9","queued":25}`. Progress via `GET /api/v1/node-packages/update-status`.
+Body `{"ids":[…] | null}` (null = every checkable package) → `202 {"job_id":"upd-…","queued":25}`. Marks the packages `update_check_state='pending'` and drains them on a background worker; only packages with a non-suspect recorded remote are queued. Progress via `GET /api/v1/node-packages/update-status`.
 
 ### `GET /api/v1/node-registry`
 Read-only catalogue metadata for discoverable custom nodes. Filters: `q`,

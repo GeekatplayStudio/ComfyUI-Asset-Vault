@@ -20,7 +20,7 @@ import NodeRegistryPanel from './NodeRegistryPanel.jsx'
  * that ComfyUI owns, not an asset the vault renames or deletes on your behalf.
  */
 export default function NodesTab({ onStatus, onOpenUid, registerApi }) {
-  const { state, dispatch, toast, toastError } = useVault()
+  const { state, dispatch, toast, toastError, invalidate } = useVault()
   const { view: rawView } = useTabView('nodes')
   const registry = rawView.mode === 'registry'
   const classes = rawView.mode === 'classes'
@@ -83,10 +83,27 @@ export default function NodesTab({ onStatus, onOpenUid, registerApi }) {
         title: 'Update check started',
         message: fmtCount(res.queued) + ' package(s) queued'
       })
+      // The checks drain on the server; poll until none are pending, then
+      // refresh so the update badges reflect what was found.
+      for (let i = 0; i < 40; i++) {
+        await new Promise((r) => setTimeout(r, 3000))
+        const status = await api.packageUpdateStatus()
+        if (!status.pending) {
+          invalidate()
+          toast({
+            tone: status.with_update ? 'info' : 'ok',
+            title: 'Update check finished',
+            message: status.with_update
+              ? fmtCount(status.with_update) + ' package(s) have a newer commit'
+              : 'Everything is at its remote tip'
+          })
+          return
+        }
+      }
     } catch (err) {
       toastError(err, 'Update check unavailable')
     }
-  }, [toast, toastError])
+  }, [toast, toastError, invalidate])
 
   const facetDefs = useMemo(() => {
     if (classes) {

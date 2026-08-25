@@ -35,3 +35,6 @@ desktop.ini
 .env
 .env.*
 *.local
+
+# --- Release archives (built by make_release.ps1) ---------------------------
+release/

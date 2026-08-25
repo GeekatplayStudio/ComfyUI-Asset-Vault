@@ -163,6 +163,73 @@ async def fetch_by_hash(model_hash: str, *, force: bool = False) -> dict | None:
     return None
 
 
+async def fetch_latest_version(civitai_model_id: int, *,
+                               force: bool = False) -> dict | None:
+    """The newest published version of a model, for update detection.
+
+    The by-hash endpoint answers "which version IS this file"; this one asks
+    the parent model which version is newest.  Same kill-switch, cache and
+    breaker discipline as ``fetch_by_hash``.  Returns ``None`` on any miss -
+    update detection is a bonus on top of a successful match, never a blocker.
+    """
+    cfg = config_service.get_config()
+    if not (cfg.online_enabled and cfg.civitai_enabled):
+        return None
+    key = f"civitai:model:{int(civitai_model_id)}"
+    body = None
+    if not force:
+        cached = _cache_get(key)
+        if cached is not None:
+            if cached["status"] != 200:
+                return None
+            body = cached["body"]
+    if body is None:
+        if _breaker_open():
+            return None
+        try:
+            import httpx
+        except ImportError:  # pragma: no cover
+            return None
+        headers = {"User-Agent": "GeekatplayAssetVault/2.0"}
+        if cfg.civitai_api_key:
+            headers["Authorization"] = f"Bearer {cfg.civitai_api_key}"
+        url = f"{API_BASE}/models/{int(civitai_model_id)}"
+        try:
+            async with httpx.AsyncClient(timeout=TIMEOUT_S, follow_redirects=True) as client:
+                res = await client.get(url, headers=headers)
+        except Exception as exc:  # noqa: BLE001 - network errors are expected
+            log.debug("Civitai model fetch failed for %s: %s", civitai_model_id, exc)
+            _record_failure()
+            return None
+        if res.status_code != 200:
+            _cache_put(key, res.status_code, None,
+                       NOT_FOUND_TTL_MS if res.status_code == 404 else 60_000)
+            if res.status_code not in (404,):
+                _record_failure()
+            return None
+        try:
+            body = res.json()
+        except ValueError:
+            return None
+        _cache_put(key, 200, body, CACHE_TTL_MS)
+        _record_success()
+
+    versions = body.get("modelVersions") if isinstance(body, dict) else None
+    if not isinstance(versions, list):
+        return None
+    published = [v for v in versions if isinstance(v, dict)
+                 and str(v.get("status") or "Published") == "Published"]
+    if not published:
+        return None
+    # Civitai lists newest first; version ids are monotonic, so sort defensively.
+    latest = max(published, key=lambda v: _int(v.get("id")) or 0)
+    return {
+        "latest_version_id": _int(latest.get("id")),
+        "latest_version_name": latest.get("name"),
+        "latest_version_notes": _text(latest.get("description")),
+    }
+
+
 def map_version(data: Any) -> dict | None:
     """Map a Civitai model-version payload onto our column set."""
     if not isinstance(data, dict):
@@ -256,7 +323,8 @@ def apply_enrichment(model_id: int, mapped: dict | None, *,
             "ELSE description_source END, trigger_words_json=?, "
             "recommended_settings_json=?, download_url=?, nsfw=?, rating=?, "
             "download_count=?, latest_version_name=?, latest_version_id=?, "
-            "latest_version_notes=?, base_model_variant=COALESCE(?, base_model_variant), "
+            "latest_version_notes=?, has_update=?, "
+            "base_model_variant=COALESCE(?, base_model_variant), "
             "updated_at=? WHERE id=?",
             (
                 b(mapped.get("civitai_model_id"), kind="int"),
@@ -271,6 +339,7 @@ def apply_enrichment(model_id: int, mapped: dict | None, *,
                 b(mapped.get("latest_version_name")),
                 b(mapped.get("latest_version_id"), kind="int"),
                 b(mapped.get("latest_version_notes")),
+                1 if mapped.get("has_update") else 0,
                 b(variant if variant in ("Pony", "Illustrious", "NoobAI") else None),
                 now, int(model_id),
             ),
@@ -292,6 +361,13 @@ async def enrich_model(model_id: int, *, force: bool = False) -> dict:
     if row["hash_state"] != "done" or not row["sha256"]:
         return {"state": "error", "reason": "hash_required"}
     mapped = await fetch_by_hash(str(row["sha256"]), force=force)
+    if mapped and mapped.get("civitai_model_id"):
+        latest = await fetch_latest_version(mapped["civitai_model_id"], force=force)
+        if latest and latest.get("latest_version_id"):
+            mapped.update(latest)
+            mapped["has_update"] = (
+                mapped.get("civitai_version_id") is not None
+                and latest["latest_version_id"] != mapped["civitai_version_id"])
     apply_enrichment(int(model_id), mapped)
     return {"state": "matched" if mapped else "not_found"}
 

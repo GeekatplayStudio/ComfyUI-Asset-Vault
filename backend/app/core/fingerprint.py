@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import hashlib
-import os
 from pathlib import Path
+
+from .pathsafe import fold_case
 
 
 def file_fingerprint(abs_path: str | Path, size: int, mtime_ns: int) -> str:
-    """blake2b over (normcase path, size, mtime_ns).  See ARCHITECTURE 3.2."""
+    """blake2b over (case-folded path, size, mtime_ns).  See ARCHITECTURE 3.2."""
     h = hashlib.blake2b(digest_size=16)
-    h.update(os.path.normcase(str(abs_path)).encode("utf-16-le", errors="replace"))
+    h.update(fold_case(str(abs_path)).encode("utf-16-le", errors="replace"))
     h.update(b"\x1f")
     h.update(str(int(size)).encode())
     h.update(b"\x1f")
@@ -22,7 +23,7 @@ def folder_fingerprint(entries) -> str:
     """blake2b over the sorted (rel_path, size, mtime_ns) triples of a folder."""
     h = hashlib.blake2b(digest_size=16)
     for rel, size, mtime_ns in sorted(entries):
-        h.update(os.path.normcase(str(rel)).encode("utf-16-le", errors="replace"))
+        h.update(fold_case(str(rel)).encode("utf-16-le", errors="replace"))
         h.update(b"\x1f")
         h.update(str(int(size)).encode())
         h.update(b"\x1f")
@@ -37,6 +38,6 @@ def text_hash(text: str) -> str:
 
 def path_hash(abs_path: str | Path) -> str:
     return hashlib.blake2b(
-        os.path.normcase(str(abs_path)).encode("utf-16-le", errors="replace"),
+        fold_case(str(abs_path)).encode("utf-16-le", errors="replace"),
         digest_size=16,
     ).hexdigest()

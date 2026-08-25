@@ -71,6 +71,14 @@ def startup(*, auto_reindex: bool | None = None) -> dict:
     except Exception as exc:  # noqa: BLE001
         report["warnings"].append(f"embeddings: {exc}")
 
+    try:
+        from ..jobs.watch_service import start_watcher
+
+        start_watcher()
+        report["watch"] = "watching" if cfg.watch_enabled else "idle"
+    except Exception as exc:  # noqa: BLE001
+        report["warnings"].append(f"folder watch: {exc}")
+
     want_auto = cfg.auto_reindex if auto_reindex is None else auto_reindex
     if want_auto and cfg.is_configured:
         _timer = threading.Timer(AUTO_REINDEX_DELAY_S, _auto_reindex)
@@ -96,12 +104,18 @@ def shutdown() -> None:
     if _timer is not None:
         _timer.cancel()
         _timer = None
-    for closer in (_close_indexer, _close_hash, _close_enable, _close_embed,
-                   _close_thumbs, _close_db):
+    for closer in (_close_watch, _close_indexer, _close_hash, _close_enable,
+                   _close_embed, _close_thumbs, _close_db):
         try:
             closer()
         except Exception as exc:  # noqa: BLE001 - shutdown is best effort
             log.debug("shutdown step failed: %s", exc)
+
+
+def _close_watch() -> None:
+    from ..jobs.watch_service import shutdown_watcher
+
+    shutdown_watcher()
 
 
 def _close_indexer() -> None:

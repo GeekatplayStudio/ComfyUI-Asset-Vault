@@ -13,13 +13,13 @@ import json
 import logging
 import platform
 import time
-from pathlib import Path
 from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from ..config import DATA_DIR
-from ..core import config_service, db as dbmod
+from ..core import config_service
+from ..core import db as dbmod
 from ..parsers import node_registry
 from . import comfyui_service
 
@@ -64,7 +64,7 @@ def _form_factor() -> str:
 def _installed_version() -> str:
     try:
         return str(comfyui_service.probe().version or "unknown")
-    except Exception:  # a catalogue must remain usable when probing is incomplete
+    except Exception:  # noqa: BLE001 - a catalogue must remain usable when probing is incomplete
         return "unknown"
 
 
@@ -79,7 +79,7 @@ def _fetch_cnr() -> list[dict]:
     for page in range(1, MAX_PAGES + 1):
         query = urlencode({"page": page, "limit": PAGE_LIMIT,
                            "comfyui_version": version, "form_factor": _form_factor()})
-        request = Request(f"{API_BASE}/nodes?{query}", headers={
+        request = Request(f"{API_BASE}/nodes?{query}", headers={  # noqa: S310 - API_BASE is a fixed https:// constant, never caller input
             "Accept": "application/json", "User-Agent": "ComfyUI-Asset-Vault/2.1"
         })
         try:
@@ -106,7 +106,7 @@ def _fetch_cnr() -> list[dict]:
 def _installed_by_repo() -> set[str]:
     try:
         rows = dbmod.rows(dbmod.get_ro(), "SELECT repo_url FROM node_packages WHERE missing_since IS NULL")
-    except Exception:
+    except Exception:  # noqa: BLE001 - an unreadable DB just means "nothing installed"
         return set()
     return {node_registry.normalize_repo_url(str(r["repo_url"])).lower()
             for r in rows if r["repo_url"] and node_registry.normalize_repo_url(str(r["repo_url"]))}
@@ -199,7 +199,8 @@ def list_registry(*, q: str | None = None, installed: bool | None = None,
         items = [x for x in items if x.get("source") == source]
     items.sort(key=lambda x: (not bool(x.get("installed")), str(x.get("name") or "").lower()))
     total = len(items)
-    limit = max(1, min(int(limit), 500)); offset = max(0, int(offset))
+    limit = max(1, min(int(limit), 500))
+    offset = max(0, int(offset))
     page_items = items[offset:offset + limit]
     return {"items": page_items,
             "page": {"limit": limit, "offset": offset, "total": total,
