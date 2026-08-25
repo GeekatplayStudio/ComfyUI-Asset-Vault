@@ -1,4 +1,4 @@
-﻿"""Output list / detail / graph - contract-shaped (API_CONTRACT 6)."""
+"""Output list / detail / graph - contract-shaped (API_CONTRACT 6)."""
 
 from __future__ import annotations
 

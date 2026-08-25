@@ -9,6 +9,7 @@ import Badge from '../common/Badge.jsx'
 import { SkeletonMeta } from '../common/Skeleton.jsx'
 import EmptyState from '../common/EmptyState.jsx'
 import MetaRow, { Section, ProvenanceRow, DetailsFallback } from './MetaRow.jsx'
+import Annotations from './Annotations.jsx'
 import {
   bytes, dateTime, dimensions, duration, count as fmtCount
 } from '../../services/format.js'
@@ -50,6 +51,16 @@ export default function OutputDetails({ id, onOpenUid, onLightbox }) {
       toastError(err, 'Could not open the folder')
     }
   }, [id, toastError])
+
+  const onAnnotate = useCallback(async (fields) => {
+    try {
+      await api.patchOutput(id, fields)
+      detail.refresh()
+      invalidate()
+    } catch (err) {
+      toastError(err, 'Could not save')
+    }
+  }, [id, detail, invalidate, toastError])
 
   const copyPrompt = useCallback(async () => {
     if (!out || !out.positive_prompt || !navigator.clipboard) return
@@ -178,6 +189,10 @@ export default function OutputDetails({ id, onOpenUid, onLightbox }) {
           {out.negative_prompt ? (
             <div className="gp-prompt gp-prompt--negative gp-u-mt-4">{out.negative_prompt}</div>
           ) : null}
+        </Section>
+
+        <Section title="Your library">
+          <Annotations item={out} onPatch={onAnnotate} />
         </Section>
 
         <Section title="Generation">

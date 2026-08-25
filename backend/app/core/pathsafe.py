@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -58,9 +59,22 @@ def normalize(p: str | Path) -> Path:
     return Path(s)
 
 
+#: Fold case on the platforms whose default filesystems ignore it.  Windows
+#: (NTFS) and macOS (APFS/HFS+ as shipped) are case-insensitive; Linux is not.
+#: ``os.path.normcase`` alone gets macOS wrong - it is the identity there, so
+#: one file spelled two ways would index as two rows.  A deliberately
+#: case-sensitive APFS volume is the rarer setup and trades the other way.
+FOLD_CASE = os.name == "nt" or sys.platform == "darwin"
+
+
+def fold_case(s: str) -> str:
+    """The canonical spelling of a path for keys and containment checks."""
+    return os.path.normcase(s).lower() if FOLD_CASE else s
+
+
 def path_key(p: str | Path) -> str:
-    """Case-folded canonical key used for UNIQUE constraints on NTFS."""
-    return os.path.normcase(str(normalize(p)))
+    """Case-folded canonical key used for UNIQUE constraints."""
+    return fold_case(str(normalize(p)))
 
 
 def long_path(p: str | Path) -> str:
@@ -82,7 +96,7 @@ def long_path(p: str | Path) -> str:
 def is_contained(child: str | Path, root: str | Path) -> bool:
     """True when ``child`` lies inside ``root`` (inclusive).  Never raises."""
     c, r = normalize(child), normalize(root)
-    cs, rs = os.path.normcase(str(c)), os.path.normcase(str(r))
+    cs, rs = fold_case(str(c)), fold_case(str(r))
     if not rs or rs == ".":
         return False
     if os.name == "nt" and c.drive.lower() != r.drive.lower():

@@ -8,6 +8,53 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 ### Added
 
+**Your library — ratings, tags, colour labels and notes.** The user-metadata layer that has
+always existed in the schema now has an interface. Every model and output details panel carries
+a **Your library** section: a five-star rating (click the current star to clear it), a colour
+label, tag chips with an add field and suggestions from your existing tags, and a free-text
+notes box that saves when focus leaves it. This makes three things that already shipped finally
+mean something: the left rail's **My rating** filter, the **Rating** sort, and the **Untagged**
+album — which until now matched the entire library, because nothing could tag anything. Tags,
+ratings and notes were always preserved across rename and move; now there is a way to create
+them outside of an MCP client.
+
+**Model update detection actually detects.** Matching a hashed file against Civitai answers
+"which version is this file" — it never asked "what is the newest version". A second, cached
+lookup against the model's version list now does, so `has_update` is finally written, the
+**Updates available** album can populate, and the **Newer version** callout can fire. A failed
+latest-version lookup never blocks the match itself.
+
+**Node-package update checks are implemented.** "Check updates" previously ended in an
+unconditional error — there was no success path in the build. Each package's recorded commit is
+now compared against its remote tip with one `git ls-remote` through the same hardened runner
+and host allowlist as the Enable clone path: nothing is cloned, nothing runs, and only the
+repository URL leaves the machine. Batch checks drain on a background worker; a package whose
+branch was renamed upstream falls back to comparing HEAD. `commits_behind` stays deliberately
+empty — counting it would need a fetch, and "the remote tip is not the commit you have" is the
+honest fact one ls-remote can establish.
+
+**Watch folders, for real.** The Settings toggle was wired to nothing. A watcher thread now
+polls while the toggle is on: every two minutes it runs the incremental scan (sub-second when
+nothing changed), so a model that finished copying appears in the vault within the interval —
+no F5. Flipping the toggle takes effect without a restart, like every other setting.
+
+**Release packaging.** `make_release.ps1` produces a versioned archive with the interface
+pre-built, so a user needs Python but never Node.js — Node remains a build-time tool for source
+checkouts, and nothing about the product changes. All three launchers and installers detect a
+pre-built interface and skip the Node requirement; a dev checkout with `node_modules` present
+still rebuilds every start so source edits are never served stale.
+
+**POSIX launchers and first portability steps.** `start_app.sh`, `stop_app.sh`,
+`install_dependencies.sh` and `show_service_status.sh` mirror their Windows counterparts.
+**Reveal** now opens Finder with the file selected on macOS and the containing folder on Linux
+instead of refusing off-Windows. The Storage tab keys volumes by device id on POSIX (drive
+letters do not exist there, and every root previously reported as its own disk). Path keys and
+fingerprints now fold case on macOS, whose default filesystem is case-insensitive — without
+this, one file spelled two ways would index as two records. The first-launch wizard no longer
+suggests a drive letter that only ever existed on the reference machine. Linux/macOS remain
+experimental until the platform test suites run there — the README says exactly what is and
+is not covered.
+
 **Open in ComfyUI.** A workflow can now be opened where it is meant to run, from the details
 panel and from the row and card actions in the Workflows tab. If ComfyUI is not running, the
 vault offers to start it — and that offer is a separate question with its own answer.

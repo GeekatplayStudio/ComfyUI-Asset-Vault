@@ -122,9 +122,41 @@ def measure_dir(root: str | Path, *, cap: int = WALK_FILE_CAP,
 # ---------------------------------------------------------------------------
 
 def _volume_key(path: str | Path) -> str:
+    """One key per physical volume.
+
+    Windows: the drive letter.  POSIX: ``st_dev`` of the nearest existing
+    ancestor - ``splitdrive`` is always empty there, and keying on the path
+    would report every root as its own disk with duplicated free space.
+    """
     p = str(normalize(path))
     drive = os.path.splitdrive(p)[0]
-    return os.path.normcase(drive or p)
+    if drive:
+        return os.path.normcase(drive)
+    probe = p
+    while probe:
+        try:
+            return f"dev:{os.stat(probe).st_dev}"
+        except OSError:
+            parent = os.path.dirname(probe)
+            if parent == probe:
+                break
+            probe = parent
+    return os.path.normcase(p)
+
+
+def _mount_label(path: str | Path) -> str:
+    """What a person calls the volume: ``C:`` on Windows, the mount point on POSIX."""
+    p = str(normalize(path))
+    drive = os.path.splitdrive(p)[0]
+    if drive:
+        return drive
+    probe = p if os.path.isdir(p) else os.path.dirname(p)
+    while probe and not os.path.ismount(probe):
+        parent = os.path.dirname(probe)
+        if parent == probe:
+            break
+        probe = parent
+    return probe or "/"
 
 
 def volume_usage(path: str | Path) -> dict:
@@ -164,7 +196,7 @@ def volumes(cfg=None) -> list[dict]:
             usage = volume_usage(root["path"])
             entry = out[key] = {
                 "key": key,
-                "mount": os.path.splitdrive(str(normalize(root["path"])))[0] or key,
+                "mount": _mount_label(root["path"]),
                 "roots": [], **usage,
             }
         entry["roots"].append(root)

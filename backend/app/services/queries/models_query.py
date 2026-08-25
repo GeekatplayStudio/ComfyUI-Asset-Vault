@@ -1,4 +1,4 @@
-﻿"""Model list / detail / facets / groups / usage - contract-shaped (API_CONTRACT 3)."""
+"""Model list / detail / facets / groups / usage - contract-shaped (API_CONTRACT 3)."""
 
 from __future__ import annotations
 

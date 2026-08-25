@@ -1007,6 +1007,11 @@ ENABLE_WORKFLOW_PLAN = ToolDef(
             "item_id": STR, "kind": STR, "ref_name": STR, "repo_url": NSTR,
             "host": NSTR, "class_types": STRS, "class_count": INT, "status": STR,
             "reason": NSTR, "manual_steps": STRS, "never_runs": STRS,
+            # The immutable commit the plan pins, and the per-item safety notes
+            # (level green|yellow|red) the UI renders beside it.
+            "revision": NSTR,
+            "safety": {"type": "array", "items": item_schema(
+                {"level": STR, "code": STR, "message": STR})},
             "destination": {"anyOf": [_ENABLE_DESTINATION, {"type": "null"}]}})},
         "plan_token": STR,
         "plan_expires_in_ms": INT,

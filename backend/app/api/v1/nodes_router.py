@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 
 from ...core import config_service
+from ...enable import git_fetch
+from ...services import node_registry_service, node_update_service
 from ...services.queries import nodes_query
-from ...services import node_registry_service
 from ..deps import Page, apply_fields, check_group, check_sort, csv_param, page_params
 from ..middleware import ApiError
 from ..schemas.common import BASE_ERRORS, MUTATION_ERRORS, error_responses
@@ -120,10 +120,11 @@ def check_node_package_updates(body: CheckUpdatesRequest) -> dict:
         raise ApiError("FEATURE_UNAVAILABLE",
                        "Online checks are disabled. Enable them in Settings first.",
                        details={"reason": "online_disabled"})
-    raise ApiError("FEATURE_UNAVAILABLE",
-                   "Git upstream comparison is not available in this build.",
-                   details={"reason": "update_check_unavailable",
-                            "requested": len(body.ids or [])})
+    if not git_fetch.available():
+        raise ApiError("FEATURE_UNAVAILABLE",
+                       "git was not found on PATH, so remotes cannot be compared.",
+                       details={"reason": "git_missing"})
+    return node_update_service.enqueue_checks(body.ids)
 
 
 @packages_router.get("/{package_id}",
@@ -178,10 +179,11 @@ def check_node_package_update(package_id: int) -> dict:
         raise ApiError("FEATURE_UNAVAILABLE",
                        "Online checks are disabled. Enable them in Settings first.",
                        details={"reason": "online_disabled"})
-    raise ApiError("FEATURE_UNAVAILABLE",
-                   "Git upstream comparison is not available in this build.",
-                   details={"reason": "update_check_unavailable",
-                            "job_hint": f"upd-{uuid.uuid4().hex[:4]}"})
+    if not git_fetch.available():
+        raise ApiError("FEATURE_UNAVAILABLE",
+                       "git was not found on PATH, so remotes cannot be compared.",
+                       details={"reason": "git_missing"})
+    return node_update_service.check_package(package_id)
 
 
 # ---------------------------------------------------------------------------

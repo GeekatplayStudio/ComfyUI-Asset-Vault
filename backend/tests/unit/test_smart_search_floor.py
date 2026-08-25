@@ -21,7 +21,7 @@ np = pytest.importorskip("numpy", reason="the vector arm needs numpy")
 class _StubService(embed_service.EmbedService):
     """Real search(), stubbed model: the ranking maths is what is under test."""
 
-    def __init__(self, scores: dict[str, float]):  # noqa: D107 - test fixture
+    def __init__(self, scores: dict[str, float]):
         self._uids = list(scores)
         self._kinds = ["model"] * len(scores)
         self._scores = np.array(list(scores.values()), dtype="float32")

@@ -73,7 +73,8 @@ never affected by it.
 Contents change per tab, and every entry carries its own count and byte total.
 
 * **Albums** — `All`, `Recently added`, `Favorites`, `Needs hashing`, `Updates available`,
-  `Missing files`, `Integrity issues`, `Unused models`, `Untagged`, plus any you create.
+  `Missing files`, `Integrity issues`, `Unused models`, `Untagged`. (Creating your own albums
+  is currently possible over the REST API; an in-app album manager is planned.)
 * **Folders** — the real folder tree under each root, with per-folder counts and sizes.
 * **Base model / Source / Authors / State / Media / When** — depending on the tab.
 
@@ -123,6 +124,11 @@ badge (`unhashed` · `queued` · `hashing` · `done` · `failed` · `stale`).
 
 Select one and the **Details** panel gives you:
 
+* **Your library** — a five-star rating (click the lit star again to clear it), a colour label,
+  tag chips with an add field that suggests your existing tags, and private notes saved the
+  moment you click away. Ratings drive the rail's **My rating** filter and the **Rating** sort;
+  tags drive search and the **Untagged** album; everything here follows the file through rename
+  and move. Outputs have the identical section.
 * **Technical** — architecture and role, base model, variant, modality, precision, quantisation,
   parameter count, tensor count, container format, prediction type, resolution hint, and whether
   it is a bundled checkpoint or an adapter.
@@ -389,7 +395,10 @@ in the `Missing files` album with its ratings, tags and album membership intact,
 drive restores it exactly as it was.
 
 Settings → Jobs controls whether a scan runs automatically at startup when files changed, and
-whether folders are watched for changes.
+whether folders are watched for changes. Watching polls: while the toggle is on, an incremental
+scan (well under a second when nothing changed) runs every two minutes, so a file that finished
+copying appears in the vault within that interval without pressing `F5`. The toggle takes
+effect immediately — no restart.
 
 ---
 

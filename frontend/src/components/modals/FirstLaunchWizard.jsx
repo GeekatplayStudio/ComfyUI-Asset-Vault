@@ -19,7 +19,10 @@ import { bytes, count as fmtCount } from '../../services/format.js'
  * the live progress view the moment the server accepts it.
  */
 
-const DEFAULT_PATH = 'O:\\ComfyUI'
+// A placeholder only, never a guess about this machine: the field starts
+// empty and the example matches the platform serving the page.
+const EXAMPLE_PATH = navigator.platform && navigator.platform.startsWith('Win')
+  ? 'C:\\ComfyUI' : '/home/you/ComfyUI'
 
 function BrandLockup() {
   return (
@@ -45,7 +48,7 @@ function BrandLockup() {
 export default function FirstLaunchWizard({ onDone, onCancel, initialPath }) {
   const { toast, toastError, refreshConfig } = useVault()
   const [step, setStep] = useState(0)
-  const [path, setPath] = useState(initialPath || DEFAULT_PATH)
+  const [path, setPath] = useState(initialPath || '')
   const [validation, setValidation] = useState(null)
   const [checking, setChecking] = useState(false)
   const [online, setOnline] = useState(false)
@@ -131,7 +134,7 @@ export default function FirstLaunchWizard({ onDone, onCancel, initialPath }) {
                     spellCheck="false"
                     autoFocus
                     onChange={(e) => setPath(e.target.value)}
-                    placeholder={DEFAULT_PATH}
+                    placeholder={EXAMPLE_PATH}
                   />
                   <span className="gp-field__hint">
                     The folder holding models, custom_nodes, output and input. Nothing is written

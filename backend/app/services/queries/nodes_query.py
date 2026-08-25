@@ -1,4 +1,4 @@
-﻿"""Node package / node class queries - contract-shaped (API_CONTRACT 4)."""
+"""Node package / node class queries - contract-shaped (API_CONTRACT 4)."""
 
 from __future__ import annotations
 

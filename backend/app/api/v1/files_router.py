@@ -12,7 +12,8 @@ import email.utils
 import mimetypes
 import os
 import re
-import subprocess  # Explorer "reveal" only, never on a scan path
+import shutil
+import subprocess  # file-manager "reveal" only, never on a scan path
 import sys
 import urllib.parse
 from collections.abc import Iterator
@@ -255,18 +256,31 @@ def download_file(request: Request, uid: str = Query(...)) -> Response:
                                          "PATH_NOT_ALLOWED", "FEATURE_UNAVAILABLE",
                                          "CSRF_HEADER_MISSING"),
                        **BASE_ERRORS},
-            summary="Open Explorer with the file selected (Windows only)")
+            summary="Open the platform file manager with the file selected")
 def reveal_file(uid: str = Query(...)) -> dict:
-    if sys.platform != "win32":
-        raise ApiError("FEATURE_UNAVAILABLE",
-                       "Revealing a file in the file manager is Windows-only here.",
-                       details={"platform": sys.platform})
+    """Explorer selects the file; Finder selects it; Linux opens its folder.
+
+    The argv is fixed per platform and the only variable element is the
+    resolved, root-contained path - never anything a client supplied.
+    """
     info = _resolve(uid)
-    explorer = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "explorer.exe")
+    if sys.platform == "win32":
+        explorer = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "explorer.exe")
+        argv = [explorer, f"/select,{info['path']}"]
+    elif sys.platform == "darwin":
+        argv = ["/usr/bin/open", "-R", info["path"]]
+    else:
+        opener = shutil.which("xdg-open")
+        if opener is None:
+            raise ApiError("FEATURE_UNAVAILABLE",
+                           "No file manager opener was found (xdg-open is missing).",
+                           details={"platform": sys.platform})
+        # xdg-open has no select-the-file mode; opening the folder is honest.
+        argv = [opener, os.path.dirname(info["path"])]
     try:
-        subprocess.Popen([explorer, f"/select,{info['path']}"],  # noqa: S603
-                         close_fds=True)
+        subprocess.Popen(argv, close_fds=True)  # noqa: S603
     except OSError as exc:
-        raise ApiError("FEATURE_UNAVAILABLE", f"Explorer could not be started: {exc}",
+        raise ApiError("FEATURE_UNAVAILABLE",
+                       f"The file manager could not be started: {exc}",
                        details={"uid": uid}) from exc
     return {"ok": True}

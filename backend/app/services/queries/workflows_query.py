@@ -1,4 +1,4 @@
-﻿"""Workflow list / detail / graph / dependencies - contract-shaped (API_CONTRACT 5)."""
+"""Workflow list / detail / graph / dependencies - contract-shaped (API_CONTRACT 5)."""
 
 from __future__ import annotations
 

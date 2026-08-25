@@ -277,18 +277,30 @@ opaque `uid`.
 
 ## Quick start
 
+Windows:
+
 ```bat
 install_dependencies.bat
 start_app.bat
 ```
 
-`install_dependencies.bat` creates a Python virtual environment, installs the backend and frontend
-dependencies, and verifies both before it finishes.
+Linux / macOS (experimental — see [Requirements](#requirements)):
 
-`start_app.bat` starts the vault engine on **http://127.0.0.1:8127**, waits until it actually
-accepts connections (not just until the process launches), builds the interface and opens it at
-**http://127.0.0.1:8127/**. The vault and its hash queue remain running if the launcher or browser
-closes; `stop_app.bat` explicitly shuts the engine down cleanly.
+```bash
+./install_dependencies.sh
+./start_app.sh
+```
+
+The installer creates a Python virtual environment, installs the backend and frontend
+dependencies, and verifies both before it finishes. **A release archive ships the interface
+pre-built, so Node.js is not required to run the app** — it is only needed when building the
+interface from a source checkout (`make_release.ps1` produces the archive).
+
+The launcher starts the vault engine on **http://127.0.0.1:8127**, waits until it actually
+accepts connections (not just until the process launches), builds the interface if needed and
+opens it at **http://127.0.0.1:8127/**. The vault and its hash queue remain running if the
+launcher or browser closes; `stop_app.bat` / `./stop_app.sh` explicitly shuts the engine down
+cleanly.
 
 On first launch a short wizard asks where ComfyUI is installed, validates the folder live as you
 type, and runs the first scan.
@@ -303,9 +315,9 @@ Something looks wrong → **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**
 
 | | |
 |---|---|
-| OS | Windows 10 / 11 (paths, long-path handling and file locking are all written for Win32) |
+| OS | Windows 10 / 11 is the tested platform. Linux and macOS run **experimentally**: the engine, indexing, search and file operations are platform-neutral, and POSIX launchers ship (`start_app.sh` and friends) — but the ComfyUI start/update integration still expects a Windows portable layout, and the platform-specific test suites have not yet been run there. |
 | Python | 3.10 or newer |
-| Node.js | 18 or newer |
+| Node.js | 18 or newer — **only when building the interface from source.** Release archives ship it pre-built; running the app never requires Node. |
 | ComfyUI | Any recent install — portable or `git`-checkout. The vault indexes it; it doesn't need ComfyUI running. |
 | Disk | The vault database and thumbnail cache are typically well under 100 MB even for a large library |
 

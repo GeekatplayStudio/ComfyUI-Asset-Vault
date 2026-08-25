@@ -11,6 +11,7 @@ import EmptyState from '../common/EmptyState.jsx'
 import MetaRow, { Section, DetailsFallback } from './MetaRow.jsx'
 import { CommunityStars } from '../grid/AssetCard.jsx'
 import ComponentBreakdown from './ComponentBreakdown.jsx'
+import Annotations from './Annotations.jsx'
 import HashStatus from './HashStatus.jsx'
 import UsageList from './UsageList.jsx'
 import {
@@ -55,6 +56,16 @@ export default function ModelDetails({ id, onOpenUid, onLightbox }) {
       toastError(err, 'Could not update the model')
     }
   }, [model, id, detail, invalidate, toastError])
+
+  const onAnnotate = useCallback(async (fields) => {
+    try {
+      await api.patchModel(id, fields)
+      detail.refresh()
+      invalidate()
+    } catch (err) {
+      toastError(err, 'Could not save')
+    }
+  }, [id, detail, invalidate, toastError])
 
   const onRefreshMetadata = useCallback(async () => {
     try {
@@ -145,7 +156,7 @@ export default function ModelDetails({ id, onOpenUid, onLightbox }) {
           <Button size="sm" icon={Star} label={model.favorite ? 'Favourited' : 'Favourite'}
             aria-pressed={model.favorite} onClick={onFavorite} />
           <Button size="sm" variant="ghost" icon={FolderOpen} label="Reveal"
-            title="Open this file's folder in Explorer" onClick={onReveal} />
+            title="Show this file in your file manager" onClick={onReveal} />
         </div>
 
         {integrity.status && integrity.status !== 'ok' ? (
@@ -157,6 +168,10 @@ export default function ModelDetails({ id, onOpenUid, onLightbox }) {
             </div>
           </div>
         ) : null}
+
+        <Section title="Your library">
+          <Annotations item={model} onPatch={onAnnotate} />
+        </Section>
 
         <Section title="Technical">
           <div className="gp-meta">
