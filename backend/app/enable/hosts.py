@@ -48,8 +48,24 @@ GIT_HOSTS_EXACT: frozenset[str] = frozenset({
 })
 GIT_HOSTS_SUFFIX: tuple[str, ...] = ()
 
+#: Hosts that may serve *this application's own* release archive.  Deliberately
+#: the narrowest list in this module: the GitHub API that publishes the release
+#: metadata, and the two hosts GitHub redirects asset downloads to.  The
+#: repository itself is pinned in ``services/app_update_service.py`` and is not
+#: configurable, so no setting can point the self-updater at another project.
+RELEASE_HOSTS_EXACT: frozenset[str] = frozenset({
+    "api.github.com",
+    "github.com",
+    "objects.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+})
+RELEASE_HOSTS_SUFFIX: tuple[str, ...] = (
+    ".githubusercontent.com",
+)
+
 KIND_MODEL = "model"
 KIND_GIT = "git"
+KIND_RELEASE = "release"
 
 #: R2.  Five hops, each re-validated.  A chain longer than this is a redirect
 #: loop or an attempt to walk somewhere allowlisting cannot see.
@@ -80,7 +96,9 @@ class HostNotAllowed(ValidationError):
             details={"url": _redact(url), "host": host, "reason": reason,
                      "allowed_model_hosts": sorted(MODEL_HOSTS_EXACT)
                      + list(MODEL_HOSTS_SUFFIX),
-                     "allowed_git_hosts": sorted(GIT_HOSTS_EXACT)},
+                     "allowed_git_hosts": sorted(GIT_HOSTS_EXACT),
+                     "allowed_release_hosts": sorted(RELEASE_HOSTS_EXACT)
+                     + list(RELEASE_HOSTS_SUFFIX)},
         )
         self.reason = reason
 
@@ -128,6 +146,8 @@ def host_allowed(host: str | None, kind: str = KIND_MODEL) -> bool:
         return False
     if kind == KIND_GIT:
         exact, suffixes = GIT_HOSTS_EXACT, GIT_HOSTS_SUFFIX
+    elif kind == KIND_RELEASE:
+        exact, suffixes = RELEASE_HOSTS_EXACT, RELEASE_HOSTS_SUFFIX
     else:
         exact, suffixes = MODEL_HOSTS_EXACT, MODEL_HOSTS_SUFFIX
     if normalized in exact:
@@ -224,6 +244,7 @@ def describe() -> dict:
     return {
         "model_hosts": sorted(MODEL_HOSTS_EXACT) + list(MODEL_HOSTS_SUFFIX),
         "git_hosts": sorted(GIT_HOSTS_EXACT),
+        "release_hosts": sorted(RELEASE_HOSTS_EXACT) + list(RELEASE_HOSTS_SUFFIX),
         "scheme": _SCHEME,
         "max_redirects": MAX_REDIRECTS,
     }

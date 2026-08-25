@@ -1017,7 +1017,11 @@ ENABLE_WORKFLOW_PLAN = ToolDef(
         "plan_expires_in_ms": INT,
         "plan_items": INT,
         "policy": item_schema({
-            "model_hosts": STRS, "git_hosts": STRS, "scheme": STR,
+            "model_hosts": STRS, "git_hosts": STRS,
+            # Not used by this tool, but ``hosts.describe()`` is spread whole
+            # into the policy block, so the key has to be declared.
+            "release_hosts": STRS,
+            "scheme": STR,
             "max_redirects": INT, "never_runs": STRS,
             "on_conflict_allowed": STRS, "git_available": BOOL}),
         "generated_at": INT,

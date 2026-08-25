@@ -70,6 +70,8 @@ class SystemConfig(Lenient):
     ollama_model: str
     smart_search_enabled: bool
     smart_search_min_score: float
+    app_update_check_enabled: bool
+    app_update_auto_download: bool
     hash_concurrency: int
     hash_throttle_mbps: int
     thumb_cache_max_mb: int
@@ -111,8 +113,59 @@ class ConfigPatch(Strict):
     # this is the switch that puts the MCP surface back to read-only.
     mcp_read_only: bool | None = None
     extra_workflow_dirs: list[str] | None = None
+    app_update_check_enabled: bool | None = None
+    # Downloading a new copy of the app is opt-in and defaults off.
+    app_update_auto_download: bool | None = None
+    app_update_skipped_version: str | None = Field(default=None, max_length=40)
 
     _check_ollama_url = field_validator("ollama_url")(_validated_ollama_url)
+
+
+class AppUpdatePending(Lenient):
+    """A staged release waiting for the next launch to apply it."""
+
+    version: str
+    tag: str | None = None
+    from_version: str | None = None
+    sha256: str | None = None
+    verified: bool = False
+    staged_at: int | None = None
+    files: int = 0
+    notes: str | None = None
+    html_url: str | None = None
+
+
+class AppUpdateStatus(Lenient):
+    current_version: str
+    latest_version: str | None = None
+    has_update: bool = False
+    #: disabled | offline | current | update_available | error | unknown
+    state: str
+    reason: str | None = None
+    notes: str | None = None
+    published_at: str | None = None
+    download_bytes: int = 0
+    #: Whether the release published a checksum at all.  Integrity, not authorship.
+    checksum_published: bool = False
+    downloadable: bool | None = None
+    releases_url: str
+    repository: str
+    check_enabled: bool = True
+    auto_download: bool = False
+    online_enabled: bool = False
+    last_check: int = 0
+    skipped_version: str | None = None
+    pending: AppUpdatePending | None = None
+
+
+class AppUpdateDownloadResponse(Lenient):
+    ok: bool
+    pending: AppUpdatePending | None = None
+    restart_required: bool = True
+
+
+class AppUpdateDiscardResponse(Lenient):
+    discarded: bool
 
 
 class ValidatePathRequest(Strict):

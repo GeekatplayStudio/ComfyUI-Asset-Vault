@@ -41,6 +41,25 @@ if not defined PREBUILT (
     )
 )
 
+REM ----------------------------------------------- apply a staged update
+REM Nothing is running yet and nothing is imported, which is the only safe
+REM moment to replace the app's own files.  Exits 0 when nothing is staged.
+if exist "%ROOT%backend\data\updates\pending.json" (
+    echo [0/3] Applying the downloaded update ...
+    "%ROOT%venv\Scripts\python.exe" "%ROOT%apply_update.py"
+    if errorlevel 2 (
+        echo [ERROR] The update failed and could not be rolled back.
+        echo         Your previous files are in backend\data\updates\backup.
+        echo.
+        pause
+        exit /b 1
+    )
+    if errorlevel 1 (
+        echo [WARN]  The update failed and was rolled back. Continuing on the
+        echo         current version.
+    )
+)
+
 REM ------------------------------------------------------- port in use test
 netstat -ano | findstr /R /C:"LISTENING" | findstr /C:":%PORT% " >nul 2>&1
 if !errorlevel! equ 0 (

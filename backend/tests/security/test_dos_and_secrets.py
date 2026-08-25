@@ -412,10 +412,12 @@ def test_the_bus_refuses_the_subscription_past_the_cap():
 # Outbound network surface
 # ---------------------------------------------------------------------------
 
-def test_only_six_modules_may_reach_the_network(app_dir):
+def test_only_seven_modules_may_reach_the_network(app_dir):
     """The fifth is the C9 fetcher, whose every URL passes ``enable/hosts.py``;
     the sixth is the node-registry catalogue, which only ever fetches metadata
-    from its fixed official endpoint behind the ``online_enabled`` kill-switch.
+    from its fixed official endpoint behind the ``online_enabled`` kill-switch;
+    the seventh is the self-updater, whose repository is a module constant and
+    whose every URL passes ``hosts.check(kind=KIND_RELEASE)``.
     """
     users = []
     for path in app_dir.rglob("*.py"):
@@ -427,6 +429,7 @@ def test_only_six_modules_may_reach_the_network(app_dir):
             users.append(str(path.relative_to(app_dir)).replace("\\", "/"))
     assert sorted(users) == ["enable/download.py",
                              "jobs/embed_service.py",
+                             "services/app_update_service.py",
                              "services/civitai_service.py",
                              "services/comfyui_service.py",
                              "services/node_registry_service.py",

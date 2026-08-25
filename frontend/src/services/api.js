@@ -227,6 +227,12 @@ export const api = {
   storageCleanup: (body, signal) => post('/storage/cleanup', body, null, signal),
 
   /* ------------------------------- ComfyUI version, updater and templates */
+  /* ------------------------------------------------- app self-update */
+  appUpdate: (signal) => get('/system/app-update', null, signal),
+  appUpdateCheck: (signal) => post('/system/app-update/check', {}, null, signal),
+  appUpdateDownload: (signal) => post('/system/app-update/download', {}, null, signal),
+  appUpdateDiscard: (signal) => post('/system/app-update/discard', {}, null, signal),
+
   comfyInfo: (signal) => get('/comfyui/info', null, signal),
   comfyLatest: (force, signal) => get('/comfyui/latest', { force }, signal),
   comfyUpdatePlan: (updater, signal) => get('/comfyui/update/plan', { updater }, signal),

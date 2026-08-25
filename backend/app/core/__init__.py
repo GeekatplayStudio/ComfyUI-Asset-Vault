@@ -13,6 +13,8 @@ import threading
 log = logging.getLogger(__name__)
 
 AUTO_REINDEX_DELAY_S = 2.0
+#: Long enough that a cold start finishes serving the interface first.
+UPDATE_CHECK_DELAY_S = 20.0
 
 _timer: threading.Timer | None = None
 
@@ -79,6 +81,15 @@ def startup(*, auto_reindex: bool | None = None) -> dict:
     except Exception as exc:  # noqa: BLE001
         report["warnings"].append(f"folder watch: {exc}")
 
+    # The update check runs on a timer, never inline: it is a network call, and
+    # startup must not wait on GitHub.  It is a no-op unless both the check and
+    # outbound lookups are enabled.
+    if cfg.app_update_check_enabled and cfg.online_enabled:
+        timer = threading.Timer(UPDATE_CHECK_DELAY_S, _check_for_app_update)
+        timer.daemon = True
+        timer.start()
+        report["app_update_check"] = "scheduled"
+
     want_auto = cfg.auto_reindex if auto_reindex is None else auto_reindex
     if want_auto and cfg.is_configured:
         _timer = threading.Timer(AUTO_REINDEX_DELAY_S, _auto_reindex)
@@ -88,6 +99,19 @@ def startup(*, auto_reindex: bool | None = None) -> dict:
     else:
         report["auto_reindex"] = "off"
     return report
+
+
+def _check_for_app_update() -> None:
+    """Ask GitHub once per launch, and download only when asked to."""
+    try:
+        from ..services import app_update_service
+
+        result = app_update_service.check_and_maybe_download()
+        if result.get("has_update"):
+            log.info("a newer Asset Vault is available: %s (installed %s)",
+                     result.get("latest_version"), result.get("current_version"))
+    except Exception as exc:  # noqa: BLE001 - a failed check is never fatal
+        log.debug("app update check skipped: %s", exc)
 
 
 def _auto_reindex() -> None:
