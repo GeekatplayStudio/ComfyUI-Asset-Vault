@@ -1,0 +1,6 @@
+# POSIX shell scripts must check out with LF on every platform - a CRLF
+# shebang line breaks bash outright.
+*.sh text eol=lf
+
+# Windows batch files are the mirror case: cmd.exe wants CRLF.
+*.bat text eol=crlf
