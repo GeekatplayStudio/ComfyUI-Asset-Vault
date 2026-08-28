@@ -6,6 +6,46 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 ## Unreleased
 
+### Fixed — the ComfyUI folder picker, and an audit pass over the installer and engine
+
+**A portable install's own folder was rejected.** A portable build unpacks so that `ComfyUI`
+sits beside `python_embeded` and `update`, which makes the parent — often a drive root, like
+`O:\` — the natural thing to type. The wizard and Settings only ever inspected the exact folder
+given, so that parent failed with "does not look like a ComfyUI installation" even though the
+real install was one level down. Pointing at the parent now finds the install inside it; the
+live validator says what it found before anything is saved, and the saved path is always the
+install itself, so every root, scan and `custom_nodes` lookup derived from it is correct.
+
+**Python 3.10 was advertised and enforced, but never actually worked.** A module-scope
+`import tomllib` — stdlib only from 3.11 — meant a 3.10 install would pass every installer check
+and then fail with an `ImportError` the first time a custom node's `pyproject.toml` was read. All
+three installers, the README and `docs/INSTALL.md` now state the real floor, Python 3.11.
+
+**`start_app.ps1` had fallen behind `start_app.bat`/`.sh`.** It never applied a staged self-update
+before starting the engine, so a downloaded update stayed pending forever for anyone using the
+PowerShell launcher, and it required `frontend/node_modules` unconditionally — dead on arrival for
+a release archive, which ships the interface pre-built and needs no Node.js. Both are now
+consistent across all three launchers, along with `install_dependencies.sh` verifying the same
+package set as the Windows installers and `start_app.bat` stopping the engine after a startup
+timeout instead of leaving it running and blocking the next launch.
+
+**Smaller fixes found in the same pass:** smart search stayed stuck reporting "downloading"
+forever after a successful first-time model download; a model with no file rows could fall back
+to an unrelated file by id and rename or delete the wrong thing; a crashed download job was
+requeued on restart but its worker was never restarted to actually process it; a Civitai network
+timeout or rate limit was recorded as "this model does not exist" instead of "unreachable", so it
+never retried; SSE progress streams could crash outright on Python 3.10; a tag rename or delete
+past the 500th-most-used tag answered 404 even though the tag existed; search result lists
+silently dropped matches past the 900th; reordering or re-parenting an album could make it vanish
+from the tree because its id was stored as text; MP4/MOV files never got a width or height due to
+an off-by-eight in the box parser; a safetensors file could be misclassified as "not a model" by
+an unlucky header length; and GIF outputs got no metadata because they were routed to the video
+parser instead of Pillow.
+
+Also scrubbed: documentation and code comments carried the developer's own machine paths
+(`O:\ComfyUI`, a `D:\Projects\...` checkout) and one private library-size figure — replaced with
+generic examples throughout.
+
 ### Added
 
 **The vault can update itself.** A new **Settings → Updates** panel shows the

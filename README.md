@@ -303,7 +303,8 @@ launcher or browser closes; `stop_app.bat` / `./stop_app.sh` explicitly shuts th
 cleanly.
 
 On first launch a short wizard asks where ComfyUI is installed, validates the folder live as you
-type, and runs the first scan.
+type, and runs the first scan. On a portable build you can point at the folder that holds
+`ComfyUI` (the drive root, next to `python_embeded`) — the install inside it is found for you.
 
 Full instructions → **[docs/INSTALL.md](docs/INSTALL.md)**
 Day-to-day use → **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)**
