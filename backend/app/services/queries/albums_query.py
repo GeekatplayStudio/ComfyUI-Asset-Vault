@@ -167,8 +167,11 @@ def update_album(album_id: int, patch: dict) -> dict:
     if not fields:
         raise ValidationError("Nothing to update.")
     cols = ", ".join(f"{k} = ?" for k in fields)
-    vals = [dbmod.bind(v, kind="json" if k.endswith("_json") else "text")
-            for k, v in fields.items()]
+    def _kind(k: str) -> str:
+        if k.endswith("_json"):
+            return "json"
+        return "int" if k in ("parent_id", "sort_order") else "text"
+    vals = [dbmod.bind(v, kind=_kind(k)) for k, v in fields.items()]
 
     def _op(conn: sqlite3.Connection) -> int:
         conn.execute("BEGIN IMMEDIATE")

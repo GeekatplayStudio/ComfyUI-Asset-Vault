@@ -37,8 +37,15 @@ TAG_COLUMNS = ("name", "name_key", "color")
 
 
 def _get_tag(tag_id: int) -> dict | None:
-    listed = tags_query.list_tags(limit=500)
-    return next((t for t in listed.items if int(t["id"]) == int(tag_id)), None)
+    conn = dbmod.get_ro()
+    r = dbmod.one(
+        conn,
+        "SELECT t.*, (SELECT COUNT(*) FROM asset_tags a WHERE a.tag_id = t.id) uses "
+        "FROM tags t WHERE t.id = ?", (int(tag_id),))
+    if r is None:
+        return None
+    return {"id": int(r["id"]), "name": r["name"], "color": r["color"],
+            "source": r["source"], "count": int(r["uses"] or 0)}
 
 
 def _write_tag(tag_id: int, fields: dict) -> int:

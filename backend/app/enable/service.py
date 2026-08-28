@@ -14,6 +14,7 @@ arithmetic (R6) a moving target.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -189,6 +190,9 @@ class EnableService:
             n = int(dbmod.writer().run(_op))
         except BaseException:  # noqa: BLE001 - startup must never hard-fail
             return 0
+        if n:
+            with contextlib.suppress(BaseException):
+                self._ensure_worker()
         return n
 
     def shutdown(self) -> None:

@@ -127,8 +127,8 @@ REM ------------------------------------------------------- [5/5] SPA build
 echo [5/5] Building the interface ...
 call npm run build
 if !errorlevel! neq 0 (
-    echo [WARN]  The production build failed. The development interface that
-    echo         start_app.bat launches will still work.
+    echo [WARN]  The production build failed. start_app.bat will try to build
+    echo         the interface again before launching.
 ) else (
     echo       Built. The engine can now also serve the interface directly
     echo       at http://127.0.0.1:8127/ without a development server.

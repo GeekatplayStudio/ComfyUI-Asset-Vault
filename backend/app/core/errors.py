@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import errno
+
 # --- scan / parse error codes (ARCHITECTURE 3.6) ------------------------------
 HEADER_INVALID = "HEADER_INVALID"
 HEADER_TOO_LARGE = "HEADER_TOO_LARGE"
@@ -140,8 +142,8 @@ def classify_os_error(exc: BaseException) -> str:
     if winerr in (3, 206):
         return PATH_TOO_LONG
     if isinstance(exc, OSError):
-        if exc.errno == 13:
+        if exc.errno == errno.EACCES:
             return PERMISSION_DENIED
-        if exc.errno == 36:
+        if exc.errno == errno.ENAMETOOLONG:  # 36 on Linux, 63 on macOS
             return PATH_TOO_LONG
     return UNKNOWN

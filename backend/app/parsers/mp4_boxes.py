@@ -84,7 +84,9 @@ def _read_boxes(fh, end: int, info: Mp4Info, depth: int = 0) -> None:
                 return
             skip = 32 if ver[0] == 1 else 20
             fh.read(skip)
-            fh.read(52 - 8)  # reserved + layer + volume + matrix
+            # reserved(8) + layer(2) + alt_group(2) + volume(2) + reserved(2)
+            # + matrix(36) = 52 bytes before the fixed-point width/height.
+            fh.read(52)
             blob = fh.read(8)
             if len(blob) >= 8:
                 w, h = struct.unpack(">II", blob)

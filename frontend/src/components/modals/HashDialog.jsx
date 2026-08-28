@@ -33,16 +33,26 @@ export default function HashDialog({ onClose, presetUids }) {
   const status = state.hashStatus
 
   const events = useMemo(() => ['hash_progress', 'hash_item', 'done', 'heartbeat'], [])
+  // Coalesce bursts of progress events into at most one in-flight status fetch.
+  const statusFetchRef = React.useRef(false)
+  const refreshStatus = useCallback(() => {
+    if (statusFetchRef.current) return
+    statusFetchRef.current = true
+    api.hashStatus()
+      .then((s) => dispatch({ type: 'set-hash-status', status: s }))
+      .catch(() => {})
+      .finally(() => { statusFetchRef.current = false })
+  }, [dispatch])
   useEventSource(streamUrl('hash'), {
     enabled: true,
     events,
     onEvent: (name, payload) => {
       if (name === 'poll') dispatch({ type: 'set-hash-status', status: payload })
       else if (name === 'done') {
-        api.hashStatus().then((s) => dispatch({ type: 'set-hash-status', status: s }))
+        refreshStatus()
         invalidate()
       } else if (name === 'hash_progress' || name === 'hash_item') {
-        api.hashStatus().then((s) => dispatch({ type: 'set-hash-status', status: s }))
+        refreshStatus()
       }
     },
     poll: () => api.hashStatus()

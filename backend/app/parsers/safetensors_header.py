@@ -20,7 +20,10 @@ MAX_HEADER = 200 * 1024 * 1024
 MIN_FILE = 4096
 METADATA_CAP = 64 * 1024
 
-_HTML_SNIFF = (b"<!doctype", b"<html", b"<?xml", b"version http", b"{\n", b"<!DOCTYPE")
+# NOTE: no "{" needles here - the first 8 bytes are a little-endian length, and
+# a legitimate header length such as 0x0A7B starts the file with b"{\n".  A JSON
+# error page saved as a file fails the header-length plausibility check instead.
+_HTML_SNIFF = (b"<!doctype", b"<html", b"<?xml", b"version http", b"<!DOCTYPE")
 
 DTYPE_BITS = {
     "F64": 64, "I64": 64, "U64": 64,

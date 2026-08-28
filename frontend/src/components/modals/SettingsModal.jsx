@@ -175,9 +175,11 @@ function LocationTab({ config, onSaved, onReindex, onWizard }) {
         message: next.comfyui_path
       })
       if (onSaved) onSaved(next)
+      return true
     } catch (err) {
       setError(err)
       toastError(err, 'Could not save the path')
+      return false
     } finally {
       setSaving(false)
     }
@@ -196,7 +198,7 @@ function LocationTab({ config, onSaved, onReindex, onWizard }) {
           spellCheck="false"
           aria-invalid={error ? 'true' : undefined}
           onChange={(e) => setPath(e.target.value)}
-          placeholder="O:\ComfyUI"
+          placeholder="C:\ComfyUI"
         />
         {error ? (
           <span className="gp-field__error">
@@ -230,7 +232,7 @@ function LocationTab({ config, onSaved, onReindex, onWizard }) {
           title={blockedReason} onClick={save} />
         <Button icon={RefreshCw} label="Save and reindex now"
           disabled={rejected || saving} title={rejected ? blockedReason : undefined}
-          onClick={async () => { if (dirty) await save(); onReindex('full') }} />
+          onClick={async () => { if (dirty && !(await save())) return; onReindex('full') }} />
         <Button variant="ghost" icon={Wand2} label="Run the setup wizard"
           onClick={onWizard} />
       </div>
@@ -368,7 +370,11 @@ function SearchTab({ config }) {
                   loading={busy} disabled={busy || emb.state === 'ready'} onClick={enable} />
                 {emb.state === 'ready' ? (
                   <Button size="sm" variant="ghost" label="Rebuild index"
-                    onClick={() => api.embeddingsRebuild({ kinds: null, force: false })} />
+                    onClick={() => {
+                      api.embeddingsRebuild({ kinds: null, force: false })
+                        .then(() => toast({ tone: 'ok', title: 'Index rebuild started' }))
+                        .catch((err) => toastError(err, 'Could not rebuild the index'))
+                    }} />
                 ) : null}
               </div>
             </div>

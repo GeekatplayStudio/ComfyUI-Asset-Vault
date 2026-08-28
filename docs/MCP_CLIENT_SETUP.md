@@ -34,11 +34,11 @@ vault; Windows paths need doubled backslashes inside JSON.
 {
   "mcpServers": {
     "geekatplay-vault": {
-      "command": "D:\\Projects\\ComfyUIAssetManager\\venv\\Scripts\\python.exe",
+      "command": "C:\\path\\to\\ComfyUIAssetManager\\venv\\Scripts\\python.exe",
       "args": ["-m", "app.mcp_stdio"],
-      "cwd": "D:\\Projects\\ComfyUIAssetManager\\backend",
+      "cwd": "C:\\path\\to\\ComfyUIAssetManager\\backend",
       "env": {
-        "VAULT_DB": "D:\\Projects\\ComfyUIAssetManager\\backend\\data\\vault.db"
+        "VAULT_DB": "C:\\path\\to\\ComfyUIAssetManager\\backend\\data\\vault.db"
       }
     }
   }
@@ -77,7 +77,7 @@ below.
 
 ```bat
 cd backend
-set VAULT_DB=D:\Projects\ComfyUIAssetManager\backend\data\vault.db
+set VAULT_DB=C:\path\to\ComfyUIAssetManager\backend\data\vault.db
 ..\venv\Scripts\python.exe -m app.mcp_stdio
 ```
 

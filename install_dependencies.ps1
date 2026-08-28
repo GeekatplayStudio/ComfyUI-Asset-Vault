@@ -83,10 +83,16 @@ Write-Ok 'Engine packages verified.'
 Write-Step "[4/5] Installing the interface's Node packages ..."
 $npm = Get-Command npm -ErrorAction SilentlyContinue
 if (-not $npm) {
-    Write-Host ''
-    Write-Host '[WARN]  Node.js was not found on PATH, so the interface was skipped.' -ForegroundColor Yellow
-    Write-Host '        Install Node.js 18 or newer from https://nodejs.org and run' -ForegroundColor Yellow
-    Write-Host '        this installer again. The engine and its API already work.' -ForegroundColor Yellow
+    if (Test-Path (Join-Path $Root 'frontend\dist\index.html')) {
+        Write-Ok 'Node.js is not installed, and it is not needed: this archive'
+        Write-Note 'ships the interface pre-built at frontend\dist. The engine'
+        Write-Note 'serves it directly at http://127.0.0.1:8127/.'
+    } else {
+        Write-Host ''
+        Write-Host '[WARN]  Node.js was not found on PATH, so the interface was skipped.' -ForegroundColor Yellow
+        Write-Host '        Install Node.js 18 or newer from https://nodejs.org and run' -ForegroundColor Yellow
+        Write-Host '        this installer again. The engine and its API already work.' -ForegroundColor Yellow
+    }
 } else {
     Write-Ok "Node $(& node --version 2>&1)"
     Push-Location (Join-Path $Root 'frontend')
@@ -98,8 +104,8 @@ if (-not $npm) {
         Write-Step '[5/5] Building the interface ...'
         & npm run build
         if ($LASTEXITCODE -ne 0) {
-            Write-Host '[WARN]  The production build failed. The development interface that' -ForegroundColor Yellow
-            Write-Host '        start_app.bat launches will still work.' -ForegroundColor Yellow
+            Write-Host '[WARN]  The production build failed. start_app will try to build' -ForegroundColor Yellow
+            Write-Host '        the interface again before launching.' -ForegroundColor Yellow
         } else {
             Write-Ok 'Built. The engine can now also serve the interface directly'
             Write-Note 'at http://127.0.0.1:8127/ without a development server.'

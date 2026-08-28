@@ -35,7 +35,7 @@ re-index against it. Required behaviour, **verified by execution, not assumed**:
 
 ## C8 — Official ComfyUI workflows, version awareness, and updating ComfyUI
 
-1. **Detect the installed ComfyUI version.** `O:\ComfyUI\comfyui_version.py` exposes
+1. **Detect the installed ComfyUI version.** `C:\ComfyUI\comfyui_version.py` exposes
    `__version__` (currently **0.33.0**). Also record frontend/comfy package versions where
    available, and the install flavour (portable vs git checkout vs desktop).
 2. **Show the latest available version** and whether an update exists. Read-only check; must

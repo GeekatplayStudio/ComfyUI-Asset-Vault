@@ -176,7 +176,7 @@ Two mechanisms hold that, neither of which asks a mutation endpoint to remember 
 ### `GET /api/v1/system/config`
 `200`
 ```json
-{ "comfyui_path":"O:\\ComfyUI","path_exists":true,"is_configured":true,
+{ "comfyui_path":"C:\\ComfyUI","path_exists":true,"is_configured":true,
   "auto_reindex":true,"watch_enabled":false,
   "online_enabled":true,"civitai_enabled":true,"civitai_api_key_set":false,
   "ollama_enabled":false,"ollama_url":"http://localhost:11434","ollama_model":"llama3",
@@ -188,7 +188,7 @@ Two mechanisms hold that, neither of which asks a mutation endpoint to remember 
   "read_held_extra_paths":false,
   "mcp_read_only":false,
   "extra_workflow_dirs":[],
-  "roots":[{"id":1,"kind":"comfyui","path":"O:\\ComfyUI","label":"ComfyUI","available":true,"is_default":true,"source":"config"}] }
+  "roots":[{"id":1,"kind":"comfyui","path":"C:\\ComfyUI","label":"ComfyUI","available":true,"is_default":true,"source":"config"}] }
 ```
 `civitai_api_key` is **never** returned — only `civitai_api_key_set`.
 `smart_search_min_score` (0.05–0.9, default **0.3**) is the cosine floor the semantic arm applies: a document must be at least this similar to the query before smart search will offer it. Raise it for fewer, closer matches; lower it to cast a wider net. Without a floor the nearest-neighbour lookup always returns its top N, so a query matching nothing still filled the grid with unrelated assets. Keyword (FTS) matches are never filtered by this value.
@@ -202,10 +202,10 @@ Changing `comfyui_path` re-resolves roots and returns `"roots_changed": true`; i
 Errors: `VALIDATION_ERROR`, `PATH_INVALID`, `PATH_NOT_ALLOWED`.
 
 ### `POST /api/v1/system/validate-path`
-Body `{"path":"O:\\ComfyUI"}` — the wizard's live preview.
+Body `{"path":"C:\\ComfyUI"}` — the wizard's live preview.
 `200`
 ```json
-{ "valid":true,"normalized":"O:\\ComfyUI","exists":true,"is_comfyui_root":true,
+{ "valid":true,"normalized":"C:\\ComfyUI","exists":true,"is_comfyui_root":true,
   "signals":{"has_models":true,"has_custom_nodes":true,"has_output":true,
              "has_input":true,"has_user_workflows":true,"has_root_workflows":true,
              "has_main_py":true,"comfyui_version":"0.33.0"},
@@ -220,7 +220,7 @@ Body `{"path":"O:\\ComfyUI"}` — the wizard's live preview.
 ### `POST /api/v1/system/wizard/complete`
 Body:
 ```json
-{ "comfyui_path":"O:\\ComfyUI","online_enabled":true,"auto_reindex":true,
+{ "comfyui_path":"C:\\ComfyUI","online_enabled":true,"auto_reindex":true,
   "smart_search_enabled":false,"ollama_enabled":false,
   "ollama_url":"http://localhost:11434","ollama_model":"llama3",
   "start_scan":true }
@@ -250,7 +250,7 @@ Body:
 ```json
 { "status":"degraded",
   "checks":[
-    {"id":"comfyui_root","status":"ok","message":"O:\\ComfyUI"},
+    {"id":"comfyui_root","status":"ok","message":"C:\\ComfyUI"},
     {"id":"database","status":"ok","message":"WAL, 14.2 MB"},
     {"id":"embeddings","status":"warn","message":"Model not installed","action":"POST /api/v1/embeddings/enable"},
     {"id":"civitai","status":"ok"},
@@ -258,7 +258,7 @@ Body:
     {"id":"integrity","status":"error","message":"1 model file is not a valid model","count":1,
      "items":[{"uid":"model:118","name":"flux2-vae-new.safetensors","reason":"not_a_model"}]},
     {"id":"partial_downloads","status":"warn","count":1,
-     "items":[{"path":"O:\\ComfyUI\\models\\checkpoints\\Unconfirmed 46066.crdownload"}]},
+     "items":[{"path":"C:\\ComfyUI\\models\\checkpoints\\Unconfirmed 46066.crdownload"}]},
     {"id":"suspect_remotes","status":"warn","count":1,
      "items":[{"package":"was-ns","repo_url":"https://github.com/Comfy-Org/ComfyUI"}]},
     {"id":"thumb_cache","status":"ok","message":"412 MB / 2048 MB"}
@@ -353,7 +353,7 @@ Body `{"job_id":18}` (optional; defaults to the active job) → `202 {"job_id":1
 `/errors?job_id=&code=&kind=&limit=&offset=` →
 ```json
 {"items":[{"id":9,"job_id":18,"phase":"outputs","kind":"output",
-           "path":"O:\\ComfyUI\\output\\3d\\bad.png","code":"IMAGE_UNREADABLE",
+           "path":"C:\\ComfyUI\\output\\3d\\bad.png","code":"IMAGE_UNREADABLE",
            "message":"cannot identify image file","created_at":1766000000000}],
  "page":{…}, "summary":{"IMAGE_UNREADABLE":2,"HEADER_INVALID":1}}
 ```
@@ -378,7 +378,7 @@ Query: §0.3 pagination + §0.4 sort/group/filters.
      "is_bundled":true,"is_adapter":false,
      "size":17246978048,"modified_at":1740000000000,
      "folder":"","root_id":1,"rel_path":"checkpoints\\flux1-dev-fp8.safetensors",
-     "abs_path":"O:\\ComfyUI\\models\\checkpoints\\flux1-dev-fp8.safetensors",
+     "abs_path":"C:\\ComfyUI\\models\\checkpoints\\flux1-dev-fp8.safetensors",
      "hash":{"state":"unhashed","autov2":null,"sha256":null},
      "integrity":"ok",
      "civitai":{"state":"none","model_id":null,"url":null,"has_update":false},
@@ -916,7 +916,7 @@ edits are preserved inside the trash copy.
 
 ```json
 { "uid":"node_package:7","ok":true,"mode":"trash","trash_id":12,
-  "trash_path":"O:\ComfyUI\.vault-trash\20260822-141530-9ab3c1d0\ComfyUI-KJNodes",
+  "trash_path":"C:\ComfyUI\.vault-trash\20260822-141530-9ab3c1d0\ComfyUI-KJNodes",
   "warning":"This looks like a git checkout with uncommitted changes (nodes.py, util.py and more). Those edits are preserved in the trash copy." }
 ```
 
@@ -936,8 +936,8 @@ rescan to make a mutation searchable.
 `200`
 ```json
 { "ok":true,"uid":"model:41",
-  "old_path":"O:\\ComfyUI\\models\\checkpoints\\flux1-dev-fp8.safetensors",
-  "new_path":"O:\\ComfyUI\\models\\checkpoints\\flux1-dev-fp8-v2.safetensors",
+  "old_path":"C:\\ComfyUI\\models\\checkpoints\\flux1-dev-fp8.safetensors",
+  "new_path":"C:\\ComfyUI\\models\\checkpoints\\flux1-dev-fp8-v2.safetensors",
   "sidecars_renamed":0,"db_updated":true,"thumbs_relocated":1 }
 ```
 Errors: `PATH_INVALID` (illegal chars, reserved name, trailing dot/space, > 255), `CONFLICT` (`details.existing_path`), `FILE_LOCKED`, `FILE_MISSING`, `PATH_NOT_ALLOWED`.
@@ -962,7 +962,7 @@ Cross-volume moves are performed as copy+verify+delete with progress on `/index/
 ### `GET /api/v1/fileops/trash`
 ```json
 { "items":[{"id":42,"uid":"output:930","kind":"output","filename":"Anima_00021_.png",
-            "original_path":"O:\\ComfyUI\\output\\Anima_00021_.png",
+            "original_path":"C:\\ComfyUI\\output\\Anima_00021_.png",
             "size":1843211,"deleted_at":1766000000000,"purge_after":1768592000000,
             "restorable":true}],
   "page":{…},"summary":{"count":1,"bytes":1843211} }
@@ -1098,7 +1098,7 @@ using the ~2-minute footprint cache).
 {
   "generated_at": 1787441000000,
   "configured": true,
-  "comfyui_path": "O:\\ComfyUI",
+  "comfyui_path": "C:\\ComfyUI",
   "footprint": {
     "total_bytes": 1609886000000,
     "buckets": [                       // models | outputs | inputs | custom_nodes | cache | program
@@ -1114,7 +1114,7 @@ using the ~2-minute footprint cache).
   "volumes": [                          // one per DISTINCT volume - roots can be on different drives
     {"key":"o:","mount":"O:","total_bytes":2000381014016,"free_bytes":291926863872,
      "used_bytes":1708454150144,"used_pct":85.4,"available":true,"error":null,
-     "roots":[{"id":1,"kind":"comfyui","path":"O:\\ComfyUI","label":"ComfyUI",
+     "roots":[{"id":1,"kind":"comfyui","path":"C:\\ComfyUI","label":"ComfyUI",
                "configured":true,"retired":false,"exists":true,"indexed":true}]}
   ],
   "primary_volume": { /* the volume holding the default root */ },
@@ -1245,7 +1245,7 @@ Per-root volume, indexed contents, and the retired-root retention state. Also se
 ```jsonc
 {
   "items": [{
-    "id":1,"kind":"comfyui","path":"O:\\ComfyUI","label":"ComfyUI","category":null,
+    "id":1,"kind":"comfyui","path":"C:\\ComfyUI","label":"ComfyUI","category":null,
     "is_default":true,"source":"config","configured":true,"retired":false,
     "exists":true,"indexed":true,
     "volume":{"total_bytes":2000381014016,"free_bytes":291926863872,"used_pct":85.4,
@@ -1315,13 +1315,13 @@ installation described under "Opening a workflow inside ComfyUI".
 ```jsonc
 {
   "configured": true,
-  "comfyui_path": "O:\\ComfyUI", "install_parent": "O:\\",
+  "comfyui_path": "C:\\ComfyUI", "install_parent": "C:\\",
   "version": "0.33.0", "version_source": "comfyui_version.py",
   "flavour": "portable",                 // portable | git | desktop | manual | unknown
-  "flavour_evidence": ["embedded interpreter at O:\\python_embeded",
-                       "portable update folder at O:\\update",
+  "flavour_evidence": ["embedded interpreter at C:\\ComfyUI\\python_embeded",
+                       "portable update folder at C:\\ComfyUI\\update",
                        "portable launcher batch files beside the ComfyUI folder"],
-  "python_home": "O:\\python_embeded",
+  "python_home": "C:\\ComfyUI\\python_embeded",
   "git": {"present":true,"branch":"master","commit":"c67885b1...","shallow":true,
           "remote":"https://github.com/Comfy-Org/ComfyUI","worktree":false},
   "packages": {"comfyui_frontend_package":"1.49.6",
@@ -1394,9 +1394,9 @@ Query: `updater` (id; omit for the recommended one). Fetch this **before** showi
 ```jsonc
 {
   "updater":"portable","label":"Portable updater - latest master",
-  "path":"O:\\update\\update_comfyui.bat","working_dir":"O:\\update",
-  "command":["O:\\update\\update_comfyui.bat"],
-  "confirm_path":"O:\\update\\update_comfyui.bat",
+  "path":"C:\\ComfyUI\\update\\update_comfyui.bat","working_dir":"C:\\ComfyUI\\update",
+  "command":["C:\\ComfyUI\\update\\update_comfyui.bat"],
+  "confirm_path":"C:\\ComfyUI\\update\\update_comfyui.bat",
   "running":{"running":false,"ports":[]},
   "can_run":true,"blocked_reason":null,      // 'comfyui_running' | 'updater_path_unresolved'
   "warnings":["Restart ComfyUI after the update, then re-scan the vault."],
@@ -1414,7 +1414,7 @@ for rather than inventing a path.
 ### `POST /api/v1/comfyui/update/run` → `202`
 
 ```jsonc
-{"updater":"portable","confirm_path":"O:\\update\\update_comfyui.bat"}
+{"updater":"portable","confirm_path":"C:\\ComfyUI\\update\\update_comfyui.bat"}
 ```
 
 `confirm_path` **must** equal the resolved absolute path from `/update/plan` (compared after
@@ -1427,8 +1427,8 @@ Refused with `409 CONFLICT` when a ComfyUI port is accepting connections. Never 
 scheduled, never from MCP without the same confirmation.
 
 ```jsonc
-{"started":true,"updater":"portable","label":"...","path":"O:\\update\\update_comfyui.bat",
- "working_dir":"O:\\update","stream":"/api/v1/comfyui/update/stream",
+{"started":true,"updater":"portable","label":"...","path":"C:\\ComfyUI\\update\\update_comfyui.bat",
+ "working_dir":"C:\\ComfyUI\\update","stream":"/api/v1/comfyui/update/stream",
  "started_at":1787441000000}
 ```
 
@@ -1493,7 +1493,7 @@ one). Fetch this **before** showing any confirmation.
 ```jsonc
 {
   "uid": "workflow:12", "workflow_id": 12, "name": "basic_flow",
-  "abs_path": "O:\\ComfyUI\\custom_nodes\\ComfyUI-Pack\\example_workflows\\basic_flow.json",
+  "abs_path": "C:\\ComfyUI\\custom_nodes\\ComfyUI-Pack\\example_workflows\\basic_flow.json",
   "rel_path": "custom_nodes\\ComfyUI-Pack\\example_workflows\\basic_flow.json",
   "origin": "bundled", "origin_package": "ComfyUI-Pack",
   "origin_label": "bundled with ComfyUI-Pack",
@@ -1517,18 +1517,18 @@ one). Fetch this **before** showing any confirmation.
   "filename": "basic_flow.json",
   "manual_hint": null,
   "launcher": {"id": "run_nvidia_gpu", "kind": "batch", "label": "run_nvidia_gpu.bat",
-               "path": "O:\\run_nvidia_gpu.bat", "working_dir": "O:\\",
-               "command": ["O:\\run_nvidia_gpu.bat"], "port": 8188,
+               "path": "C:\\ComfyUI\\run_nvidia_gpu.bat", "working_dir": "C:\\ComfyUI",
+               "command": ["C:\\ComfyUI\\run_nvidia_gpu.bat"], "port": 8188,
                "port_source": "launcher command line", "available": true,
                "recommended": true, "note": "..."},
-  "launcher_confirm_path": "O:\\run_nvidia_gpu.bat",
+  "launcher_confirm_path": "C:\\ComfyUI\\run_nvidia_gpu.bat",
   "launcher_alternatives": [{"id": "run_cpu"}, {"id": "run_nvidia_gpu_stable_memory"}],
   "launcher_error": null,
   "copy": {"possible": true, "needed": true, "reason": null,
-           "destination": "O:\\ComfyUI\\user\\default\\workflows\\basic_flow.json",
-           "target_dir": "O:\\ComfyUI\\user\\default\\workflows",
+           "destination": "C:\\ComfyUI\\user\\default\\workflows\\basic_flow.json",
+           "target_dir": "C:\\ComfyUI\\user\\default\\workflows",
            "exists": false, "creates_deep_link": false, "note": "..."},
-  "steps": ["Start ComfyUI by running O:\\run_nvidia_gpu.bat - ...", "..."],
+  "steps": ["Start ComfyUI by running C:\\ComfyUI\\run_nvidia_gpu.bat - ...", "..."],
   "needs_start": true, "can_open": true, "blocked_reason": null,
   "frontend_version": "1.49.6", "comfyui_version": "0.33.0"
 }
@@ -1595,7 +1595,7 @@ not name the file is a blank ComfyUI with no explanation.
 {"uid": "workflow:12",
  "launcher": "run_nvidia_gpu",
  "start": true,
- "confirm_launcher_path": "O:\\run_nvidia_gpu.bat",
+ "confirm_launcher_path": "C:\\ComfyUI\\run_nvidia_gpu.bat",
  "copy_to_user_workflows": false,
  "confirm_copy_destination": null}
 ```
@@ -1626,7 +1626,7 @@ plan and the write.
  "port": 8188,
  "copied": false, "copy_destination": null, "copy_note": null,
  "started": true, "already_running": false, "ready": false,
- "launcher": "run_nvidia_gpu", "launcher_path": "O:\\run_nvidia_gpu.bat",
+ "launcher": "run_nvidia_gpu", "launcher_path": "C:\\ComfyUI\\run_nvidia_gpu.bat",
  "stream": "/api/v1/comfyui/launch/stream", "timeout_s": 300,
  "started_at": 1787441000000,
  "note": "ComfyUI is starting. Watch the launch stream and open the URL when it reports ready."}
@@ -1669,7 +1669,7 @@ Stream events: `open`, `phase` (`starting`, `spawned`), `waiting`
 ```jsonc
 {"status": "ready",                 // idle | starting | ready | failed
  "running": false, "ready": true, "launcher": "run_nvidia_gpu",
- "path": "O:\\run_nvidia_gpu.bat", "port": 8188, "pid": 24680,
+ "path": "C:\\ComfyUI\\run_nvidia_gpu.bat", "port": 8188, "pid": 24680,
  "url": "http://127.0.0.1:8188/?template=basic_flow&source=ComfyUI-Pack",
  "error": null, "exit_code": null, "elapsed_ms": 62000, "started_at": 1787441000000,
  "finished_at": 1787441062000, "note": "ComfyUI is accepting connections."}
@@ -1689,7 +1689,7 @@ The official ComfyUI templates shipped with this install. Query: `bundle` · `q`
 
 ```jsonc
 {"available":true,"reason":null,"package_version":"0.1.49",
- "path":"O:\\python_embeded\\Lib\\site-packages\\comfyui_workflow_templates_json\\templates",
+ "path":"C:\\ComfyUI\\python_embeded\\Lib\\site-packages\\comfyui_workflow_templates_json\\templates",
  "bundles":[{"key":"media-image","count":187},{"key":"media-api","count":93}],
  "items":[{"id":"3d_hunyuan3d_image_to_model","title":"3d hunyuan3d image to model",
            "bundle":"media-image","filename":"....json","size":12530,"path":"...",
@@ -1802,7 +1802,7 @@ Query: `on_conflict` = `fail` (default) `| skip | keep_both` — recorded in the
             "fetchable":2,"not_fetchable":1,"download_bytes":13958643712,
             "items_with_unknown_size":0},
  "space":{"sufficient":true,"shortfall_bytes":0,"download_bytes":13958643712,"margin_pct":5,
-          "volumes":[{"directory":"O:\\ComfyUI\\models\\diffusion_models","root_id":1,
+          "volumes":[{"directory":"C:\\ComfyUI\\models\\diffusion_models","root_id":1,
                       "root_label":"ComfyUI","download_bytes":13958643712,
                       "required_bytes":14656575897,"free_bytes":313532612608,
                       "total_bytes":2000398934016,"sufficient":true,"used_pct":84.3}]},
@@ -1812,8 +1812,8 @@ Query: `on_conflict` = `fail` (default) `| skip | keep_both` — recorded in the
     "via":[{"class":"UNETLoader","input":"unet_name"}],
     "category":"diffusion_models",
     "destination":{"category":"diffusion_models","root_id":1,"root_label":"ComfyUI",
-                   "directory":"O:\\ComfyUI\\models\\diffusion_models",
-                   "abs_path":"O:\\ComfyUI\\models\\diffusion_models\\wan2.2_i2v_high_noise.safetensors",
+                   "directory":"C:\\ComfyUI\\models\\diffusion_models",
+                   "abs_path":"C:\\ComfyUI\\models\\diffusion_models\\wan2.2_i2v_high_noise.safetensors",
                    "filename":"wan2.2_i2v_high_noise.safetensors"},
     "source":{"url":"https://huggingface.co/.../wan2.2_i2v_high_noise.safetensors",
               "host":"huggingface.co","provider":"workflow_manifest",
@@ -1825,11 +1825,11 @@ Query: `on_conflict` = `fail` (default) `| skip | keep_both` — recorded in the
     "repo_url":"https://github.com/x/ComfyUI-Foo","host":"github.com",
     "class_types":["SomeUnknownNode"],"class_count":1,
     "destination":{"category":"custom_nodes","root_id":1,"root_label":"ComfyUI",
-                   "directory":"O:\\ComfyUI\\custom_nodes",
-                   "abs_path":"O:\\ComfyUI\\custom_nodes\\ComfyUI-Foo",
+                   "directory":"C:\\ComfyUI\\custom_nodes",
+                   "abs_path":"C:\\ComfyUI\\custom_nodes\\ComfyUI-Foo",
                    "filename":"ComfyUI-Foo"},
     "status":"fetchable","reason":null,
-    "manual_steps":["git clone --depth 1 \"https://github.com/x/ComfyUI-Foo\" \"O:\\ComfyUI\\custom_nodes\\ComfyUI-Foo\""],
+    "manual_steps":["git clone --depth 1 \"https://github.com/x/ComfyUI-Foo\" \"C:\\ComfyUI\\custom_nodes\\ComfyUI-Foo\""],
     "never_runs":["No pip install is ever run.","..."]}],
  "plan_token":"5c2b...","plan_expires_in_ms":900000,"plan_items":2,
  "policy":{"model_hosts":["civitai.com","hf.co","huggingface.co",".civitai.com",".huggingface.co",".hf.co"],
@@ -1857,7 +1857,7 @@ A plan lives 15 minutes and describes at most 200 items.
 {"batch_id":"7d1a2f9c4e08","workflow_id":12,"queued":1,"bytes_total":13958643712,
  "items":[{"item_id":"mode_9f21c0a3be04d17c","kind":"model",
            "ref_name":"wan2.2_i2v_high_noise.safetensors","host":"huggingface.co",
-           "target_abs_path":"O:\\ComfyUI\\models\\diffusion_models\\wan2.2_i2v_high_noise.safetensors",
+           "target_abs_path":"C:\\ComfyUI\\models\\diffusion_models\\wan2.2_i2v_high_noise.safetensors",
            "size":13958643712}],
  "stream":"/api/v1/enable/stream","started_at":1787441000000,"scan_job_id":41}
 ```
@@ -1927,12 +1927,12 @@ Events: `open`, `phase`, `progress` (coalesced to ≤10 Hz per item), `item`, `d
 
 ```jsonc
 {"items":[{"id":"20260822-214455-3f9c1a02","root_id":1,
-           "abs_path":"O:\\ComfyUI\\.vault-quarantine\\20260822-214455-3f9c1a02",
+           "abs_path":"C:\\ComfyUI\\.vault-quarantine\\20260822-214455-3f9c1a02",
            "files":[{"name":"bad.safetensors.part","size":1048576}],"bytes":1048576,
            "reason":{"ref_name":"bad.safetensors","source_host":"huggingface.co",
                      "expected_sha256":"aaaa...","actual_sha256":"bbbb...",
                      "problems":["SHA-256 mismatch: expected aaaa..., got bbbb..."],
-                     "intended_path":"O:\\ComfyUI\\models\\loras\\bad.safetensors"}}],
+                     "intended_path":"C:\\ComfyUI\\models\\loras\\bad.safetensors"}}],
  "total":1,"bytes":1048576}
 ```
 

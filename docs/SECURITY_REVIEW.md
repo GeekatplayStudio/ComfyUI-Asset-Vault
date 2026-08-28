@@ -3,7 +3,7 @@
 **Reviewer:** `security` agent · **Date:** 2026-08-22 · **Remediation pass:** 2026-08-23 · **Launcher pass:** 2026-08-23 (§4.1, §8.1) · **Scope:** `backend/app/**`, `frontend/src/**`, `backend/requirements.txt`
 **Method:** static review plus **execution**. Every finding below was reproduced by running code, not by reading it — and every fix was proved by re-running that reproduction.
 **Test suite:** `backend/tests` — **1,642 passed, 4 skipped, 0 xfailed**, `ruff check backend` clean. Every finding that carried an `xfail` has been either fixed and the marker replaced by a regression comment, or left `xfail` with a recorded won't-fix reason. There are currently **none of the latter**.
-**Data safety:** every test is hermetic (synthetic ComfyUI tree in `tmp_path`, throw-away `vault.db`). The owner's library was verified unchanged after the audit, the remediation pass and the launcher pass: **237 models / 3,834 outputs / 211 workflows / 1,866 node classes**, trash empty. The launcher pass additionally verified that `O:\` still holds exactly its four original `run_*.bat` scripts and that nothing was written into the ComfyUI install — **the owner's ComfyUI was never started by this review**, and every process it did start was a throw-away batch file in `tmp_path` that wrote a marker and exited.
+**Data safety:** every test is hermetic (synthetic ComfyUI tree in `tmp_path`, throw-away `vault.db`). The owner's library was verified unchanged after the audit, the remediation pass and the launcher pass: **a real-world library of several hundred models and thousands of outputs**, trash empty. The launcher pass additionally verified that the install's parent folder still holds exactly its four original `run_*.bat` scripts and that nothing was written into the ComfyUI install — **the owner's ComfyUI was never started by this review**, and every process it did start was a throw-away batch file in `tmp_path` that wrote a marker and exited.
 
 ---
 
@@ -317,7 +317,7 @@ not the list form — as the thing that was actually protecting anyone.
 
 **Impact.** A confirmation bypass at the one place the app starts a process. The precondition
 is write access to the folder beside the ComfyUI install, which on the owner's portable build
-is `O:\` — a drive root, reachable by an archive extracted one level too high or by any
+is a drive root — reachable by an archive extracted one level too high or by any
 installer. It is not remote: `/comfyui/open-workflow` is behind the CSRF header, and the owner
 still has to answer the start question. Medium, not High, for that reason.
 
@@ -379,7 +379,7 @@ install cannot be started, so the whole route does not have to 404.
 ### S-21 — a file is not a launcher because of its name (Low, `backend`)
 
 `LAUNCHER_GLOB = "run_*.bat"` is matched in the **parent** of the ComfyUI folder. On the
-owner's portable build that parent is `O:\`, a drive root; the four real launchers sit there
+owner's portable build that parent is a drive root; the four real launchers sit there
 beside `ComfyUI\`, `python_embeded\` and `update\`. Any batch file that lands in that folder
 and happens to start with `run_` was offered as "a way to start ComfyUI", with a resolved
 absolute path, in a confirmation dialog — on the strength of its filename and nothing else.
@@ -558,7 +558,7 @@ resolved destination and the reason, never guessed at. `sources.py` is asserted 
 | 5 | SQL injection | **Pass.** 127 assertions. `sort`/`group`/`reason` map through frozen dicts; the v0 `sort_column` shape is statically asserted absent, including in the new `reclaim_score` queries |
 | 6 | CSRF | **Pass.** S-02 fixed: `/api/v1/mcp` now enforces `X-Vault-Request` and a JSON content type. All 43 mutating v1 routes enforce `X-Vault-Request`, walked from the live OpenAPI document |
 | 7 | Bind posture, `ALLOW_LAN`, CORS | **Pass.** Loopback default; `SystemExit` on a LAN bind without `ALLOW_LAN=1`, logged loudly when set; MCP HTTP refuses to mount on the LAN without a token; CORS never `*`, never credentialed, loopback dev ports only |
-| 8 | MCP posture | **Pass.** S-02 and S-06 both fixed; the session store is capped at 64 with least-recently-seen eviction. Origin validated, sessions terminable, 24 tools, no path/URL input, closed schemas, no file-content tool, no SSRF pivot, rate limited |
+| 8 | MCP posture | **Pass.** S-02 and S-06 both fixed; the session store is capped at 64 with least-recently-seen eviction. Origin validated, sessions terminable, 26 tools, no path/URL input, closed schemas, no file-content tool, no SSRF pivot, rate limited |
 | 9 | Secrets | **Pass.** `civitai_api_key` never returned, never logged, never reachable through MCP; only `civitai_service` reads it and only `https://civitai.com/api/v1` receives it |
 | 10 | Log hygiene | **Pass.** No traceback in any response body; `request_id` matches the header; no prompt or key reaches the log; MCP read tools log argument *keys* only, while mutations log values by C5 design |
 | 11 | Delete safety | **Pass.** Permanent requires `confirm:true` on REST, storage cleanup and MCP; trash is the default and was proven reversible end-to-end; the one recursive delete is the deliberate node-package case (hardening: S-11, S-12) |
@@ -686,6 +686,6 @@ Still open, all Low, all hardening with no demonstrated exploit and no reproduct
 2. **"List argv, `shell=False`" is not a Windows guarantee for a `.bat`.** `CreateProcess` runs a batch target through `cmd.exe`, which re-parses the whole command line including the executable's own path, and `list2cmdline` quotes a token only when it holds a space. Anything in this codebase that starts a `.bat`/`.cmd` must go through `comfyui_service.cmd_line_hazard()` first (S-19). The other three `Popen` sites resolve to real executables — `git.EXE` via `shutil.which`, `ffmpeg`, `explorer.exe` — so none of them is affected today; the next feature that starts a script would be.
 3. **The updater and the launcher share one definition of a real install.** `comfyui_service.INSTALL_PROOF` / `missing_install_proof()`. They drifted apart once (S-04 fixed, S-20 not), which is exactly how the launcher ended up running a staged directory's own batch file; a test now pins that the router and the service use the same object.
 
-`backend/tests` — **1,642 passed, 4 skipped, 0 xfailed** (56 of them the new `tests/security/test_comfyui_launcher.py`), `ruff check backend` clean, hermetic, safe to run against a machine holding the real library. Library verified unchanged after the pass: **237 models / 3,834 outputs / 211 workflows / 1,866 node classes**, trash empty.
+`backend/tests` — **1,642 passed, 4 skipped, 0 xfailed** (56 of them the new `tests/security/test_comfyui_launcher.py`), `ruff check backend` clean, hermetic, safe to run against a machine holding the real library. Library verified unchanged after the pass: **a real-world library of several hundred models and thousands of outputs**, trash empty.
 
 *Geekatplay Studio — Vladimir Chopine*

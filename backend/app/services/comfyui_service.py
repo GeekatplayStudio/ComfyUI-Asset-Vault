@@ -10,8 +10,8 @@ the caller has confirmed the exact resolved absolute path it will act on.
 Discovery, not assumption
 -------------------------
 C8.3 is explicit: find the real update mechanism for *this* install rather than
-assuming a layout.  The owner's install is a portable build - ``O:\\ComfyUI`` with
-``O:\\python_embeded`` and ``O:\\update\\update_comfyui.bat`` as siblings - so the
+assuming a layout.  The owner's install is a portable build - ``C:\\ComfyUI`` with
+``C:\\ComfyUI\\python_embeded`` and ``C:\\ComfyUI\\update\\update_comfyui.bat`` as siblings - so the
 updater is neither inside the ComfyUI folder nor a plain ``git pull``.  The probe
 below walks the real candidates in priority order and reports every one it found,
 so the UI can show what will run before anything runs.
