@@ -122,8 +122,8 @@ def _resolve(uid: str, conn: sqlite3.Connection | None = None) -> dict:
             conn, "SELECT f.*, m.name FROM model_files f JOIN models m "
                   "ON m.id = f.model_id WHERE f.model_id = ? "
                   "ORDER BY (f.id = m.primary_file_id) DESC LIMIT 1", (row_id,))
-        if row is None:
-            row = dbmod.one(conn, "SELECT * FROM model_files WHERE id = ?", (row_id,))
+        # No fallback by file id here: row_id is a *model* id, and treating it
+        # as a model_files.id could resolve to an unrelated file.
     else:
         table = UID_TABLES[kind][0]
         row = dbmod.one(conn, f"SELECT * FROM {table} WHERE id = ?", (row_id,))  # noqa: S608

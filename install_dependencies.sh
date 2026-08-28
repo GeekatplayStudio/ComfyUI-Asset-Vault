@@ -73,7 +73,7 @@ if ! "$PY" -m pip install -r "$ROOT/backend/requirements.txt" --disable-pip-vers
     exit 1
 fi
 
-if ! "$PY" -c 'import fastapi, uvicorn, pydantic, PIL' >/dev/null 2>&1; then
+if ! "$PY" -c 'import fastapi, uvicorn, pydantic, httpx, PIL, numpy, yaml, onnxruntime, tokenizers' >/dev/null 2>&1; then
     echo
     echo "[ERROR] The packages installed but cannot all be imported."
     echo "        Delete the venv folder and run this installer again."
@@ -113,9 +113,9 @@ else
 fi
 
 if [ -n "$NODE_OK" ]; then
-    if ! (cd "$ROOT/frontend" && npm ci); then
+    if ! (cd "$ROOT/frontend" && npm install); then
         echo
-        echo "[ERROR] npm ci failed. Scroll up for the reason."
+        echo "[ERROR] npm install failed. Scroll up for the reason."
         exit 1
     fi
 

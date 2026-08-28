@@ -367,12 +367,15 @@ ComfyUIAssetManager/
 │       ├── services/      the single API client module
 │       └── styles/        the design system — tokens, layout, components (plain CSS)
 ├── docs/                  architecture, API contract, data model, security review, user guides
-├── install_dependencies.bat / .ps1
-├── start_app.bat / .ps1
-└── stop_app.bat
+├── install_dependencies.bat / .ps1 / .sh
+├── start_app.bat / .ps1 / .sh
+├── stop_app.bat / .sh
+├── apply_update.py            applies a staged self-update before the engine starts
+├── make_release.ps1           builds the release archive
+└── show_service_status.ps1 / .sh   prints a live service report
 ```
 
-Roughly **123 backend Python modules**, **76 frontend source files**, and **40 backend test
+Roughly **123 backend Python modules**, **91 frontend source files**, and **52 backend test
 modules** at the time of writing.
 
 ---
@@ -479,7 +482,8 @@ browser cannot forge, every file operation is confined to configured roots and a
 IDs rather than paths, and the MCP server's most dangerous capability — full delete access — ships
 with an audit trail, a batch cap, and a read-only kill switch.
 
-As of 2.1.0 **every finding in that report is closed**, including the Medium and Low items: an SSE
+As of 2.1.0 **every High and Medium finding in that report is closed** — six Low hardening items
+remain deliberately open, as recorded in the report's sign-off. Closed along the way: an SSE
 subscriber cap, an install-validation gate on the updater path, decompression-bomb limits on image
 decoding, an MCP session cap, a request-body size limit, and an SSRF guard on the Ollama URL that
 still allows a LAN host but refuses names and public addresses. Dependency floors were raised and
@@ -508,6 +512,8 @@ Engineering references, for anyone building on top of this:
 | [docs/MCP_SPEC.md](docs/MCP_SPEC.md) | The MCP server's protocol conformance and tool schemas |
 | [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) | The full security audit and its findings |
 | [docs/DECISIONS.md](docs/DECISIONS.md) & [docs/REQUIREMENTS_R2.md](docs/REQUIREMENTS_R2.md) | The product decisions this build follows, and why |
+| [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md) | Module boundaries — where each part of the system lives, and the interfaces between them |
+| [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) | The visual language — tokens, layout, component rules |
 | [docs/FILTER_AUDIT.md](docs/FILTER_AUDIT.md) | Every grid/album filter, traced from the UI control to the SQL predicate that answers it |
 | [docs/NODE_REGISTRY_SAFETY.md](docs/NODE_REGISTRY_SAFETY.md) | How the node registry catalogue and workflow "Enable" fetch code stay read-only until you consent |
 

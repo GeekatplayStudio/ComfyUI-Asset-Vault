@@ -196,6 +196,12 @@ class EmbedService:
             self._download = {}
             return
         self._download = {}
+        # Leave the transient downloading state so refresh_state() re-evaluates
+        # the files on disk; otherwise the service reports "downloading" forever
+        # and enable() never sees STATE_READY.
+        with self._lock:
+            self._state = STATE_NOT_INSTALLED
+        self.refresh_state()
 
     def _write_manifest(self, name: str, sha: str, size: int) -> None:
         path = self.dir / "MANIFEST.json"

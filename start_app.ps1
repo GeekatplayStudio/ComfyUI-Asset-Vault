@@ -1,12 +1,14 @@
 # Geekatplay ComfyUI Asset Vault - launcher (PowerShell)
 # Vladimir Chopine
 #
-# Behaves exactly like start_app.bat: builds the interface, starts the engine on
-# 127.0.0.1:8127, waits until it accepts connections, then opens that same port.
+# Behaves exactly like start_app.bat: applies a staged update, builds the
+# interface (or reuses a pre-built one), starts the engine on 127.0.0.1:8127,
+# waits until it accepts connections, then opens that same port.
 #
 #   powershell -ExecutionPolicy Bypass -File .\start_app.ps1
 #
-# Ctrl+C in this window stops the interface; the engine is stopped on the way out.
+# The engine runs independently of this window. Close it freely; run
+# stop_app.bat only when you want to stop the vault.
 
 $ErrorActionPreference = 'Stop'
 
@@ -55,11 +57,36 @@ Python virtual environment not found at $Root\venv.
 "@
 }
 
-if (-not (Test-Path (Join-Path $Root 'frontend\node_modules'))) {
+# Release archives ship a pre-built interface, so Node.js is only needed to
+# build one from source.  With node_modules present (a dev checkout) the
+# interface is always rebuilt so source edits are never served stale.
+$PreBuilt = (-not (Test-Path (Join-Path $Root 'frontend\node_modules'))) -and
+            (Test-Path (Join-Path $Root 'frontend\dist\index.html'))
+
+if (-not $PreBuilt -and -not (Test-Path (Join-Path $Root 'frontend\node_modules'))) {
     Fail @"
-Frontend dependencies not installed at $Root\frontend\node_modules.
-        Run install_dependencies.bat first.
+No built interface at $Root\frontend\dist and no frontend
+        dependencies at $Root\frontend\node_modules.
+        Run install_dependencies.bat first, or use a release archive
+        that ships the interface pre-built.
 "@
+}
+
+# ----------------------------------------------- apply a staged update
+# Nothing is running yet and nothing is imported, which is the only safe
+# moment to replace the app's own files.  Exits 0 when nothing is staged.
+if (Test-Path (Join-Path $Root 'backend\data\updates\pending.json')) {
+    Write-Host '[0/3] Applying the downloaded update ...'
+    & $Py (Join-Path $Root 'apply_update.py')
+    if ($LASTEXITCODE -ge 2) {
+        Fail @"
+The update failed and could not be rolled back.
+        Your previous files are in backend\data\updates\backup.
+"@
+    } elseif ($LASTEXITCODE -eq 1) {
+        Write-Host '[WARN]  The update failed and was rolled back. Continuing on the' -ForegroundColor Yellow
+        Write-Host '        current version.' -ForegroundColor Yellow
+    }
 }
 
 if (Test-PortListening $Port) {
@@ -73,13 +100,17 @@ Port $Port is already in use.
 # ---------------------------------------------------------- build interface
 # Serve the production build from the engine.  This keeps hashing independent
 # of the Vite development server, so closing/reloading the UI cannot stop it.
-Write-Host '[1/3] Building the interface ...'
-Push-Location (Join-Path $Root 'frontend')
-try {
-    & npm run build
-    if ($LASTEXITCODE -ne 0) { Fail 'The interface build failed. Fix the errors above and try again.' }
-} finally {
-    Pop-Location
+if ($PreBuilt) {
+    Write-Host '[1/3] Interface build already present - reusing frontend\dist'
+} else {
+    Write-Host '[1/3] Building the interface ...'
+    Push-Location (Join-Path $Root 'frontend')
+    try {
+        & npm run build
+        if ($LASTEXITCODE -ne 0) { Fail 'The interface build failed. Fix the errors above and try again.' }
+    } finally {
+        Pop-Location
+    }
 }
 
 # ------------------------------------------------------------------ backend

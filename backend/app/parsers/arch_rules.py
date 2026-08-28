@@ -1,7 +1,7 @@
 """Data tables for architecture detection.  Pure data - no logic lives here.
 
 The canonical vocabulary is frozen in ARCHITECTURE 4.3.1.  Every structural rule
-below was checked against the real key sets of ``O:\\ComfyUI\\models``.
+below was checked against the real key sets of ``C:\\ComfyUI\\models``.
 """
 
 from __future__ import annotations

@@ -29,7 +29,7 @@ venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8127 --a
 ```
 
 A healthy start ends with `Application startup complete.` and a line like
-`startup: configured=True path=O:\ComfyUI`. It answers within about a second.
+`startup: configured=True path=C:\ComfyUI`. It answers within about a second.
 
 Check it directly:
 

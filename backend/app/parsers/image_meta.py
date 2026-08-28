@@ -21,7 +21,10 @@ from . import graph_utils, mp4_boxes
 imaging.apply_budget()
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff", ".exr", ".avif"}
-VIDEO_EXTS = {".mp4", ".webm", ".mov", ".mkv", ".avi", ".m4v", ".gif"}
+# .gif is deliberately not here: the MP4 box parser cannot read it, while
+# Pillow extracts its dimensions, frames and metadata natively (and <img>
+# animates it in the interface).
+VIDEO_EXTS = {".mp4", ".webm", ".mov", ".mkv", ".avi", ".m4v"}
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".ogg", ".opus", ".m4a", ".aac"}
 MODEL3D_EXTS = {".glb", ".gltf", ".obj", ".fbx", ".ply", ".stl", ".usdz"}
 TEXT_EXTS = {".txt", ".json", ".md", ".csv", ".yaml", ".yml"}

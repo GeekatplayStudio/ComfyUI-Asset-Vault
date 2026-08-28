@@ -147,7 +147,7 @@ class HashService:
                uids: list[str] | None = None) -> dict:
         if batch_id:
             self._batch_cancel.add(batch_id)
-        ids = _ids_from_uids(uids) if uids else None
+        model_ids, file_ids = _ids_from_uids(uids) if uids else ([], [])
 
         def _op(conn: sqlite3.Connection) -> int:
             conn.execute("BEGIN IMMEDIATE")
@@ -157,12 +157,21 @@ class HashService:
                     "WHERE batch_id=? AND state IN ('queued','running')",
                     (dbmod.now_ms(), batch_id),
                 )
-            elif ids:
-                ph = ",".join("?" * len(ids))
+            elif model_ids or file_ids:
+                clauses, args = [], []
+                if file_ids:
+                    clauses.append(
+                        f"model_file_id IN ({','.join('?' * len(file_ids))})")
+                    args.extend(file_ids)
+                if model_ids:
+                    clauses.append(
+                        "model_file_id IN (SELECT id FROM model_files WHERE "  # noqa: S608
+                        f"model_id IN ({','.join('?' * len(model_ids))}))")
+                    args.extend(model_ids)
                 cur = conn.execute(
                     f"UPDATE hash_jobs SET state='cancelled', finished_at=? "  # noqa: S608
-                    f"WHERE model_file_id IN ({ph}) AND state IN ('queued','running')",
-                    (dbmod.now_ms(), *ids),
+                    f"WHERE ({' OR '.join(clauses)}) AND state IN ('queued','running')",
+                    (dbmod.now_ms(), *args),
                 )
             else:
                 cur = conn.execute(
@@ -482,30 +491,38 @@ def _default_priority(scope: str, uids) -> int:
     return PRIORITY_BULK
 
 
-def _ids_from_uids(uids) -> list[int]:
-    out: list[int] = []
+def _ids_from_uids(uids) -> tuple[list[int], list[int]]:
+    """Split uids into (model ids, file ids) - the two id spaces overlap."""
+    model_ids: list[int] = []
+    file_ids: list[int] = []
     for uid in uids or []:
         text = str(uid)
+        kind = "model"
         if ":" in text:
-            kind, _sep, num = text.partition(":")
+            kind, _sep, text = text.partition(":")
             if kind not in ("model", "model_file"):
                 continue
-            text = num
         try:
-            out.append(int(text))
+            (file_ids if kind == "model_file" else model_ids).append(int(text))
         except (TypeError, ValueError):
             continue
-    return out
+    return model_ids, file_ids
 
 
 def _scope_where(scope: str, uids, kw) -> tuple[str, list]:
     scope = (scope or "unhashed_only").strip()
     if uids:
-        ids = _ids_from_uids(uids)
-        if not ids:
+        model_ids, file_ids = _ids_from_uids(uids)
+        if not model_ids and not file_ids:
             return "1=0", []
-        ph = ",".join("?" * len(ids))
-        return f"(m.id IN ({ph}) OR f.id IN ({ph}))", [*ids, *ids]
+        clauses, args = [], []
+        if model_ids:
+            clauses.append(f"m.id IN ({','.join('?' * len(model_ids))})")
+            args.extend(model_ids)
+        if file_ids:
+            clauses.append(f"f.id IN ({','.join('?' * len(file_ids))})")
+            args.extend(file_ids)
+        return "(" + " OR ".join(clauses) + ")", args
     if scope == "all":
         return "f.hash_state <> 'done'", []
     if scope == "unhashed_only":

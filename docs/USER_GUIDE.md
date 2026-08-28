@@ -330,14 +330,14 @@ Everything the app knows about the installation itself.
 
 * **Version and flavour** — read from `comfyui_version.py`. The reference install reports
   **0.33.0**, flavour **portable**, with the evidence listed: embedded interpreter at
-  `O:\python_embeded`, a portable `update` folder, launcher batch files beside the ComfyUI folder.
+  `C:\ComfyUI\python_embeded`, a portable `update` folder, launcher batch files beside the ComfyUI folder.
 * **Packages** — frontend 1.49.6, embedded docs 0.5.10, and the workflow-template packages.
 * **Git state** — branch, commit and remote where present.
 * **Latest available** — a read-only check that needs outbound lookups enabled. Offline it reports
   `unknown` with a reason, and never guesses.
 * **Updater** — the app *discovers* the real mechanism rather than assuming one. On the reference
   install it finds three portable updaters and recommends
-  `O:\update\update_comfyui.bat`, with `update_comfyui_stable.bat` and
+  `C:\ComfyUI\update\update_comfyui.bat`, with `update_comfyui_stable.bat` and
   `update_comfyui_and_python_dependencies.bat` as alternatives, each with a note on when to use it.
 
 Running one requires an explicit confirmation that **names the resolved absolute path**. It is

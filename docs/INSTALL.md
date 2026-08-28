@@ -98,7 +98,9 @@ powershell -ExecutionPolicy Bypass -File .\start_app.ps1
 
 What the launcher does, in order:
 
-1. refuses to continue if `venv\` or `frontend\node_modules` is missing,
+0. applies any staged self-update via `apply_update.py` before starting the engine,
+1. refuses to continue if **both** `venv\` and a usable interface (`frontend\node_modules`
+   or a pre-built `frontend\dist`) are missing,
 2. refuses to continue if something is already listening on **8127**,
 3. starts the engine — `uvicorn app.main:app --host 127.0.0.1 --port 8127 --app-dir backend` —
    with all output going to `backend_log.txt`,

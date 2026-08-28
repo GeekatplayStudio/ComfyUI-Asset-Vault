@@ -35,7 +35,7 @@ DOCS = REPO / "docs"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 # The owner's install.  Overridable so the suite can be pointed elsewhere.
-LIVE_ROOT = Path(os.environ.get("VAULT_LIVE_COMFYUI", r"O:\ComfyUI"))
+LIVE_ROOT = Path(os.environ.get("VAULT_LIVE_COMFYUI", r"C:\ComfyUI"))
 
 
 # ---------------------------------------------------------------------------

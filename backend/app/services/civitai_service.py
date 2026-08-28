@@ -104,8 +104,17 @@ def _cache_put(key: str, status: int, body: Any, ttl_ms: int,
 # Fetch
 # ---------------------------------------------------------------------------
 
-async def fetch_by_hash(model_hash: str, *, force: bool = False) -> dict | None:
-    """Look a model up by AutoV2 or SHA-256.  Returns None when not matched."""
+# Sentinel: the lookup could not be completed (network error, 5xx, rate limit,
+# open breaker).  Distinct from None, which means "Civitai answered: no match".
+UNREACHABLE = object()
+
+
+async def fetch_by_hash(model_hash: str, *, force: bool = False) -> dict | object | None:
+    """Look a model up by AutoV2 or SHA-256.
+
+    Returns a mapped dict on a match, ``None`` when Civitai definitively
+    answered 404, and :data:`UNREACHABLE` when the answer is unknown.
+    """
     if not model_hash or len(model_hash) < 8:
         return None
     cfg = config_service.get_config()
@@ -120,7 +129,9 @@ async def fetch_by_hash(model_hash: str, *, force: bool = False) -> dict | None:
     if not force:
         cached = _cache_get(key)
         if cached is not None:
-            return map_version(cached["body"]) if cached["status"] == 200 else None
+            if cached["status"] == 200:
+                return map_version(cached["body"])
+            return None if cached["status"] == 404 else UNREACHABLE
     if _breaker_open():
         raise FeatureUnavailable("Civitai is temporarily unreachable; try again later.",
                                  details=breaker_state())
@@ -151,7 +162,7 @@ async def fetch_by_hash(model_hash: str, *, force: bool = False) -> dict | None:
             if res.status_code == 429:
                 _cache_put(key, 429, None, 60_000, "rate limited")
                 _record_failure()
-                return None
+                return UNREACHABLE
             last_error = f"HTTP {res.status_code}"
         except Exception as exc:  # noqa: BLE001 - network errors are expected
             last_error = str(exc)[:200]
@@ -160,7 +171,7 @@ async def fetch_by_hash(model_hash: str, *, force: bool = False) -> dict | None:
     _record_failure()
     _cache_put(key, 0, None, 60_000, last_error)
     log.info("Civitai lookup failed for %s: %s", model_hash, last_error)
-    return None
+    return UNREACHABLE
 
 
 async def fetch_latest_version(civitai_model_id: int, *,
@@ -361,6 +372,10 @@ async def enrich_model(model_id: int, *, force: bool = False) -> dict:
     if row["hash_state"] != "done" or not row["sha256"]:
         return {"state": "error", "reason": "hash_required"}
     mapped = await fetch_by_hash(str(row["sha256"]), force=force)
+    if mapped is UNREACHABLE:
+        # A timeout or server error is not "this model is not on Civitai":
+        # leave the stored state untouched so a later pass retries.
+        return {"state": "error", "reason": "unreachable"}
     if mapped and mapped.get("civitai_model_id"):
         latest = await fetch_latest_version(mapped["civitai_model_id"], force=force)
         if latest and latest.get("latest_version_id"):

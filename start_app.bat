@@ -115,6 +115,7 @@ if not defined READY (
     echo ---------------------------------------------------------------
     if exist "%ROOT%backend_log.txt" powershell -NoProfile -Command "Get-Content '%ROOT%backend_log.txt' -Tail 20"
     echo ---------------------------------------------------------------
+    call "%ROOT%stop_app.bat" --quiet
     echo.
     pause
     exit /b 1

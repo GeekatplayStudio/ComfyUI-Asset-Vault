@@ -277,11 +277,11 @@ def apply_id_filter(where: Where, column: str, ids: list[int] | None) -> bool:
         return True
     if not ids:
         return False
-    for start in range(0, len(ids), 900):
-        chunk = ids[start:start + 900]
-        if start == 0:
-            ph = ",".join("?" * len(chunk))
-            where.add(f"{column} IN ({ph})", *chunk)
+    # Search hands over at most ~1000 ids; modern SQLite allows 32k bound
+    # variables, so a single IN keeps every candidate (chunking that kept only
+    # the first 900 silently dropped matches).
+    ph = ",".join("?" * len(ids))
+    where.add(f"{column} IN ({ph})", *ids)
     return True
 
 

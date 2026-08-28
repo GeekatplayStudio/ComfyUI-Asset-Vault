@@ -1,5 +1,5 @@
 # Architecture — Geekatplay ComfyUI Asset Vault & Manager
-**v2.0 rebuild** · Author: Geekatplay Studio — Vladimir Chopine · Target install: `O:\ComfyUI` (ComfyUI 0.33.0)
+**v2.0 rebuild** · Author: Geekatplay Studio — Vladimir Chopine · Target install: `C:\ComfyUI` (ComfyUI 0.33.0)
 Status: **FROZEN CONTRACT.** The code implements against this document; a change to one is a
 change to both, in the same commit.
 
@@ -331,7 +331,7 @@ if header bytes are not valid UTF-8 JSON:                        → integrity='
 if the first bytes look like '<!doctype'/'<html'/'version http': → integrity='not_a_model' (HTML error page / Git-LFS pointer)
 if file_size < 4096:                                             → integrity='truncated'
 ```
-`O:\ComfyUI\models\vae\flux2-vae-new.safetensors` is a **129 KB HuggingFace HTML error page**. It must render as a red "Corrupt / not a model" card, not as "VAE". `integrity` values: `ok | invalid_header | not_a_model | truncated | unreadable | unsupported_format`.
+`C:\ComfyUI\models\vae\flux2-vae-new.safetensors` is a **129 KB HuggingFace HTML error page**. It must render as a red "Corrupt / not a model" card, not as "VAE". `integrity` values: `ok | invalid_header | not_a_model | truncated | unreadable | unsupported_format`.
 
 #### Layer 1 — Declared metadata (authoritative when present; 101/230 files have `__metadata__`, 6 have `modelspec.architecture`)
 Ordered probe of `__metadata__`:
@@ -616,7 +616,7 @@ Frontend debounces keystrokes at **140 ms** and cancels the in-flight request wi
 | Audio (mp3/wav/flac) | Generated waveform-style placeholder + duration from header. |
 | 3D (glb/fbx/obj) | Generated placeholder with the format badge. |
 | Workflow `.json` | Rendered node-count/complexity card; if a sibling `<name>.png` exists, use it. |
-| Model | Civitai preview image (downloaded once, stored in the same cache, only when `online_enabled`) → else a **deterministic generated placeholder**: a 2-stop gradient whose hue is `blake2b(base_model_family)` mod 360, overlaid with the role glyph and the base-model abbreviation. Verified: there are **zero** sidecar preview images in `O:\ComfyUI\models`, so placeholders are the normal case, not the exception. |
+| Model | Civitai preview image (downloaded once, stored in the same cache, only when `online_enabled`) → else a **deterministic generated placeholder**: a 2-stop gradient whose hue is `blake2b(base_model_family)` mod 360, overlaid with the role glyph and the base-model abbreviation. Verified: there are **zero** sidecar preview images in `C:\ComfyUI\models`, so placeholders are the normal case, not the exception. |
 
 **Invalidation:** the cache key includes the path hash only, but the **ETag includes the fingerprint**. A changed file yields a new ETag, so the browser refetches; the server compares `fingerprint` against `thumb_cache.fingerprint` and regenerates on mismatch. On rename/move, `ThumbService.relocate(old, new)` renames the cache files (cheap) rather than regenerating.
 
@@ -788,7 +788,7 @@ def resolve_within_roots(p: str | Path) -> tuple[Path, Root]:
 
 Windows specifics, all mandatory:
 * **`os.path.realpath` (not `Path.resolve`)** — resolves NTFS junctions, symlinks, and 8.3 short names (`PROGRA~1`). The current `base_root in resolved.parents` check is also subtly wrong: it fails when `child == root`'s own parent chain differs in case.
-* **`os.path.normcase`** before comparison — NTFS is case-insensitive. `commonpath` is a *string* operation and would otherwise treat `O:\ComfyUI` and `o:\comfyui` as different.
+* **`os.path.normcase`** before comparison — NTFS is case-insensitive. `commonpath` is a *string* operation and would otherwise treat `C:\ComfyUI` and `c:\comfyui` as different.
 * **Long paths:** any path ≥ 250 chars is prefixed `\\?\` before the syscall. `\\?\` disables normalization, so it must be applied *after* `realpath`. UNC becomes `\\?\UNC\server\share`.
 * **Non-ASCII:** Python 3's `str` paths are UTF-16 on Windows natively. Never `.encode('ascii')`. All file reads use `errors='replace'`; all JSON/text reads try `utf-8` then `utf-8-sig` then `cp1252` with replacement.
 * **Reserved names / trailing dots:** reject `CON`, `PRN`, `AUX`, `NUL`, `COM1-9`, `LPT1-9` and any name ending in `.` or ` ` as rename targets.
@@ -859,7 +859,7 @@ All three go through `fileops_service`, which:
 | Hash throughput | n/a | ≥ 120 MB/s reported | 1.5 TB ≈ 2.8 h, resumable |
 | Idle RSS | n/a | ≤ 220 MB | incl. 15 MB vector matrix + ORT session |
 
-A `qa`-owned `backend/tests/perf/test_budgets.py` asserts the index and search budgets against a synthetic 10k-item fixture, and a `--bench` mode runs them against the real `O:\ComfyUI`.
+A `qa`-owned `backend/tests/perf/test_budgets.py` asserts the index and search budgets against a synthetic 10k-item fixture, and a `--bench` mode runs them against the real `C:\ComfyUI`.
 
 ---
 
