@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react'
 import {
-  CheckCircle2, XCircle, AlertTriangle, FolderSearch, RefreshCw, Sparkles,
-  Trash2, HardDrive, Info, Wand2
+  CheckCircle2, XCircle, AlertTriangle, FolderSearch, FolderPlus, RefreshCw,
+  Sparkles, Trash2, HardDrive, Info, Wand2, Clock
 } from 'lucide-react'
 import api, { isAbort } from '../../services/api.js'
 import useResource from '../../hooks/useResource.js'
@@ -254,13 +254,81 @@ function LocationTab({ config, onSaved, onReindex, onWizard }) {
         </div>
       ) : null}
 
-      <div className="gp-details__section-head gp-u-mt-6"><span>Scan roots</span></div>
+      <RootsManager config={config} onReindex={onReindex} />
+    </>
+  )
+}
+
+/* Mirrors MODEL_CATEGORY_DIRS in backend/app/core/config_service.py - the
+   backend validates against that list, so an out-of-date entry here fails
+   loudly rather than saving something wrong. */
+const MODEL_CATEGORIES = [
+  'checkpoints', 'diffusion_models', 'unet', 'loras', 'vae', 'vae_approx',
+  'clip', 'clip_vision', 'text_encoders', 'controlnet', 'embeddings',
+  'upscale_models', 'latent_upscale_models', 'style_models', 'gligen',
+  'hypernetworks', 'photomaker', 'audio_encoders', 'diffusers',
+  'model_patches', 'frame_interpolation', 'geometry_estimation', 'detection',
+  'optical_flow', 'background_removal', 'LLM', 'configs', 'onnx', 'sams',
+  'ultralytics', 'insightface', 'ipadapter'
+]
+
+function RootsManager({ config, onReindex }) {
+  const { toast, toastError, refreshConfig } = useVault()
+  const [newPath, setNewPath] = useState('')
+  const [newKind, setNewKind] = useState('extra_models')
+  const [newCategory, setNewCategory] = useState('checkpoints')
+  const [adding, setAdding] = useState(false)
+  const [added, setAdded] = useState(false)
+
+  const roots = config.roots || []
+  const removable = (root) => root.source === 'manual' &&
+    (root.kind === 'extra_workflows' || root.kind === 'extra_models')
+
+  const addFolder = useCallback(async () => {
+    const path = newPath.trim()
+    if (!path) return
+    setAdding(true)
+    try {
+      const body = { path, kind: newKind }
+      if (newKind === 'extra_models') body.category = newCategory
+      await api.addRoot(body)
+      await refreshConfig()
+      setNewPath('')
+      setAdded(true)
+      toast({ tone: 'ok', title: 'Folder added',
+        message: 'Reindex to bring its files into the vault.' })
+    } catch (err) {
+      toastError(err, 'Could not add that folder')
+    } finally {
+      setAdding(false)
+    }
+  }, [newPath, newKind, newCategory, refreshConfig, toast, toastError])
+
+  const removeFolder = useCallback(async (root) => {
+    try {
+      await api.removeRoot(root.id)
+      await refreshConfig()
+      setAdded(true)
+      toast({ tone: 'warn', title: 'Folder removed',
+        message: 'Already-indexed rows are kept until the next reindex.' })
+    } catch (err) {
+      toastError(err, 'Could not remove that folder')
+    }
+  }, [refreshConfig, toast, toastError])
+
+  return (
+    <>
+      <div className="gp-details__section-head gp-u-mt-6"><span>Scan folders</span></div>
       <table className="gp-table gp-table--compact">
         <thead>
-          <tr><th>Label</th><th>Kind</th><th>Path</th><th className="gp-table__num">State</th></tr>
+          <tr>
+            <th>Label</th><th>Kind</th><th>Path</th>
+            <th className="gp-table__num">State</th>
+            <th className="gp-table__num" aria-label="Actions" />
+          </tr>
         </thead>
         <tbody>
-          {(config.roots || []).map((root) => (
+          {roots.map((root) => (
             <tr key={root.id}>
               <td>{root.label}</td>
               <td>{humanise(root.kind)}</td>
@@ -270,10 +338,82 @@ function LocationTab({ config, onSaved, onReindex, onWizard }) {
                   {root.available ? 'available' : 'offline'}
                 </Badge>
               </td>
+              <td className="gp-table__num">
+                {removable(root) ? (
+                  <Button size="sm" variant="dangerGhost" icon={Trash2} iconOnly
+                    aria-label={'Remove ' + root.path}
+                    title="Stop scanning this folder. Files on disk are never touched."
+                    onClick={() => removeFolder(root)} />
+                ) : null}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      <div className="gp-details__section-head gp-u-mt-6"><span>Add a folder</span></div>
+      <div className="gp-u-fs-11 gp-u-meta gp-u-mb-4">
+        Any folder on any drive can be mapped in - it does not have to live
+        inside ComfyUI. An offline drive is remembered and simply shows as
+        offline until it returns; nothing is ever deleted because a drive
+        was unplugged.
+      </div>
+      <div className="gp-u-row gp-u-gap-4 gp-u-wrap">
+        <input
+          className="gp-input gp-input--mono gp-u-grow"
+          value={newPath}
+          spellCheck="false"
+          placeholder={'D:\\SharedModels\\loras'}
+          aria-label="Folder to add"
+          onChange={(e) => setNewPath(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') addFolder() }}
+        />
+        <Select
+          value={newKind}
+          onChange={setNewKind}
+          ariaLabel="What the folder holds"
+          options={[
+            { value: 'extra_models', label: 'Models' },
+            { value: 'extra_workflows', label: 'Workflows' }
+          ]}
+        />
+        {newKind === 'extra_models' ? (
+          <Select
+            value={newCategory}
+            onChange={setNewCategory}
+            ariaLabel="Model category"
+            options={MODEL_CATEGORIES.map((c) => ({ value: c, label: c }))}
+          />
+        ) : null}
+        <Button variant="primary" icon={FolderPlus} label="Add folder"
+          loading={adding} disabled={adding || !newPath.trim()}
+          onClick={addFolder} />
+      </div>
+
+      {added ? (
+        <div className="gp-callout gp-callout--warn gp-u-mt-5">
+          <span className="gp-callout__icon"><RefreshCw aria-hidden="true" /></span>
+          <div className="gp-callout__body">
+            <div className="gp-callout__title">The scan folders changed</div>
+            Reindex so the lists reflect the new mapping.
+            <div className="gp-callout__actions">
+              <Button size="sm" variant="primary" icon={RefreshCw} label="Reindex now"
+                onClick={() => onReindex('full')} />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="gp-callout gp-callout--info gp-u-mt-5">
+        <span className="gp-callout__icon"><Clock aria-hidden="true" /></span>
+        <div className="gp-callout__body">
+          <div className="gp-callout__title">The first scan of a new folder can take a while</div>
+          Indexing reads file headers, never whole files, so it is usually
+          quick - but a very large folder, or one on a slow or network drive,
+          can take considerably longer on its first pass. It runs in the
+          background and later scans only touch what changed.
+        </div>
+      </div>
     </>
   )
 }

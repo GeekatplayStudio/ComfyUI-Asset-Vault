@@ -266,7 +266,7 @@ Body:
 ```
 
 ### `GET /api/v1/system/roots` · `POST /api/v1/system/roots` · `DELETE /api/v1/system/roots/{id}`
-List / add / remove extra scan roots (`kind` ∈ `extra_models`, `extra_workflows`). `POST` body `{"path": "...", "kind": "...", "label": "..."}`.
+List / add / remove extra scan roots (`kind` ∈ `extra_models`, `extra_workflows`). `POST` body `{"path": "...", "kind": "...", "label": "...", "category": "..."}` — `category` is required for `kind: extra_models` and must be one of the known model category names (`checkpoints`, `loras`, …); the folder may live on any drive. `DELETE` removes roots added by hand (`source: manual`); roots that come from `extra_model_paths.yaml` are managed in that file. An offline root stays configured and is reported `available: false`, never dropped.
 
 ### `POST /api/v1/system/thumbs/gc`
 Body `{"max_mb": 2048}` → `200 {"deleted":1204,"freed_bytes":318000000,"remaining_bytes":220000000}`.

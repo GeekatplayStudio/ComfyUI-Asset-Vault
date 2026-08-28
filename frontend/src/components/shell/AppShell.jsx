@@ -5,6 +5,7 @@ import useKeyboardNav from '../../hooks/useKeyboardNav.js'
 import useEventSource from '../../hooks/useEventSource.js'
 import TopBar from './TopBar.jsx'
 import LeftRail from './LeftRail.jsx'
+import ConfigNotice from './ConfigNotice.jsx'
 import StatusBar from './StatusBar.jsx'
 import DetailsPanel from './DetailsPanel.jsx'
 import ErrorBoundary from '../common/ErrorBoundary.jsx'
@@ -14,7 +15,6 @@ import NodesTab from '../tabs/NodesTab.jsx'
 import WorkflowsTab from '../tabs/WorkflowsTab.jsx'
 import OutputsTab from '../tabs/OutputsTab.jsx'
 import Lightbox from '../modals/Lightbox.jsx'
-import SettingsModal from '../modals/SettingsModal.jsx'
 import HealthDrawer from '../modals/HealthDrawer.jsx'
 import HashDialog from '../modals/HashDialog.jsx'
 import IndexProgress from '../modals/IndexProgress.jsx'
@@ -28,6 +28,10 @@ import useExclusiveMedia from '../../hooks/useExclusiveMedia.js'
    handling. Splitting it keeps the first paint - the four asset tabs - inside
    the 400 kB chunk budget vite.config.js sets. */
 const StorageTab = lazy(() => import('../tabs/StorageTab.jsx'))
+
+/* Settings opens only on a deliberate click, so it stays off the cold path
+   for the same reason Storage does - it carries six tabs and the updater. */
+const SettingsModal = lazy(() => import('../modals/SettingsModal.jsx'))
 
 function TabFallback() {
   return (
@@ -290,6 +294,10 @@ export default function AppShell() {
       />
 
       <main className="gp-main">
+        <ConfigNotice
+          config={state.config}
+          onOpenSettings={() => openModal('settings', { initialTab: 'location' })}
+        />
         <ErrorBoundary title="This tab hit an error">
           {main}
         </ErrorBoundary>
@@ -361,12 +369,14 @@ export default function AppShell() {
       ) : null}
 
       {state.modal && state.modal.name === 'settings' ? (
-        <SettingsModal
-          onClose={closeModal}
-          onReindex={(mode) => openModal('index', { autoStart: true, mode })}
-          onWizard={() => openModal('wizard')}
-          {...state.modal.props}
-        />
+        <Suspense fallback={null}>
+          <SettingsModal
+            onClose={closeModal}
+            onReindex={(mode) => openModal('index', { autoStart: true, mode })}
+            onWizard={() => openModal('wizard')}
+            {...state.modal.props}
+          />
+        </Suspense>
       ) : null}
 
       {state.modal && state.modal.name === 'health' ? (

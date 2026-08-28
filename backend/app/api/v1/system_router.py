@@ -360,10 +360,31 @@ def system_health() -> dict:
     cfg = config_service.get_config()
     checks: list[dict] = []
 
-    root_ok = bool(cfg.comfyui_path and Path(cfg.comfyui_path).is_dir())
-    checks.append({"id": "comfyui_root",
-                   "status": "ok" if root_ok else "error",
-                   "message": str(cfg.comfyui_path or "not configured")})
+    # Three distinct states, because they need three different responses from
+    # the user: nothing set yet, set but unreachable (drive off?), and fine.
+    if not cfg.comfyui_path:
+        checks.append({"id": "comfyui_root", "status": "error",
+                       "message": "No ComfyUI folder is configured. "
+                                  "Set it in Settings -> Location."})
+    elif not Path(cfg.comfyui_path).is_dir():
+        checks.append({"id": "comfyui_root", "status": "error",
+                       "message": f"The configured folder is not reachable "
+                                  f"(drive offline?): {cfg.comfyui_path}"})
+    else:
+        checks.append({"id": "comfyui_root", "status": "ok",
+                       "message": str(cfg.comfyui_path)})
+
+    offline_roots = [r for r in cfg.roots
+                     if r.kind != "data" and not os.path.isdir(r.path)]
+    checks.append({
+        "id": "scan_roots",
+        "status": "warn" if offline_roots else "ok",
+        "message": (f"{len(offline_roots)} scan root(s) offline: "
+                    + "; ".join(r.path for r in offline_roots[:3])
+                    if offline_roots
+                    else f"{len(cfg.roots)} root(s), all reachable"),
+        "count": len(offline_roots),
+    })
 
     db = dbmod.db_stat()
     checks.append({"id": "database", "status": "ok" if db["exists"] else "error",
@@ -422,18 +443,27 @@ def add_root(body: RootCreate) -> dict:
                        details={"path": str(path)},
                        field_errors=[{"field": "path",
                                       "message": "directory does not exist"}])
-    if body.kind == "extra_models":
-        raise ApiError(
-            "VALIDATION_ERROR",
-            "Extra model roots come from extra_model_paths.yaml, not from this endpoint.",
-            field_errors=[{"field": "kind",
-                           "message": "only 'extra_workflows' can be added here"}])
     cfg = config_service.get_config()
-    current = [str(d) for d in cfg.extra_workflow_dirs]
-    if any(os.path.normcase(d) == os.path.normcase(str(path)) for d in current):
-        raise ApiError("CONFLICT", "That root is already configured.",
+    if any(os.path.normcase(r.path) == os.path.normcase(str(path))
+           for r in cfg.roots):
+        raise ApiError("CONFLICT", "That folder is already a scan root.",
                        details={"path": str(path)})
-    cfg = config_service.set_config({"extra_workflow_dirs": [*current, str(path)]})
+    if body.kind == "extra_models":
+        category = (body.category or "").strip()
+        if category not in config_service.MODEL_CATEGORY_DIRS:
+            raise ApiError(
+                "VALIDATION_ERROR",
+                "A model folder needs a category so its files are classified "
+                "and placed correctly.",
+                field_errors=[{"field": "category",
+                               "message": "one of: "
+                               + ", ".join(config_service.MODEL_CATEGORY_DIRS)}])
+        current = [dict(d) for d in (cfg.raw.get("extra_model_dirs") or [])]
+        current.append({"path": str(path), "category": category})
+        cfg = config_service.set_config({"extra_model_dirs": current})
+    else:
+        current = [str(d) for d in cfg.extra_workflow_dirs]
+        cfg = config_service.set_config({"extra_workflow_dirs": [*current, str(path)]})
     for root in _root_items(cfg):
         if os.path.normcase(root["path"]) == os.path.normcase(str(path)):
             return root
@@ -449,13 +479,20 @@ def delete_root(root_id: int) -> dict:
     if target is None:
         raise ApiError("NOT_FOUND", f"Root {root_id} does not exist.",
                        details={"root_id": root_id})
-    if target.kind != "extra_workflows":
+    if target.kind == "extra_workflows":
+        keep = [str(d) for d in cfg.extra_workflow_dirs
+                if os.path.normcase(str(normalize(d))) != os.path.normcase(target.path)]
+        config_service.set_config({"extra_workflow_dirs": keep})
+    elif target.kind == "extra_models" and target.source == "manual":
+        keep = [dict(d) for d in (cfg.raw.get("extra_model_dirs") or [])
+                if os.path.normcase(str(normalize(str(d.get("path") or ""))))
+                != os.path.normcase(target.path)]
+        config_service.set_config({"extra_model_dirs": keep})
+    else:
         raise ApiError("CONFLICT",
-                       "Only extra workflow roots added by hand can be removed.",
-                       details={"kind": target.kind})
-    keep = [str(d) for d in cfg.extra_workflow_dirs
-            if os.path.normcase(str(normalize(d))) != os.path.normcase(target.path)]
-    config_service.set_config({"extra_workflow_dirs": keep})
+                       "Only folders added by hand can be removed here. Roots "
+                       "from extra_model_paths.yaml are managed in that file.",
+                       details={"kind": target.kind, "source": target.source})
     return {"deleted": True, "id": root_id}
 
 
