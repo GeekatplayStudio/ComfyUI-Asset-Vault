@@ -132,12 +132,15 @@ Both talk to the same engine and the same database. The interactive API referenc
 
 ## 4. First launch
 
-The first time the interface loads it shows a short wizard.
+The first time the interface loads it shows a short wizard. It is skippable — **Set up later**
+closes it, and the app shows a persistent banner with a button that opens Settings → **Location**
+until a folder is configured.
 
 1. **Point it at ComfyUI.** Type or paste the installation folder — the one that contains
-   `models\`, `custom_nodes\` and `output\`. It is validated live: the wizard tells you whether
-   the folder exists, whether it looks like a ComfyUI install, and which sub-folders it found,
-   *before* you can save.
+   `models\`, `custom_nodes\` and `output\`. A portable build's parent folder (the drive root
+   beside `python_embeded`) also works — the install inside is found automatically. It is
+   validated live: the wizard tells you whether the folder exists, whether it looks like a
+   ComfyUI install, and which sub-folders it found, *before* you can save.
 2. **Confirm.** Extra roots declared in `extra_model_paths.yaml` are picked up automatically.
    `extra_model_paths.yaml.hold` is ignored unless you turn that on in Settings.
 3. **The first scan runs.** On the reference install a cold full scan takes **13.8–17.4 seconds**
@@ -150,7 +153,8 @@ safetensors/GGUF headers and filesystem metadata.
 ### Changing the ComfyUI folder later
 
 Settings → **Location**. The same live validation applies, and you are offered a re-index
-immediately. Existing rows for the old folder are **retained, not deleted** — the old root is
+immediately. The tab also has a scan-folder manager for extra model and workflow folders from
+any drive. Existing rows for the old folder are **retained, not deleted** — the old root is
 marked retired, its models, workflows and outputs keep their ratings, tags, notes and album
 membership, and the missing-file sweep skips them so nothing is flagged just because a drive was
 unplugged. Retired roots are read-only: rename, move and delete are refused for them. Remove that

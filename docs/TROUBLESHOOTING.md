@@ -81,11 +81,15 @@ once `npm run build` has been run.
 ## The ComfyUI path is wrong, or points at nothing
 
 Symptoms: counts are zero, thumbnails do not render, every rename/move/delete is refused, or the
-health drawer reports `comfyui_root` as an error.
+health drawer reports `comfyui_root` as an error. The error message distinguishes the two cases:
+"No ComfyUI folder is configured" means nothing has been set yet, while "The configured folder is
+not reachable (drive offline?)" means a folder is set but cannot be found.
 
 Fix it in **Settings → Location**. The field validates live — it tells you whether the folder
 exists, whether it looks like a ComfyUI install, and which sub-folders it found, before you can
-save. Point it at the folder that contains `models\`, `custom_nodes\` and `output\`.
+save. Point it at the folder that contains `models\`, `custom_nodes\` and `output\`. Pointing at
+a portable build's parent folder (the drive root beside `python_embeded`) now works too — the
+install inside is found automatically.
 
 Every consumer picks the new path up **without a restart**: the indexer, the file-operation root
 guard, thumbnails, search and the MCP server. Re-index when offered.
@@ -301,7 +305,8 @@ The top-level `status` is the **worst** individual check, so a single unreadable
 
 | Check | `warn` / `error` means |
 |---|---|
-| `comfyui_root` | The configured folder is unreachable. Fix the path. |
+| `comfyui_root` | Either no folder is configured yet, or the configured folder is unreachable — the message says which. Fix the path. |
+| `scan_roots` | One or more extra scan folders are offline. The mapping and indexed rows are kept — reattach the drive, or remove the folder in Settings → Location. |
 | `database` | Journal mode and size. `ok` reads like `WAL, 33.4 MB`. |
 | `embeddings` | Smart search is off or its model files are absent. Expected until you enable it. |
 | `civitai` | Online enrichment disabled. Expected by default. |
