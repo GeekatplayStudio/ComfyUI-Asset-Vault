@@ -62,6 +62,7 @@ function Root() {
           await refreshConfig()
           setWizardDone(true)
         }}
+        onSkip={() => setWizardDone(true)}
       />
     )
   }

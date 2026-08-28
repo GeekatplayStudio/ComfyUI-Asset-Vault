@@ -6,6 +6,28 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 ## Unreleased
 
+### Added — run from anywhere, map folders from any drive
+
+**The wizard can be skipped.** The app no longer locks you into the first-run wizard: **Set up
+later** opens the vault immediately, with a persistent banner explaining that nothing can be
+indexed until a folder is set — and a button that opens **Settings → Location** directly. The
+same banner system reports the other two states that need you: the configured ComfyUI folder
+going unreachable (drive offline, renamed, unplugged), and any extra scan folder being offline.
+Each case says plainly that your library rows are kept, never wiped, while a drive is away.
+
+**Any folder on any drive can be mapped in.** Settings → Location grew a scan-folder manager:
+add a models folder (with its category, so classification and placement stay correct) or a
+workflows folder from anywhere — a second drive, a NAS share, a folder shared with another UI —
+and remove hand-added ones again. The mapping is deliberately robust: an offline drive stays in
+the configuration and shows as *offline* until it returns; unplugging it never deletes the
+mapping or the indexed rows. The health drawer gained a matching `scan_roots` check that counts
+and names offline roots, and the ComfyUI-folder check now distinguishes *not configured* from
+*configured but unreachable*.
+
+Both the wizard and the folder manager now say out loud that the **first scan of a large
+library — or one on a slow or network drive — can take a while**; it runs in the background,
+and later scans only touch what changed.
+
 ### Fixed — the ComfyUI folder picker, and an audit pass over the installer and engine
 
 **A portable install's own folder was rejected.** A portable build unpacks so that `ComfyUI`

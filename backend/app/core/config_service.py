@@ -58,6 +58,10 @@ DEFAULTS: dict[str, tuple[str, object]] = {
     "trash_retention_days": ("int", 30),
     "read_held_extra_paths": ("bool", False),
     "extra_workflow_dirs": ("json", []),
+    # Manual extra model folders: [{"path": str, "category": str}].  These are
+    # first-class scan roots on any drive, independent of the ComfyUI install
+    # and of extra_model_paths.yaml.
+    "extra_model_dirs": ("json", []),
     "mcp_read_only": ("bool", False),
     "needs_relink": ("bool", False),
     "ui_prefs_json": ("json", {}),
@@ -233,6 +237,19 @@ def compute_roots(values: dict) -> tuple[Root, ...]:
         try:
             add("extra_workflows", Path(str(d)), f"Workflows ({d})", source="manual")
         except (OSError, ValueError):
+            continue
+
+    # Manual model folders are added even when the drive is currently offline:
+    # a root that exists in config but not on disk is reported as unavailable,
+    # never silently dropped, so unplugging a drive cannot lose the mapping.
+    for entry in values.get("extra_model_dirs") or []:
+        try:
+            p = str(entry.get("path") or "")
+            cat = str(entry.get("category") or "")
+            if p and cat:
+                add("extra_models", Path(p), f"{cat} ({p})",
+                    category=cat, source="manual")
+        except (OSError, ValueError, AttributeError):
             continue
 
     add("data", Path(DATA_DIR), "App data", source="config")

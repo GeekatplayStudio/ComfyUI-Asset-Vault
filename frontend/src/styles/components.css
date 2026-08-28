@@ -636,3 +636,7 @@ audio.gp-play__media{height:auto;align-self:center;padding:0 var(--gp-s-4)}
 .gp-text--msg{align-items:center;justify-content:center;gap:var(--gp-s-3);padding:var(--gp-s-7);text-align:center;font-size:var(--gp-fs-11);color:var(--gp-fg-300);min-height:140px}
 .gp-text__icon{width:20px;height:20px;color:var(--gp-fg-400)}
 .gp-text__sub{color:var(--gp-fg-400);font-size:var(--gp-fs-10)}
+
+/* Config notice - the actionable banner AppShell shows above the grid when
+   the ComfyUI folder is missing, unreachable, or a scan root is offline. */
+.gp-confignotice{margin:var(--gp-s-4) var(--gp-s-5) 0}

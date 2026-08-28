@@ -45,7 +45,7 @@ function BrandLockup() {
   )
 }
 
-export default function FirstLaunchWizard({ onDone, onCancel, initialPath }) {
+export default function FirstLaunchWizard({ onDone, onCancel, onSkip, initialPath }) {
   const { toast, toastError, refreshConfig } = useVault()
   const [step, setStep] = useState(0)
   const [path, setPath] = useState(initialPath || '')
@@ -234,8 +234,11 @@ export default function FirstLaunchWizard({ onDone, onCancel, initialPath }) {
                   <span className="gp-callout__icon"><Rocket aria-hidden="true" /></span>
                   <div className="gp-callout__body">
                     <div className="gp-callout__title">The first scan reads headers only</div>
-                    It parses metadata, never file bodies, so a library this size is indexed in
-                    seconds rather than hours. You can keep using the app while it runs.
+                    It parses metadata, never file bodies. A typical library is indexed in
+                    seconds to minutes, but a very large one — or one on a slow or network
+                    drive — can take considerably longer on the first pass. It runs in the
+                    background: you can keep using the app the whole time, and later scans
+                    only touch what changed.
                   </div>
                 </div>
               </>
@@ -243,9 +246,16 @@ export default function FirstLaunchWizard({ onDone, onCancel, initialPath }) {
           </div>
 
           <div className="gp-modal__footer">
-            {onCancel ? (
+            {onCancel || onSkip ? (
               <div className="gp-modal__footer-left">
-                <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+                {onCancel ? (
+                  <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+                ) : (
+                  <Button variant="ghost" onClick={onSkip}
+                    title="Open the app without a ComfyUI folder. You can set it any time in Settings -> Location.">
+                    Set up later
+                  </Button>
+                )}
               </div>
             ) : null}
             {step > 0 ? (
