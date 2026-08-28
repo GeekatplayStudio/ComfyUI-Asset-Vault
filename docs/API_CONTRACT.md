@@ -199,6 +199,7 @@ Two mechanisms hold that, neither of which asks a mutation endpoint to remember 
 ### `PATCH /api/v1/system/config`
 Body: any subset of the writable keys above. `200` returns the full config.
 Changing `comfyui_path` re-resolves roots and returns `"roots_changed": true`; it does **not** auto-start a scan.
+A `comfyui_path` that points at a portable build's parent folder (e.g. a drive root holding `ComfyUI` beside `python_embeded`) is resolved to the install inside it — the **resolved child** is what gets saved, not the parent you typed.
 Errors: `VALIDATION_ERROR`, `PATH_INVALID`, `PATH_NOT_ALLOWED`.
 
 ### `POST /api/v1/system/validate-path`
@@ -216,6 +217,7 @@ Body `{"path":"C:\\ComfyUI"}` — the wizard's live preview.
 ```
 `preview` is a bounded walk (hard cap 60,000 entries / 4 s) — cheap enough for a live wizard field (measured full walk ≈ 0.4 s).
 `valid:false` still returns `200` with `reason` — this is a validation preview, not an error.
+A path at a portable build's parent folder (e.g. a drive root holding `ComfyUI` beside `python_embeded`) is resolved to the install inside it: `path`/`normalized` report the resolved directory, and `warnings` is prepended with `"Found the ComfyUI install inside that folder: <path>"`.
 
 ### `POST /api/v1/system/wizard/complete`
 Body:
@@ -261,9 +263,12 @@ Body:
      "items":[{"path":"C:\\ComfyUI\\models\\checkpoints\\Unconfirmed 46066.crdownload"}]},
     {"id":"suspect_remotes","status":"warn","count":1,
      "items":[{"package":"was-ns","repo_url":"https://github.com/Comfy-Org/ComfyUI"}]},
+    {"id":"scan_roots","status":"warn","message":"1 scan root offline: E:\\extra_models","count":1},
     {"id":"thumb_cache","status":"ok","message":"412 MB / 2048 MB"}
   ] }
 ```
+`scan_roots` is `warn` when one or more configured scan roots are offline — the message counts them and names up to three paths, and `count` carries the number — and `ok` otherwise (`"N root(s), all reachable"`).
+`comfyui_root` emits three states: `error` with `"No ComfyUI folder is configured. Set it in Settings -> Location."` when unset; `error` with `"The configured folder is not reachable (drive offline?): <path>"` when set but missing; `ok` with the path otherwise.
 
 ### `GET /api/v1/system/roots` · `POST /api/v1/system/roots` · `DELETE /api/v1/system/roots/{id}`
 List / add / remove extra scan roots (`kind` ∈ `extra_models`, `extra_workflows`). `POST` body `{"path": "...", "kind": "...", "label": "...", "category": "..."}` — `category` is required for `kind: extra_models` and must be one of the known model category names (`checkpoints`, `loras`, …); the folder may live on any drive. `DELETE` removes roots added by hand (`source: manual`); roots that come from `extra_model_paths.yaml` are managed in that file. An offline root stays configured and is reported `available: false`, never dropped.

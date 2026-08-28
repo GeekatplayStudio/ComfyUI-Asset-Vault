@@ -305,6 +305,12 @@ cleanly.
 On first launch a short wizard asks where ComfyUI is installed, validates the folder live as you
 type, and runs the first scan. On a portable build you can point at the folder that holds
 `ComfyUI` (the drive root, next to `python_embeded`) — the install inside it is found for you.
+The wizard is skippable (**Set up later**): the app opens without a configured folder and shows
+a banner that links straight to **Settings → Location**, where you can also map **extra model
+or workflow folders from any drive**. An unplugged drive shows as *offline* until it returns —
+its mapping and its indexed rows are never deleted. The first scan of a very large library, or
+one on a slow or network drive, can take a while; it runs in the background, and later scans
+only touch what changed.
 
 Full instructions → **[docs/INSTALL.md](docs/INSTALL.md)**
 Day-to-day use → **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)**

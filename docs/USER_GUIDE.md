@@ -6,6 +6,11 @@ Everything below describes the app running against a real ComfyUI 0.33.0 install
 34 node packages, 1,866 node classes, 211 workflows and 3,834 outputs. The numbers you see are
 your own.
 
+On first launch a short setup wizard points the app at your ComfyUI folder (INSTALL §4). It can
+be skipped with **Set up later** — the app then shows a persistent banner (the same banner used
+when the configured folder becomes unreachable or a scan folder goes offline) with a button that
+opens Settings → Location.
+
 ---
 
 ## 1. The shell
@@ -410,7 +415,12 @@ where useful, an action.
 Checks: ComfyUI root reachable · database mode and size · embedding model present · Civitai
 enabled · Ollama reachable · file-integrity failures (with the offending files named) · partial
 downloads left behind (`.crdownload`, `.part`) · node packages whose git remote does not look like
-the package name · thumbnail cache size against its cap.
+the package name · extra scan folders reachable (`scan_roots` warns when one or more extra scan
+folders are offline; their mappings and indexed rows are kept, never dropped) · thumbnail cache
+size against its cap.
+
+The ComfyUI-root check distinguishes "not configured" (no folder set yet) from "unreachable"
+(a folder is set but cannot be found — drive offline?).
 
 Overall status is the worst individual check, so "error" often just means one unreadable file.
 Open the drawer and read the line, do not guess.
@@ -421,15 +431,16 @@ The same report is available at `GET /api/v1/system/health`.
 
 ## 12. Settings
 
-Four sections.
+Six sections.
 
 | Section | Contains |
 |---|---|
-| **Location** | ComfyUI path with live validation, the configured roots, `extra_model_paths.yaml` contents, Save path · Save and reindex now · Run the setup wizard |
+| **Location** | ComfyUI path with live validation (the field also accepts a portable build's parent folder and finds the install inside it), the configured roots, the scan-folder manager — add a models folder (with a required category) or a workflows folder from any drive, remove hand-added ones; offline drives show as offline and are never dropped — `extra_model_paths.yaml` contents, Save path · Save and reindex now · Run the setup wizard |
 | **Search** | Smart search enable/rebuild and its status, match strictness, Civitai matching, the outbound-lookups master switch, local text generation with a Test button |
 | **Updates** | The installed version, the newest published release, what changed in it, Download, and the two update preferences |
 | **Jobs** | Reindex on startup when files changed, watch folders, also read `extra_model_paths.yaml.hold`, default delete mode, trash retention |
 | **Storage** | Thumbnail cache size and Trim now, the trash list with Restore and Empty |
+| **Activity** | The append-only MCP audit log — every assistant mutation with its arguments, items and outcome (§13) |
 
 **Allow outbound lookups at all** is the master switch. With it off, nothing reaches the network,
 regardless of the other toggles.
