@@ -19,7 +19,7 @@ echo "==================================================================="
 echo
 
 # ------------------------------------------------------------- [1/5] Python
-echo "[1/5] Looking for Python 3.10 or newer ..."
+echo "[1/5] Looking for Python 3.11 or newer ..."
 if ! command -v python3 >/dev/null 2>&1; then
     echo
     echo "[ERROR] python3 was not found on PATH."
@@ -29,9 +29,9 @@ if ! command -v python3 >/dev/null 2>&1; then
     exit 1
 fi
 
-if ! python3 -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)' >/dev/null 2>&1; then
+if ! python3 -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)' >/dev/null 2>&1; then
     echo
-    echo "[ERROR] The Python on PATH is too old. This app needs 3.10 or newer;"
+    echo "[ERROR] The Python on PATH is too old. This app needs 3.11 or newer;"
     echo "        3.12 is what it is developed and tested against."
     python3 --version || true
     exit 1

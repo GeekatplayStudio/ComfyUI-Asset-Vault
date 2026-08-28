@@ -8,7 +8,7 @@ Every model, LoRA, custom node, workflow and generated output — indexed, expla
 Built and maintained by **[Geekatplay Studio](https://www.geekatplay.com) — Vladimir Chopine**
 
 [![Platform](https://img.shields.io/badge/platform-Windows-0a84ff)](#requirements)
-[![Python](https://img.shields.io/badge/backend-Python%203.10%2B%20%2F%20FastAPI-009688)](#tech-stack)
+[![Python](https://img.shields.io/badge/backend-Python%203.11%2B%20%2F%20FastAPI-009688)](#tech-stack)
 [![Node](https://img.shields.io/badge/frontend-React%2018%20%2F%20Vite-61dafb)](#tech-stack)
 [![MCP](https://img.shields.io/badge/MCP-26%20tools-8b7bf0)](#model-context-protocol-server)
 [![Status](https://img.shields.io/badge/status-active-brightgreen)](docs/CHANGELOG.md)
@@ -316,7 +316,7 @@ Something looks wrong → **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**
 | | |
 |---|---|
 | OS | Windows 10 / 11 is the tested platform. Linux and macOS run **experimentally**: the engine, indexing, search and file operations are platform-neutral, and POSIX launchers ship (`start_app.sh` and friends) — but the ComfyUI start/update integration still expects a Windows portable layout, and the platform-specific test suites have not yet been run there. |
-| Python | 3.10 or newer |
+| Python | 3.11 or newer (3.12 recommended) |
 | Node.js | 18 or newer — **only when building the interface from source.** Release archives ship it pre-built; running the app never requires Node. |
 | ComfyUI | Any recent install — portable or `git`-checkout. The vault indexes it; it doesn't need ComfyUI running. |
 | Disk | The vault database and thumbnail cache are typically well under 100 MB even for a large library |
