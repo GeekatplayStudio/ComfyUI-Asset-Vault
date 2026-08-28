@@ -206,8 +206,10 @@ function LocationTab({ config, onSaved, onReindex, onWizard }) {
           </span>
         ) : (
           <span className="gp-field__hint">
-            The folder that contains models, custom_nodes, output and input. Validation runs as
-            you type; nothing is saved until you press Save.
+            The folder that contains models, custom_nodes, output and input. On a portable build
+            you can point at the folder holding ComfyUI (the drive root, next to python_embeded)
+            and the install inside it is found for you. Validation runs as you type; nothing is
+            saved until you press Save.
           </span>
         )}
       </div>

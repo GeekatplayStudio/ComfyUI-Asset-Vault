@@ -30,7 +30,7 @@ Write-Head '==================================================================='
 Write-Host ''
 
 # ------------------------------------------------------------- [1/5] Python
-Write-Step '[1/5] Looking for Python 3.10 or newer ...'
+Write-Step '[1/5] Looking for Python 3.11 or newer ...'
 $python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $python) {
     Fail @'
@@ -40,9 +40,9 @@ Python was not found on PATH.
 '@
 }
 
-& python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)'
+& python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)'
 if ($LASTEXITCODE -ne 0) {
-    Fail 'The Python on PATH is too old. This app needs 3.10 or newer; 3.12 is what it is developed and tested against.'
+    Fail 'The Python on PATH is too old. This app needs 3.11 or newer; 3.12 is what it is developed and tested against.'
 }
 Write-Ok "Found $(& python --version 2>&1)"
 

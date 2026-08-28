@@ -299,6 +299,10 @@ def set_config(patch: dict) -> AppConfig:
     unknown = set(patch) - set(clean)
     if unknown:
         log.warning("ignoring unknown config keys: %s", sorted(unknown))
+    # Store the install itself, not the portable parent it may have been typed
+    # as: every root, scan and custom_nodes lookup is derived from this value.
+    if clean.get("comfyui_path"):
+        clean["comfyui_path"] = str(resolve_comfyui_dir(str(clean["comfyui_path"])))
     if clean:
         write_raw(clean)
     with _lock:
@@ -406,10 +410,60 @@ def comfyui_root(cfg: AppConfig | None = None) -> Path | None:
     return cfg.comfyui_path
 
 
+#: Portable builds nest the real install one level down, next to
+#: ``python_embeded`` and ``update``.  These names are tried before a scan.
+COMFY_CHILD_HINTS = ("ComfyUI", "ComfyUI_windows_portable")
+#: Bound on the "any child might be it" fallback, so pointing at a huge folder
+#: (or a slow network drive) can never turn into an unbounded walk.
+_MAX_CHILD_PROBE = 64
+
+
+def looks_like_comfyui(p: Path) -> bool:
+    """The marker test: a models/ directory plus the ComfyUI entry point."""
+    try:
+        return (p / "models").is_dir() and (
+            (p / "main.py").is_file() or (p / "nodes.py").is_file())
+    except OSError:
+        return False
+
+
+def resolve_comfyui_dir(path: str | Path) -> Path:
+    """Map a portable parent onto the install inside it.
+
+    A portable build is usually unpacked so that ``ComfyUI`` sits beside
+    ``python_embeded`` and ``update``.  Typing that parent (often a whole
+    drive, ``O:\\``) is the natural thing to do, so accept it and descend to
+    the directory that actually holds ``main.py`` and ``models``.  Anything
+    already pointing at an install is returned untouched.
+    """
+    p = normalize(path)
+    if looks_like_comfyui(p):
+        return p
+    for name in COMFY_CHILD_HINTS:
+        child = p / name
+        if looks_like_comfyui(child):
+            return child
+    try:
+        with os.scandir(p) as it:
+            for n, entry in enumerate(it):
+                if n >= _MAX_CHILD_PROBE:
+                    break
+                if entry.is_dir() and looks_like_comfyui(Path(entry.path)):
+                    return Path(entry.path)
+    except OSError:
+        pass
+    return p
+
+
 def validate_comfyui_path(path: str | Path) -> dict:
     """Inspect a candidate install directory and report what was found."""
-    p = normalize(path)
+    typed = normalize(path)
+    p = resolve_comfyui_dir(typed)
     result: dict = {"path": str(p), "valid": False, "found": {}, "issues": []}
+    if str(p) != str(typed):
+        # Tell the caller we looked inside, so the saved path is never a
+        # surprise: the UI echoes this back before anything is written.
+        result["resolved_from"] = str(typed)
     if not p.exists():
         result["issues"].append("Directory does not exist.")
         return result

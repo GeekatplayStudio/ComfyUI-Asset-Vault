@@ -100,9 +100,7 @@ class ProgressBus:
             while True:
                 try:
                     event, payload = await asyncio.wait_for(q.get(), timeout=heartbeat)
-                # asyncio.TimeoutError only aliases TimeoutError from 3.11 on;
-                # the app supports 3.10, where they are distinct classes.
-                except (TimeoutError, asyncio.TimeoutError):  # noqa: UP041
+                except TimeoutError:
                     yield ("heartbeat", {"t": int(time.time() * 1000)})
                     continue
                 yield (event, payload)

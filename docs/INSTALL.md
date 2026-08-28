@@ -9,7 +9,7 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 | | Minimum | Verified on |
 |---|---|---|
 | Windows | 10 or 11, 64-bit | Windows 11 Pro 26200 |
-| Python on PATH | 3.10 | **3.12.10** |
+| Python on PATH | 3.11 | **3.12.10** |
 | Node.js on PATH | 18 — **source checkouts only**; a release archive ships the interface pre-built and never needs Node | **22.22.0** (npm 10.9.4) |
 | A ComfyUI installation | any | **ComfyUI 0.33.0** portable, frontend package 1.49.6 |
 
@@ -51,7 +51,7 @@ powershell -ExecutionPolicy Bypass -File .\install_dependencies.ps1
 
 The installer:
 
-1. checks that the Python on PATH is 3.10 or newer,
+1. checks that the Python on PATH is 3.11 or newer,
 2. creates `venv\` if it is not already there,
 3. installs `backend\requirements.txt` into it and then **verifies every package imports**,
 4. runs `npm install` in `frontend\`,

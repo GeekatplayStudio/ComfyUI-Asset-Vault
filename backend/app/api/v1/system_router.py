@@ -192,6 +192,10 @@ def validate_path(body: ValidatePathRequest) -> dict:
     found = report.get("found") or {}
     exists = root.is_dir()
     warnings: list[str] = list(report.get("issues") or [])
+    if report.get("resolved_from"):
+        # A portable build was pointed at by its parent; say which install is
+        # actually going to be used before anything is saved.
+        warnings.insert(0, f"Found the ComfyUI install inside that folder: {report['path']}")
 
     yaml_present = (root / "extra_model_paths.yaml").is_file()
     held_present = (root / "extra_model_paths.yaml.hold").is_file()
