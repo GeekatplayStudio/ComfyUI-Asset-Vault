@@ -4,7 +4,7 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 ---
 
-## Unreleased
+## 2.2.0 — 2026-08-29
 
 ### Fixed — ComfyUI Desktop's data folder was rejected at setup
 
@@ -292,6 +292,31 @@ a workflow in your own workflows folder. That was established by reading the fro
 sources and ComfyUI's server routes, not guessed. So 147 of the 211 indexed workflows open
 themselves, and for the rest the vault opens ComfyUI and names the file to pick from the
 Workflows sidebar rather than handing over a link that would quietly do nothing.
+
+### Verified state
+
+Full suite, including the tests that read the real install (`-m live`) and the timing budgets
+(`-m perf`), run clean on an idle machine — not just the default excluded-by-default subset:
+
+```
+pytest tests -m "not live and not perf"    1541 passed, 3 skipped
+pytest tests -m "live or perf"              220 passed, 1 skipped
+npm run vitest                                10 passed
+ruff check backend                          clean
+npm run build                               381 kB entry (budget 400 kB)
+```
+
+| | |
+|---|---|
+| Real cold full index | 12.975 s (budget 25 s) |
+| Real warm incremental | 0.650 s (budget 1.5 s) |
+| Real lexical search, p95 over HTTP | 14.9 ms (budget 50 ms) |
+| Real `/models` p95 | 4.6 ms (budget 40 ms) |
+| Real `/ping` p95 during a full scan | 3.75 ms (budget 50 ms) |
+
+The skips are environmental, not gaps: two need Developer Mode for symlink/junction tests, one
+hooks a walker entry point that doesn't exist, and one is the launcher test correctly declining
+to attribute a ping to `start_app.bat` while a manually-started engine already held the port.
 
 ---
 
