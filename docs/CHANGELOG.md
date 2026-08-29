@@ -6,6 +6,20 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 ## Unreleased
 
+### Fixed — ComfyUI Desktop's data folder was rejected at setup
+
+Reported by a Desktop user: pointing the wizard at the folder Desktop's own onboarding
+created failed with *"This does not look like a ComfyUI installation (expected
+main.py/nodes.py plus a models/ directory)"*. Desktop keeps `main.py` inside the Electron
+app and puts only the assets — `models/`, `custom_nodes/`, `output/`, `input/`, `user/` —
+in the folder the user picks, which is everything the indexer actually reads. That layout
+is now accepted as its own kind (`install_kind: "data_folder"`): models, outputs, workflows
+and custom nodes are indexed in full, and the validator says up front what is *not*
+available without the source tree — ComfyUI version detection, launching, updating, and the
+built-in node-class list. A bare `models/` folder with nothing else beside it is still
+rejected, and the launcher and updater keep their own, stricter install proof
+(`comfyui_version.py` + `main.py`), so nothing security-reviewed was loosened.
+
 ### Added — run from anywhere, map folders from any drive
 
 **The wizard can be skipped.** The app no longer locks you into the first-run wizard: **Set up

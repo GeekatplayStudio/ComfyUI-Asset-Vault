@@ -435,7 +435,7 @@ Six sections.
 
 | Section | Contains |
 |---|---|
-| **Location** | ComfyUI path with live validation (the field also accepts a portable build's parent folder and finds the install inside it), the configured roots, the scan-folder manager — add a models folder (with a required category) or a workflows folder from any drive, remove hand-added ones; offline drives show as offline and are never dropped — `extra_model_paths.yaml` contents, Save path · Save and reindex now · Run the setup wizard |
+| **Location** | ComfyUI path with live validation (the field also accepts a portable build's parent folder — the install inside is found — and a ComfyUI Desktop data folder, which indexes fully but cannot be version-checked, launched or updated), the configured roots, the scan-folder manager — add a models folder (with a required category) or a workflows folder from any drive, remove hand-added ones; offline drives show as offline and are never dropped — `extra_model_paths.yaml` contents, Save path · Save and reindex now · Run the setup wizard |
 | **Search** | Smart search enable/rebuild and its status, match strictness, Civitai matching, the outbound-lookups master switch, local text generation with a Test button |
 | **Updates** | The installed version, the newest published release, what changed in it, Download, and the two update preferences |
 | **Jobs** | Reindex on startup when files changed, watch folders, also read `extra_model_paths.yaml.hold`, default delete mode, trash retention |

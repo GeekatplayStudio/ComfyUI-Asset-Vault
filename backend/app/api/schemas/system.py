@@ -204,6 +204,9 @@ class ValidatePathResponse(Lenient):
     normalized: str
     exists: bool
     is_comfyui_root: bool
+    #: "full" (source tree present), "data_folder" (ComfyUI Desktop layout:
+    #: assets only), or null when the folder is not usable at all.
+    install_kind: str | None = None
     signals: PathSignals
     extra_model_paths: ExtraModelPaths
     preview: PathPreview

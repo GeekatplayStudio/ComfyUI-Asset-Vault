@@ -444,6 +444,23 @@ def looks_like_comfyui(p: Path) -> bool:
         return False
 
 
+def looks_like_comfyui_data(p: Path) -> bool:
+    """A ComfyUI *data* folder: assets without the Python source.
+
+    ComfyUI Desktop keeps ``main.py`` inside the Electron app and puts only
+    ``models/``, ``custom_nodes/``, ``output/``, ``input/`` and ``user/`` in
+    the folder the user picks during onboarding.  That folder is everything
+    the indexer reads, so it is a valid vault target - only version
+    detection, launching and updating need the source tree.
+    """
+    try:
+        return (p / "models").is_dir() and any(
+            (p / name).is_dir()
+            for name in ("custom_nodes", "user", "output", "input"))
+    except OSError:
+        return False
+
+
 def resolve_comfyui_dir(path: str | Path) -> Path:
     """Map a portable parent onto the install inside it.
 
@@ -456,20 +473,30 @@ def resolve_comfyui_dir(path: str | Path) -> Path:
     p = normalize(path)
     if looks_like_comfyui(p):
         return p
+    # The folder the user typed being a data folder (Desktop app layout)
+    # beats descending: they pointed at the thing they mean.
+    if looks_like_comfyui_data(p):
+        return p
     for name in COMFY_CHILD_HINTS:
         child = p / name
         if looks_like_comfyui(child):
             return child
+    data_child: Path | None = None
     try:
         with os.scandir(p) as it:
             for n, entry in enumerate(it):
                 if n >= _MAX_CHILD_PROBE:
                     break
-                if entry.is_dir() and looks_like_comfyui(Path(entry.path)):
-                    return Path(entry.path)
+                if not entry.is_dir():
+                    continue
+                child = Path(entry.path)
+                if looks_like_comfyui(child):
+                    return child
+                if data_child is None and looks_like_comfyui_data(child):
+                    data_child = child
     except OSError:
         pass
-    return p
+    return data_child or p
 
 
 def validate_comfyui_path(path: str | Path) -> dict:
@@ -493,6 +520,8 @@ def validate_comfyui_path(path: str | Path) -> dict:
         "models": (p / "models").is_dir(),
         "custom_nodes": (p / "custom_nodes").is_dir(),
         "output": (p / "output").is_dir(),
+        "input": (p / "input").is_dir(),
+        "user": (p / "user").is_dir(),
     }
     result["found"] = markers
     counts: dict[str, int] = {}
@@ -511,10 +540,21 @@ def validate_comfyui_path(path: str | Path) -> dict:
     result["workflow_dirs"] = [
         str(d) for d in (p / "workflows", p / "user" / "default" / "workflows") if d.is_dir()
     ]
-    result["valid"] = markers["models"] and (markers["main.py"] or markers["nodes.py"])
+    full_install = markers["models"] and (markers["main.py"] or markers["nodes.py"])
+    # ComfyUI Desktop's data folder carries the assets but not the source;
+    # everything the indexer reads is there, so it is a valid target.  Only
+    # version detection, launch and update need the source tree - and those
+    # enforce their own, stricter proof (comfyui_service.INSTALL_PROOF).
+    data_folder = not full_install and markers["models"] and (
+        markers["custom_nodes"] or markers["user"]
+        or markers["output"] or markers["input"])
+    result["valid"] = full_install or data_folder
+    result["install_kind"] = ("full" if full_install
+                              else "data_folder" if data_folder else None)
     if not result["valid"]:
         result["issues"].append(
-            "This does not look like a ComfyUI installation "
-            "(expected main.py/nodes.py plus a models/ directory)."
+            "This does not look like a ComfyUI installation or data folder "
+            "(expected a models/ directory, plus main.py/nodes.py or the "
+            "custom_nodes/output/input/user folders beside it)."
         )
     return result

@@ -218,6 +218,7 @@ Body `{"path":"C:\\ComfyUI"}` — the wizard's live preview.
 `preview` is a bounded walk (hard cap 60,000 entries / 4 s) — cheap enough for a live wizard field (measured full walk ≈ 0.4 s).
 `valid:false` still returns `200` with `reason` — this is a validation preview, not an error.
 A path at a portable build's parent folder (e.g. a drive root holding `ComfyUI` beside `python_embeded`) is resolved to the install inside it: `path`/`normalized` report the resolved directory, and `warnings` is prepended with `"Found the ComfyUI install inside that folder: <path>"`.
+`install_kind` reports what was accepted: `"full"` (source tree present) or `"data_folder"` — a **ComfyUI Desktop** data folder holding `models/` plus at least one of `custom_nodes/`, `user/`, `output/`, `input/` but no `main.py`/`nodes.py`. A data folder is fully indexable; `warnings` states that version detection, launching and updating ComfyUI are unavailable for that layout and built-in node classes are not listed. `null` when `valid:false`.
 
 ### `POST /api/v1/system/wizard/complete`
 Body:
