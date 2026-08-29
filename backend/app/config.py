@@ -11,7 +11,7 @@ from pathlib import Path
 
 APP_NAME = "Geekatplay ComfyUI Asset Vault"
 AUTHOR = "Geekatplay Studio - Vladimir Chopine"
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 
 API_PREFIX = "/api/v1"
 DEFAULT_PORT = 8127
