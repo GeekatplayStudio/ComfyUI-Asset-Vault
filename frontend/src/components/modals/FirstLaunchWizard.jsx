@@ -160,7 +160,9 @@ export default function FirstLaunchWizard({ onDone, onCancel, onSkip, initialPat
                     <div className="gp-callout__body">
                       <div className="gp-callout__title">
                         {usable && validation.is_comfyui_root
-                          ? 'Found a ComfyUI installation'
+                          ? (validation.install_kind === 'data_folder'
+                            ? 'Found a ComfyUI Desktop data folder'
+                            : 'Found a ComfyUI installation')
                           : (usable ? 'Folder exists, but no ComfyUI signature'
                             : (validation.reason || 'Cannot use that folder'))}
                       </div>

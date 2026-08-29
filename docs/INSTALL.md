@@ -138,7 +138,10 @@ until a folder is configured.
 
 1. **Point it at ComfyUI.** Type or paste the installation folder — the one that contains
    `models\`, `custom_nodes\` and `output\`. A portable build's parent folder (the drive root
-   beside `python_embeded`) also works — the install inside is found automatically. It is
+   beside `python_embeded`) also works — the install inside is found automatically. A
+   **ComfyUI Desktop** data folder (the one picked during Desktop's onboarding) is accepted
+   too: everything is indexed, but detecting the ComfyUI version, launching and updating it
+   are unavailable for that layout, and the wizard says so up front. It is
    validated live: the wizard tells you whether the folder exists, whether it looks like a
    ComfyUI install, and which sub-folders it found, *before* you can save.
 2. **Confirm.** Extra roots declared in `extra_model_paths.yaml` are picked up automatically.

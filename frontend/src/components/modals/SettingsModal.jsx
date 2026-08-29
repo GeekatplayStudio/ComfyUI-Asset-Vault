@@ -99,7 +99,9 @@ function PathValidator({ value, onResult }) {
       <div className="gp-callout__body">
         <div className="gp-callout__title">
           {result.valid && result.is_comfyui_root
-            ? 'This looks like a ComfyUI installation'
+            ? (result.install_kind === 'data_folder'
+              ? 'This looks like a ComfyUI Desktop data folder'
+              : 'This looks like a ComfyUI installation')
             : (result.valid
               ? 'The folder exists but does not look like a ComfyUI root'
               : 'Not usable')}

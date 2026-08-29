@@ -196,6 +196,14 @@ def validate_path(body: ValidatePathRequest) -> dict:
         # A portable build was pointed at by its parent; say which install is
         # actually going to be used before anything is saved.
         warnings.insert(0, f"Found the ComfyUI install inside that folder: {report['path']}")
+    if report.get("install_kind") == "data_folder":
+        # ComfyUI Desktop layout: indexing works in full; the source-tree
+        # features do not, and saying so here beats a surprise later.
+        warnings.append(
+            "This looks like a ComfyUI Desktop data folder. Models, outputs, "
+            "workflows and custom nodes will all be indexed. Detecting the "
+            "ComfyUI version, launching and updating it are unavailable for "
+            "this layout, and built-in node classes are not listed.")
 
     yaml_present = (root / "extra_model_paths.yaml").is_file()
     held_present = (root / "extra_model_paths.yaml.hold").is_file()
@@ -221,6 +229,7 @@ def validate_path(body: ValidatePathRequest) -> dict:
         "normalized": report["path"],
         "exists": exists,
         "is_comfyui_root": bool(report.get("valid")),
+        "install_kind": report.get("install_kind"),
         "signals": {
             "has_models": bool(found.get("models")),
             "has_custom_nodes": bool(found.get("custom_nodes")),

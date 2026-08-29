@@ -89,7 +89,10 @@ Fix it in **Settings → Location**. The field validates live — it tells you w
 exists, whether it looks like a ComfyUI install, and which sub-folders it found, before you can
 save. Point it at the folder that contains `models\`, `custom_nodes\` and `output\`. Pointing at
 a portable build's parent folder (the drive root beside `python_embeded`) now works too — the
-install inside is found automatically.
+install inside is found automatically. A **ComfyUI Desktop** data folder (assets without
+`main.py` — Desktop keeps the source inside the app itself) is also accepted: indexing works in
+full, and the validator states plainly that version detection, launch and update are
+unavailable for that layout.
 
 Every consumer picks the new path up **without a restart**: the indexer, the file-operation root
 guard, thumbnails, search and the MCP server. Re-index when offered.

@@ -399,6 +399,13 @@ def _flavour(root: Path, parent: Path | None, git: dict | None,
     if desktop:
         reasons.append("desktop application install layout")
         return "desktop", reasons
+    # A data folder without the source tree: ComfyUI Desktop keeps main.py
+    # inside the Electron app and points this folder at the assets only.
+    if ((root / "models").is_dir()
+            and not (root / "main.py").is_file()
+            and not (root / "nodes.py").is_file()):
+        reasons.append("assets without ComfyUI source - a Desktop data folder")
+        return "desktop", reasons
     if portable:
         if git and git.get("present"):
             reasons.append("also a git checkout (portable builds ship one)")
