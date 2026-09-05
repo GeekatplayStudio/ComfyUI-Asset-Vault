@@ -470,6 +470,9 @@ def add_root(body: RootCreate) -> dict:
         current = [dict(d) for d in (cfg.raw.get("extra_model_dirs") or [])]
         current.append({"path": str(path), "category": category})
         cfg = config_service.set_config({"extra_model_dirs": current})
+    elif body.kind == "extra_outputs":
+        current = [str(d) for d in cfg.extra_output_dirs]
+        cfg = config_service.set_config({"extra_output_dirs": [*current, str(path)]})
     else:
         current = [str(d) for d in cfg.extra_workflow_dirs]
         cfg = config_service.set_config({"extra_workflow_dirs": [*current, str(path)]})
@@ -492,6 +495,10 @@ def delete_root(root_id: int) -> dict:
         keep = [str(d) for d in cfg.extra_workflow_dirs
                 if os.path.normcase(str(normalize(d))) != os.path.normcase(target.path)]
         config_service.set_config({"extra_workflow_dirs": keep})
+    elif target.kind == "extra_outputs":
+        keep = [str(d) for d in cfg.extra_output_dirs
+                if os.path.normcase(str(normalize(d))) != os.path.normcase(target.path)]
+        config_service.set_config({"extra_output_dirs": keep})
     elif target.kind == "extra_models" and target.source == "manual":
         keep = [dict(d) for d in (cfg.raw.get("extra_model_dirs") or [])
                 if os.path.normcase(str(normalize(str(d.get("path") or ""))))

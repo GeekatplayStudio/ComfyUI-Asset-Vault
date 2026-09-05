@@ -58,6 +58,7 @@ DEFAULTS: dict[str, tuple[str, object]] = {
     "trash_retention_days": ("int", 30),
     "read_held_extra_paths": ("bool", False),
     "extra_workflow_dirs": ("json", []),
+    "extra_output_dirs": ("json", []),
     # Manual extra model folders: [{"path": str, "category": str}].  These are
     # first-class scan roots on any drive, independent of the ComfyUI install
     # and of extra_model_paths.yaml.
@@ -97,6 +98,7 @@ class AppConfig:
     watch_enabled: bool
     trash_mode: str
     extra_workflow_dirs: tuple[Path, ...]
+    extra_output_dirs: tuple[Path, ...] = ()
     embedding_model_id: str = "all-MiniLM-L6-v2-int8"
     embedding_state: str = "not_installed"
     embedding_model_url: str = ""
@@ -239,6 +241,12 @@ def compute_roots(values: dict) -> tuple[Root, ...]:
         except (OSError, ValueError):
             continue
 
+    for d in values.get("extra_output_dirs") or []:
+        try:
+            add("extra_outputs", Path(str(d)), f"Outputs ({d})", source="manual")
+        except (OSError, ValueError):
+            continue
+
     # Manual model folders are added even when the drive is currently offline:
     # a root that exists in config but not on disk is reported as unavailable,
     # never silently dropped, so unplugging a drive cannot lose the mapping.
@@ -284,6 +292,7 @@ def _build(values: dict) -> AppConfig:
         watch_enabled=bool(values.get("watch_enabled")),
         trash_mode=str(values.get("trash_mode") or "trash"),
         extra_workflow_dirs=tuple(Path(str(d)) for d in (values.get("extra_workflow_dirs") or [])),
+        extra_output_dirs=tuple(Path(str(d)) for d in (values.get("extra_output_dirs") or [])),
         embedding_model_id=str(values.get("embedding_model_id") or "all-MiniLM-L6-v2-int8"),
         embedding_state=str(values.get("embedding_state") or "not_installed"),
         embedding_model_url=str(values.get("embedding_model_url") or ""),
@@ -403,10 +412,19 @@ def workflow_dirs(cfg: AppConfig | None = None) -> list[tuple[Path, Root]]:
 def output_dirs(cfg: AppConfig | None = None) -> list[tuple[Path, Root]]:
     cfg = cfg or get_config()
     out = []
+    seen: set[str] = set()
     for root in cfg.roots:
         if root.kind == "comfyui":
             p = Path(root.path) / "output"
-            if p.is_dir():
+            key = path_key(p)
+            if p.is_dir() and key not in seen:
+                seen.add(key)
+                out.append((p, root))
+        elif root.kind == "extra_outputs":
+            p = Path(root.path)
+            key = path_key(p)
+            if p.is_dir() and key not in seen:
+                seen.add(key)
                 out.append((p, root))
     return out
 

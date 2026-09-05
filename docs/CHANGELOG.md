@@ -4,6 +4,16 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 ---
 
+## 2.3.0 — 2026-09-05
+
+### Added — Custom Output Folders support
+
+- **Unlimited custom output folders on any drive**: Map arbitrary external directories where ComfyUI saves generated images, videos, audio, 3D models, or text files.
+- **Full indexing & model linking**: Custom output folders are parsed for prompt metadata, seeds, samplers, generation graphs, and model links, making them fully searchable with lexical and semantic smart search.
+- **Folder Watching**: Background watcher polling automatically detects new creations in custom output folders and indexes them incrementally.
+- **Interactive Configuration UI**: Added a dedicated *Custom Output Folders* section in Settings with dynamic multi-folder additions and automatic cleanup of empty paths on save and close.
+- **Database migration (v8)**: Rebuilt roots table check constraint to support `extra_outputs` roots while preserving offline drive metadata.
+
 ## 2.2.0 — 2026-08-29
 
 ### Fixed — ComfyUI Desktop's data folder was rejected at setup
