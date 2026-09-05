@@ -26,7 +26,7 @@ CREATE TABLE config (
 CREATE TABLE roots (
     id           INTEGER PRIMARY KEY,
     kind         TEXT NOT NULL CHECK (kind IN
-                   ('comfyui','extra_models','extra_workflows','data')),
+                   ('comfyui','extra_models','extra_workflows','extra_outputs','data')),
     path         TEXT NOT NULL,
     path_key     TEXT NOT NULL UNIQUE,
     label        TEXT NOT NULL,

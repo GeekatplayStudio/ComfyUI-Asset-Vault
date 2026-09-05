@@ -291,7 +291,7 @@ class RootsList(Lenient):
 
 class RootCreate(Strict):
     path: str = Field(min_length=1, max_length=4096)
-    kind: Literal["extra_models", "extra_workflows"]
+    kind: Literal["extra_models", "extra_workflows", "extra_outputs"]
     label: str | None = Field(default=None, max_length=200)
     #: Required for kind="extra_models": which model category the folder holds.
     category: str | None = Field(default=None, max_length=64)

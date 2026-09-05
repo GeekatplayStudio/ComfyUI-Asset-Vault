@@ -11,7 +11,7 @@ from pathlib import Path
 
 APP_NAME = "Geekatplay ComfyUI Asset Vault"
 AUTHOR = "Geekatplay Studio - Vladimir Chopine"
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 
 API_PREFIX = "/api/v1"
 DEFAULT_PORT = 8127
@@ -23,7 +23,7 @@ LEGACY_DB_PATH = DATA_DIR / "asset_vault.db"
 THUMB_DIR = DATA_DIR / "thumbs"
 EMBED_MODEL_DIR = DATA_DIR / "models" / "all-MiniLM-L6-v2"
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 # Parser versions.  Bumping one forces a targeted re-parse of that kind only.
 PARSER_VERSION_MODEL = 4

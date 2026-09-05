@@ -161,12 +161,14 @@ clicking Open never does either on its own.
 
 ### Generated outputs
 
-Indexes images, video, audio, 3D models and text from `output/`, extracts the embedded
+Indexes images, video, audio, 3D models and text from ComfyUI's default `output/` directory as well
+as **any number of custom output folders** mapped across any drive. It extracts the embedded
 generation graph, and pulls out prompt, negative prompt, seed, sampler, steps, CFG and the
 checkpoint used — resolving ComfyUI's node-link references so a prompt that lives three nodes
-away from the sampler is still attributed correctly. Thumbnails are generated into a local cache
-so the grid stays smooth over thousands of files. Click through to a full-resolution **lightbox**
-with the complete metadata beside it.
+away from the sampler is still attributed correctly. Custom output folders are monitored by the
+background watcher, indexed incrementally, and linked to models in the vault. Thumbnails are
+generated into a local cache so the grid stays smooth over thousands of files. Click through to a
+full-resolution **lightbox** with the complete metadata beside it.
 
 ![Full-resolution lightbox with generation metadata](docs/screenshots/05-output-lightbox.png)
 

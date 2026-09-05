@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react'
 import {
   CheckCircle2, XCircle, AlertTriangle, FolderSearch, FolderPlus, RefreshCw,
-  Sparkles, Trash2, HardDrive, Info, Wand2, Clock
+  Sparkles, Trash2, HardDrive, Info, Wand2, Clock, Plus, X
 } from 'lucide-react'
 import api, { isAbort } from '../../services/api.js'
 import useResource from '../../hooks/useResource.js'
@@ -256,7 +256,185 @@ function LocationTab({ config, onSaved, onReindex, onWizard }) {
         </div>
       ) : null}
 
+      <OutputFoldersManager config={config} onReindex={onReindex} />
       <RootsManager config={config} onReindex={onReindex} />
+    </>
+  )
+}
+
+function OutputFoldersManager({ config, onReindex }) {
+  const { toast, toastError, refreshConfig } = useVault()
+  const [drafts, setDrafts] = useState([])
+  const [saving, setSaving] = useState(false)
+  const [changed, setChanged] = useState(false)
+
+  const roots = config.roots || []
+  const customOutputs = useMemo(() => {
+    return roots.filter((r) => r.kind === 'extra_outputs')
+  }, [roots])
+
+  const addDraftRow = () => {
+    setDrafts((prev) => [...prev, ''])
+  }
+
+  const updateDraft = (index, value) => {
+    setDrafts((prev) => {
+      const next = [...prev]
+      next[index] = value
+      return next
+    })
+  }
+
+  const removeDraft = (index) => {
+    setDrafts((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const removeRoot = useCallback(async (root) => {
+    try {
+      await api.removeRoot(root.id)
+      await refreshConfig()
+      setChanged(true)
+      toast({
+        tone: 'warn',
+        title: 'Output folder removed',
+        message: 'Already-indexed outputs remain until the next reindex.'
+      })
+    } catch (err) {
+      toastError(err, 'Could not remove that output folder')
+    }
+  }, [refreshConfig, toast, toastError])
+
+  const saveFolders = useCallback(async () => {
+    const validPaths = drafts.map((d) => d.trim()).filter(Boolean)
+    if (validPaths.length === 0) {
+      setDrafts([])
+      return
+    }
+    setSaving(true)
+    let addedCount = 0
+    let lastError = null
+    try {
+      for (const path of validPaths) {
+        try {
+          await api.addRoot({ path, kind: 'extra_outputs' })
+          addedCount += 1
+        } catch (err) {
+          lastError = err
+        }
+      }
+      await refreshConfig()
+      setDrafts([])
+      if (addedCount > 0) {
+        setChanged(true)
+        toast({
+          tone: 'ok',
+          title: addedCount === 1 ? 'Output folder added' : `${addedCount} output folders added`,
+          message: 'Reindex to catalog and link generated files from these folders.'
+        })
+      }
+      if (lastError && addedCount < validPaths.length) {
+        toastError(lastError, 'Some folders could not be added')
+      }
+    } finally {
+      setSaving(false)
+    }
+  }, [drafts, refreshConfig, toast, toastError])
+
+  // Prune any empty drafts on unmount
+  useEffect(() => {
+    return () => {
+      setDrafts((prev) => prev.filter((d) => d && d.trim().length > 0))
+    }
+  }, [])
+
+  return (
+    <>
+      <div className="gp-details__section-head gp-u-mt-6"><span>Custom output folders</span></div>
+      <div className="gp-u-fs-11 gp-u-meta gp-u-mb-4">
+        Map additional folders across any drive where ComfyUI saves images, videos, or audio.
+        Files are automatically cataloged, watched, parsed for metadata and prompt links, and indexed as outputs.
+      </div>
+
+      {customOutputs.length > 0 ? (
+        <table className="gp-table gp-table--compact gp-u-mb-4">
+          <thead>
+            <tr>
+              <th>Folder</th>
+              <th>Path</th>
+              <th className="gp-table__num">State</th>
+              <th className="gp-table__num" aria-label="Actions" />
+            </tr>
+          </thead>
+          <tbody>
+            {customOutputs.map((root) => (
+              <tr key={root.id}>
+                <td>{root.label}</td>
+                <td className="gp-u-break-all">{root.path}</td>
+                <td className="gp-table__num">
+                  <Badge tone={root.available ? 'ok' : 'danger'}>
+                    {root.available ? 'available' : 'offline'}
+                  </Badge>
+                </td>
+                <td className="gp-table__num">
+                  <Button size="sm" variant="dangerGhost" icon={Trash2} iconOnly
+                    aria-label={'Remove ' + root.path}
+                    title="Stop scanning this output folder. Files on disk are never touched."
+                    onClick={() => removeRoot(root)} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+
+      {drafts.length > 0 ? (
+        <div className="gp-u-mt-3 gp-u-col gp-u-gap-3 gp-u-mb-4">
+          {drafts.map((draft, idx) => (
+            <div key={idx} className="gp-u-row gp-u-gap-3 gp-u-align-center">
+              <input
+                className="gp-input gp-input--mono gp-u-grow"
+                value={draft}
+                spellCheck="false"
+                placeholder={'D:\\CustomOutputs\\renders'}
+                aria-label={`Custom output folder ${idx + 1}`}
+                onChange={(e) => updateDraft(idx, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveFolders()
+                }}
+                autoFocus={idx === drafts.length - 1}
+              />
+              <Button size="sm" variant="ghost" icon={X} iconOnly
+                aria-label="Discard row"
+                title="Discard this entry"
+                onClick={() => removeDraft(idx)} />
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="gp-u-row gp-u-gap-4 gp-u-wrap">
+        <Button variant="secondary" icon={Plus} label="Add new output folder"
+          onClick={addDraftRow} />
+        {drafts.length > 0 ? (
+          <Button variant="primary" icon={FolderPlus} label="Save output folders"
+            loading={saving} disabled={saving || drafts.every((d) => !d.trim())}
+            onClick={saveFolders} />
+        ) : null}
+      </div>
+
+      {changed ? (
+        <div className="gp-callout gp-callout--warn gp-u-mt-5">
+          <span className="gp-callout__icon"><RefreshCw aria-hidden="true" /></span>
+          <div className="gp-callout__body">
+            <div className="gp-callout__title">Output folders updated</div>
+            Reindex now to index and link images/videos from the new output paths.
+            <div className="gp-callout__actions">
+              <Button size="sm" variant="primary" icon={RefreshCw} label="Reindex now"
+                onClick={() => onReindex('full')} />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   )
 }
@@ -284,7 +462,7 @@ function RootsManager({ config, onReindex }) {
 
   const roots = config.roots || []
   const removable = (root) => root.source === 'manual' &&
-    (root.kind === 'extra_workflows' || root.kind === 'extra_models')
+    (root.kind === 'extra_workflows' || root.kind === 'extra_models' || root.kind === 'extra_outputs')
 
   const addFolder = useCallback(async () => {
     const path = newPath.trim()
@@ -376,7 +554,8 @@ function RootsManager({ config, onReindex }) {
           ariaLabel="What the folder holds"
           options={[
             { value: 'extra_models', label: 'Models' },
-            { value: 'extra_workflows', label: 'Workflows' }
+            { value: 'extra_workflows', label: 'Workflows' },
+            { value: 'extra_outputs', label: 'Outputs' }
           ]}
         />
         {newKind === 'extra_models' ? (
