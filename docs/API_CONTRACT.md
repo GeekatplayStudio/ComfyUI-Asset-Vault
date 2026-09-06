@@ -80,9 +80,9 @@ Every list response:
 | Scope | Allowed `sort` fields |
 |---|---|
 | models | `name` `created` `modified` `size` `category` `base_model` `role` `params` `rating` `hash_state` `relevance` |
-| node_packages | `name` `author` `classes` `updated` `size` `relevance` |
+| node_packages | `name` `author` `classes` `created` `updated` `size` `relevance` |
 | node_classes | `name` `display_name` `category` `package` `relevance` |
-| workflows | `name` `modified` `size` `nodes` `missing` `relevance` |
+| workflows | `name` `created` `modified` `size` `nodes` `missing` `relevance` |
 | outputs | `created` `modified` `name` `size` `rating` `width` `height` `duration` `relevance` |
 
 Default sorts: models `name`, node_packages `name`, node_classes `display_name`, workflows `-modified`, outputs `-created`.

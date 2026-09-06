@@ -2,7 +2,7 @@
 
 Geekatplay Studio — Vladimir Chopine
 
-SQLite (stdlib `sqlite3`), WAL. **Schema version 7** (v2 base + v3 album identity + v4 workflow origin + v5 the Enable fetch queue, §15–§16 + v6 provided nodes and subgraph counts, §5.2 / §6 + v7 Civitai rating/download count on `v_model_list`, §13). Canonical version lives in `PRAGMA user_version`.
+SQLite (stdlib `sqlite3`), WAL. **Schema version 9** (v2 base + v3 album identity + v4 workflow origin + v5 the Enable fetch queue, §15–§16 + v6 provided nodes and subgraph counts, §5.2 / §6 + v7 Civitai rating/download count on `v_model_list`, §13 + v8 `extra_outputs` roots, §19 + v9 `created_at` on `v_model_list`, §20). Canonical version lives in `PRAGMA user_version`.
 
 DB file: `backend/data/vault.db` (renamed from `asset_vault.db`; see §14 migration).
 
@@ -810,6 +810,7 @@ SELECT m.id, m.name, m.category, m.model_role, m.base_model_family, m.base_model
        m.param_count_primary, m.param_count_total, m.total_size, m.favorite, m.user_rating,
        m.has_update, m.integrity, m.arch_confidence, m.workflow_count, m.output_count,
        m.is_bundled, m.is_adapter, m.civitai_state, m.civitai_model_id, m.civitai_url,
+       m.created_at,                                  -- v9: "Recently added" sort
        m.updated_at, m.missing_since, m.color_label,
        m.rating, m.download_count,                    -- v7: Civitai community stats
        f.abs_path, f.rel_path, f.folder, f.filename, f.ext, f.size AS file_size,
@@ -1172,3 +1173,29 @@ Neither column changes the matching ladder in §6.1: the frontend and JavaScript
 `node_classes` rows, so phase 7 resolves them through the same `node_id` join as any other class and
 `missing_node_count` falls out unchanged. A package that genuinely is not installed is still
 `missing` — the fix makes the question correct, it does not stop asking it.
+
+---
+
+## 19. Custom output roots (v8)
+
+`PRAGMA user_version = 8`, applied by `m008_extra_outputs`. The `roots` table is rebuilt so its
+`kind` check constraint admits `extra_outputs` — user-mapped folders on any drive that hold
+ComfyUI-generated media. Rows are copied across unchanged, so offline-drive metadata
+(`available`, `last_seen_at`) survives. See CHANGELOG 2.3.0.
+
+---
+
+## 20. `created_at` on the model list (v9)
+
+`PRAGMA user_version = 9`, applied by `m009_model_created`. No table changes — `v_model_list`
+is dropped and recreated with `models.created_at` inserted before `updated_at`.
+
+The column existed since v1 (set once when the indexer first inserts a model, never touched by
+the update path, so it means "first added to the vault") but neither the original view nor the
+v7 rebuild selected it. `models_query.SORTS` had mapped `created` onto it from the start and the
+Models tab offered it as **Recently added**, so choosing that sort raised
+`no such column: created_at` and surfaced as a 500. Node packages and workflows sort their base
+tables directly and were never affected. Reported by a user who traced the missing column.
+
+`tests/unit/test_sort_vocabulary.py` now executes every advertised sort of every scope against
+a migrated DB so the vocabulary and the schema it orders cannot drift apart silently again.

@@ -4,12 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from app.api.schemas.system import RootCreate
 from app.api.v1 import system_router
 from app.core import config_service
-from app.core.pathsafe import path_key
 
 
 def test_extra_output_dirs_configuration(temp_vault, tmp_path):

@@ -4,6 +4,27 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 ---
 
+## 2.3.1 — 2026-09-06
+
+### Fixed — "Recently added" sort on the Models tab returned a 500
+
+Reported by a user who ran the code through a static analyser and traced it to the schema:
+`v_model_list` never selected `models.created_at`, although the query layer had mapped the
+documented `created` sort onto that column since the first release and the Models tab offered
+it as **Recently added**. Choosing it raised `no such column: created_at` and the request ended
+as an opaque internal error. Node Packages and Workflows read their base tables directly and
+were not affected; the MCP `list_models` tool does not expose `created` and was not affected.
+
+- **Database migration (v9)**: `v_model_list` is rebuilt with `created_at` (§20 in
+  DATA_MODEL). Non-destructive — a view rebuild, no table changes. As with every schema bump the
+  upgraded DB is refused by older builds, so this ships as 2.3.1 rather than as a silent patch.
+- **Regression test**: `tests/unit/test_sort_vocabulary.py` executes every advertised sort key of
+  every scope, ascending and descending, against a migrated DB — so a future view rebuild that
+  drops a column cannot slip through again.
+- **Docs**: DATA_MODEL's version header (stuck at v7) and view definition brought current; the
+  API_CONTRACT sort table now lists `created` for `node_packages` and `workflows`, which
+  FILTER_AUDIT §7 added but the table never recorded.
+
 ## 2.3.0 — 2026-09-05
 
 ### Added — Custom Output Folders support

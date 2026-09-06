@@ -47,6 +47,7 @@ you explicitly ask for it — and even then, deletions go to a recoverable trash
 - [Documentation](#documentation)
 - [Known limits](#known-limits)
 - [Contributing](#contributing)
+- [Special thanks](#special-thanks)
 - [License](#license)
 
 ---
@@ -552,6 +553,17 @@ several design choices here (the read-only static parsing of node packages, the 
 delete policy, the shared REST/MCP query layer) are deliberate and documented, not oversights.
 
 Run the full test suite and `ruff check` before submitting — see [Testing](#testing).
+
+---
+
+## Special thanks
+
+**[@sterd2006](https://github.com/sterd2006)**, reported to **[@geekatplay](https://github.com/geekatplay)** — for testing the app, finding a real bug in the Models "Recently added" sort (fixed in 2.3.1, see [docs/CHANGELOG.md](docs/CHANGELOG.md)), and passing along the diagnosis, in their own words:
+
+> Спасибо за программу. ComfyUI-Asset-Vault-main. Однако я выявил в ней некоторые ошибки и
+> прогнал код через opencode моделью Big Pickle OpenCode Zen. В некоторых местах программа
+> нашла несоответствия в моём компьютере во время установки, а где-то ошибки в вашей программе.
+> Я могу выслать вам файл с пометками, где программа помогала мне исправлять ошибки в вашем коде.
 
 ---
 
