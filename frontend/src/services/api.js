@@ -218,6 +218,28 @@ export const api = {
   tags: (query, signal) => get('/tags', query, signal),
   assignTags: (body, signal) => post('/tags/assign', body, null, signal),
 
+  /* ------------------------------------------------------- system advisor */
+  advisorOverview: (signal) => get('/advisor/overview', null, signal),
+  advisorHardware: (refresh, signal) => get('/advisor/hardware', { refresh }, signal),
+  advisorLive: (history, signal) => get('/advisor/live', { history }, signal),
+  advisorCatalog: (query, signal) => get('/advisor/catalog', query, signal),
+  advisorEntry: (id, signal) => get('/advisor/catalog/entry', { id }, signal),
+  advisorVerifyLink: (id, variant, signal) =>
+    post('/advisor/catalog/verify-link', { id, variant }, null, signal),
+  advisorRecommendations: (query, signal) => get('/advisor/recommendations', query, signal),
+  advisorInstalled: (query, signal) => get('/advisor/installed', query, signal),
+  advisorInstalledDetail: (id, signal) => get('/advisor/installed/' + id, null, signal),
+  advisorSafeConfig: (signal) => get('/advisor/safe-config', null, signal),
+  advisorSettings: (signal) => get('/advisor/settings', null, signal),
+  advisorPatchSettings: (body, signal) => patch('/advisor/settings', body, signal),
+  advisorSources: (signal) => get('/advisor/sources', null, signal),
+  advisorAddPin: (body, signal) => post('/advisor/sources/pins', body, null, signal),
+  advisorRemovePin: (repo, signal) =>
+    request('DELETE', '/advisor/sources/pins', { query: { repo }, signal }),
+  advisorUpdateStatus: (signal) => get('/advisor/update/status', null, signal),
+  advisorUpdate: (body, signal) => post('/advisor/update', body || {}, null, signal),
+  advisorUpdateCancel: (signal) => post('/advisor/update/cancel', {}, null, signal),
+
   /* ------------------------------------------------- storage & maintenance */
   storageSummary: (query, signal) => get('/storage/summary', query, signal),
   storageCandidates: (query, signal) => get('/storage/candidates', query, signal),

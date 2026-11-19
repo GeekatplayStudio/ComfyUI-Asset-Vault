@@ -112,8 +112,9 @@ def test_torch_zip_uses_only_zipfile_and_pickletools(app_dir):
     assert "genops" in source, "disassembly, not unpickling, is the whole point"
 
 
-def test_only_four_subprocess_call_sites_exist_in_the_whole_app(app_dir):
-    """Explorer reveal, the ComfyUI updater, the C9 git clone, video posters.
+def test_only_five_subprocess_call_sites_exist_in_the_whole_app(app_dir):
+    """Explorer reveal, the ComfyUI updater, the C9 git clone, video posters,
+    and the System Advisor's hardware inventory.
 
     ``enable/git_fetch.py`` is the only module in the C9 package permitted to
     import ``subprocess``, the only program it may start is ``git``, and it
@@ -125,6 +126,15 @@ def test_only_four_subprocess_call_sites_exist_in_the_whole_app(app_dir):
     poster frame for a video without importing ``subprocess`` itself.  Its argv
     is fixed, ``shell`` is never true, the child is killed on timeout, and its
     stdout is capped -- all asserted in ``test_video_frame.py``.
+
+    ``advisor/probe.py`` is the fifth: the only module in the advisor package
+    allowed to start a process, and only to *read* what hardware is installed
+    (``nvidia-smi``, ``system_profiler``, ``sysctl``, ``vm_stat``, ``ioreg``,
+    ``lspci``).  Program and arguments are rows of a frozen table; the public
+    entry point takes a row *name* and nothing else, so no caller value can
+    reach a command line.  ``shell`` is never true, stdin is closed, there is a
+    timeout and the output is capped -- all asserted, with the table itself
+    pinned literally, in ``test_advisor_probe.py``.
 
     This list is deliberately hard to grow: adding a name here should be a
     considered decision with its own tests, not a convenience.
@@ -139,7 +149,8 @@ def test_only_four_subprocess_call_sites_exist_in_the_whole_app(app_dir):
             for node in ast.walk(tree)
             if isinstance(node, ast.Import)
             and any(a.name.split(".")[0] == "subprocess" for a in node.names))
-    assert sorted(set(users)) == ["api/v1/files_router.py",
+    assert sorted(set(users)) == ["advisor/probe.py",
+                                  "api/v1/files_router.py",
                                   "enable/git_fetch.py",
                                   "jobs/video_frame.py",
                                   "services/comfyui_service.py"], users

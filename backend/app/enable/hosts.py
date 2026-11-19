@@ -63,9 +63,25 @@ RELEASE_HOSTS_SUFFIX: tuple[str, ...] = (
     ".githubusercontent.com",
 )
 
+#: Hosts the System Advisor may read **catalog metadata** from - JSON describing
+#: models, never the weights themselves and never anything executable.  Exact
+#: matches only: no suffix rule, so a CDN or a user-content subdomain is not
+#: reachable through this list.  The requests carry no credentials and nothing
+#: about this machine or its library (``advisor/sources.py``).
+CATALOG_HOSTS_EXACT: frozenset[str] = frozenset({
+    "huggingface.co",              # Hub API: model facts, file sizes, scan status
+    "civitai.com",                 # model API: versions, files, scan results
+    "api.github.com",              # repository search (discovery leads)
+    "raw.githubusercontent.com",   # ComfyUI-Manager model list; this app's own source list
+    "openmodeldb.info",            # upscaler database
+    "ollama.com",                  # library tags
+})
+CATALOG_HOSTS_SUFFIX: tuple[str, ...] = ()
+
 KIND_MODEL = "model"
 KIND_GIT = "git"
 KIND_RELEASE = "release"
+KIND_CATALOG = "catalog"
 
 #: R2.  Five hops, each re-validated.  A chain longer than this is a redirect
 #: loop or an attempt to walk somewhere allowlisting cannot see.
@@ -148,6 +164,8 @@ def host_allowed(host: str | None, kind: str = KIND_MODEL) -> bool:
         exact, suffixes = GIT_HOSTS_EXACT, GIT_HOSTS_SUFFIX
     elif kind == KIND_RELEASE:
         exact, suffixes = RELEASE_HOSTS_EXACT, RELEASE_HOSTS_SUFFIX
+    elif kind == KIND_CATALOG:
+        exact, suffixes = CATALOG_HOSTS_EXACT, CATALOG_HOSTS_SUFFIX
     else:
         exact, suffixes = MODEL_HOSTS_EXACT, MODEL_HOSTS_SUFFIX
     if normalized in exact:
@@ -245,6 +263,7 @@ def describe() -> dict:
         "model_hosts": sorted(MODEL_HOSTS_EXACT) + list(MODEL_HOSTS_SUFFIX),
         "git_hosts": sorted(GIT_HOSTS_EXACT),
         "release_hosts": sorted(RELEASE_HOSTS_EXACT) + list(RELEASE_HOSTS_SUFFIX),
+        "catalog_hosts": sorted(CATALOG_HOSTS_EXACT),
         "scheme": _SCHEME,
         "max_redirects": MAX_REDIRECTS,
     }

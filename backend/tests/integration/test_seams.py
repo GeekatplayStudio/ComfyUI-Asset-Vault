@@ -184,6 +184,7 @@ def test_a_long_path_output_is_indexed(temp_vault, synthetic_comfyui):
                         ).fetchone()[0] == 1
 
 
+@pytest.mark.windows_paths
 def test_long_path_prefixing_is_applied_before_touching_the_filesystem():
     long = "C:\\" + "\\".join("x" * 30 for _ in range(12))
     assert len(long) > 260

@@ -180,4 +180,45 @@
   --gp-cat-motion:#D9A08A;       /* motion / video modules */
   --gp-cat-default:#A29B8E;
   --gp-face-bg:var(--gp-bg-100);
+
+  /* 2.11 Instrument panel - the System Advisor's live dashboard.
+     Same graphite and the same two signal hues, turned into light: an arc or
+     an area glows in the hue of the data it carries. The provenance rule
+     still decides the hue - amber for a reading taken from this machine,
+     violet for anything the advisor worked out (a safe limit, a verdict, a
+     requirement). Glows live on marks only, never on a card (signature #2). */
+  --gp-inst-panel:
+    radial-gradient(130% 150% at 0% 0%,rgba(242,160,61,.085) 0%,rgba(242,160,61,0) 52%),
+    linear-gradient(180deg,#1E1E25 0%,#16161B 100%);
+  --gp-inst-panel-vio:
+    radial-gradient(130% 150% at 100% 0%,rgba(139,123,240,.10) 0%,rgba(139,123,240,0) 54%),
+    linear-gradient(180deg,#1E1E25 0%,#16161B 100%);
+  --gp-inst-hero:
+    radial-gradient(90% 180% at 8% 0%,rgba(242,160,61,.16) 0%,rgba(242,160,61,0) 60%),
+    radial-gradient(70% 160% at 96% 100%,rgba(139,123,240,.13) 0%,rgba(139,123,240,0) 62%),
+    linear-gradient(180deg,#202028 0%,#15151A 100%);
+  --gp-inst-grid:rgba(255,255,255,.032);
+  --gp-inst-grid-strong:rgba(255,255,255,.07);
+  --gp-inst-track:#24242D;
+  --gp-inst-track-deep:#101014;
+  --gp-inst-glow-amber:rgba(242,160,61,.55);
+  --gp-inst-glow-vio:rgba(139,123,240,.55);
+  --gp-inst-glow-ok:rgba(76,195,138,.50);
+  --gp-inst-glow-warn:rgba(232,179,65,.55);
+  --gp-inst-glow-danger:rgba(229,72,77,.60);
+  --gp-inst-glow-info:rgba(110,155,245,.50);
+  --gp-inst-area-amber:rgba(242,160,61,.34);
+  --gp-inst-area-vio:rgba(139,123,240,.30);
+  --gp-inst-area-info:rgba(110,155,245,.30);
+  --gp-inst-area-ok:rgba(76,195,138,.28);
+  --gp-inst-area-end:rgba(0,0,0,0);
+  --gp-inst-hatch:repeating-linear-gradient(135deg,rgba(139,123,240,.34) 0 2px,rgba(139,123,240,.06) 2px 6px);
+  --gp-inst-hatch-danger:repeating-linear-gradient(135deg,rgba(229,72,77,.34) 0 2px,rgba(229,72,77,.06) 2px 6px);
+  --gp-inst-sheen:linear-gradient(100deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.07) 50%,rgba(255,255,255,0) 70%);
+  --gp-inst-fade:linear-gradient(180deg,#000 0%,rgba(0,0,0,0) 92%);
+  --gp-inst-ease:cubic-bezier(.22,.8,.24,1);
+  --gp-inst-t:620ms;
+}
+@media (prefers-reduced-motion:reduce){
+  :root{--gp-inst-t:0ms}
 }

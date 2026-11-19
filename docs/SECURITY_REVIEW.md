@@ -663,6 +663,49 @@ pointed somewhere.
 
 S-24 remains open and unchanged: a launch is still disclosed and not recorded.
 
+## 8.3 System Advisor verdict — 2026-11-19
+
+2.4.0 adds a subsystem that does two things this review has so far allowed in only a handful of
+named places: it **starts processes** (to read the hardware) and it **makes outbound requests**
+(to refresh a catalog of models). Both lists were widened deliberately, and both widenings are
+pinned: `test_only_five_subprocess_call_sites_exist_in_the_whole_app` and
+`test_only_nine_modules_may_reach_the_network`.
+
+**The advisor is sound as built. It cannot be made to run a command it was not written with, and
+it cannot be pointed at a host.** No High or Medium finding. Verified by execution
+(`tests/security/test_advisor_probe.py`, `tests/unit/test_advisor_sources.py`,
+`tests/integration/test_advisor_api.py`):
+
+| Question | Verdict |
+|---|---|
+| Can a caller choose what is executed? | **No.** `advisor/probe.py` is the fifth `subprocess` site and the only module in the package that imports it. Its nine commands are rows of a frozen table — six programs (`nvidia-smi`, `system_profiler`, `sysctl`, `vm_stat`, `ioreg`, `lspci`), every argument a constant — and the table is asserted **literally**, so a new row is an edit to a security test. The entry point takes a row *name*: twelve hostile names (`"nvidia_static; rm -rf /"`, a path, a different case, a trailing newline) return `None` with `subprocess.run` never reached |
+| How is the process started? | List argv, `shell=False`, `stdin=DEVNULL`, a timeout of at most 8 s, `capture_output`, no `env`, no `cwd`, output cut at 2 MB. A timeout, an `OSError` or a non-zero exit is `None`, never an exception. The program is a bare name resolved by `shutil.which`, with fixed system directories as the only fallback |
+| Can a probe change the machine? | **No.** Every row is a read: `sysctl -n` with no `name=value`, `nvidia-smi` with `--query-*` and `--format=` only, no write flag anywhere. S-19 does not apply — none of the six is a `.bat`/`.cmd` |
+| Which hosts can be reached? | **Six, exactly:** `huggingface.co`, `civitai.com`, `api.github.com`, `raw.githubusercontent.com`, `openmodeldb.info`, `ollama.com` — `hosts.CATALOG_HOSTS_EXACT`, a new `KIND_CATALOG`. **No suffix rule**: `cdn-lfs.huggingface.co`, `evil.huggingface.co` and `huggingface.co.evil.test` are all refused. The model, git and release lists are asserted unchanged; a catalog-only host cannot serve weights or a git remote |
+| Can a request be redirected off the list? | **No.** `fetch_json` checks the URL before a request exists (a client object that fails the test if touched is never touched) and re-checks every redirect hop before it is taken; `http://`, a userinfo trick, an IP literal and a hop to a model CDN are each refused, and a loop stops at five hops |
+| Does any route accept a URL? | **No.** A model is named by catalog id, a pin by `owner/name`. The pin route accepts a pasted `https://huggingface.co/owner/name` and reduces it to the id; every other URL is a `422`. A repository id is full-matched against `[A-Za-z0-9][A-Za-z0-9._-]{0,95}/[A-Za-z0-9][A-Za-z0-9._-]{0,95}` — one `/`, at most 96 characters per part, no `..`, no trailing newline. The request schemas are strict, so a `url` field is rejected rather than ignored. The link check (`verify-link`) sends one `HEAD` to a URL **already stored in the catalog**, only if its host is on the *model* allowlist, and does not follow the redirect it gets |
+| What leaves the machine? | A `GET` for public JSON with a fixed `User-Agent` naming the app and version, and `Accept`. **No credentials** — no API key, no cookie, no `Authorization` — and **nothing about the machine**: not the hardware profile, not a filename, not the library. Asserted on the client object a refresh actually builds and on every URL it asks |
+| What is done with what comes back? | **It is treated as data.** A body over 12 MB or not JSON is an `UPSTREAM_UNAVAILABLE`; the rest goes through `json.loads` and a pure normaliser that copies named fields. Nothing fetched is imported, executed, unpickled or written anywhere but `data/advisor/catalog.json`. Descriptions are stripped of tags and `<script>` blocks; on load, any `url` / `download_url` that is not plain https (a `javascript:` link, credentials in the authority, a control character) is blanked before the interface can render it as an anchor |
+| Can the fetched source list widen anything? | **No.** A newer `sources.json` from this project's repository can change which repositories and queries are asked. A list naming a new `url`, a hostile pin and a query with `&redirect=` was fed to a refresh: nothing off the allowlist was requested, the malformed query was skipped, and the run finished normally |
+| Is it behind the kill-switch? | **Yes.** With `online_enabled` off, `POST /advisor/update` and `verify-link` answer `503 FEATURE_UNAVAILABLE` and no thread is created; the self-initiated path returns `offline` and the startup timer is not armed. All mutating routes require the CSRF header (the generic sweep in `test_csrf.py` covers them) |
+| Is it reachable from MCP? | **No.** No advisor tool was added to the registry; the MCP parity and conformance suites are unchanged |
+
+Three limits, stated rather than left to be inferred:
+
+* **The safety score is advisory. It is not a malware scan.** It is arithmetic over published
+  facts — file format, the host's own scan result, who published it, adoption, age, whether the
+  repository asks to run code — and nothing in the advisor opens a weight file. It is capped at
+  99 so that it can never read as proof, every point is itemised in `factors`, and every payload
+  carries the disclaimer. A high score means *nothing published suggests a problem*.
+* **The default catalog leaves adult and safety-stripped models out**, by the host's flag and by
+  a word list over name, id and tags (`catalog.suitable`), on write and on read. This is a
+  content default, not a security control, and it is blunt: **a repository the owner pins is
+  dropped too if its name matches.**
+* **A catalog file is trusted as far as its shape.** Someone who can write
+  `backend/data/advisor/catalog.json` can make the advisor *display* a wrong size or an https
+  link to anywhere. They cannot make it fetch or execute anything, and they already have write
+  access to the application's data directory.
+
 ---
 
 ## 9. Sign-off

@@ -2025,3 +2025,592 @@ maintenance action second — never in a route this API exposes, and never as a 
 anything else.
 
 ---
+
+## 22. System Advisor
+
+What this machine can run, how safely, and where the model information comes from. Eighteen
+operations under `/api/v1/advisor`. The advisor reads the hardware, reads a catalog of known
+models, and joins the two; it downloads no model, changes no setting on the machine and writes
+nothing outside `data/advisor/`.
+
+**Measured vs inferred — the rule every payload here follows.** Hardware figures are *measured*:
+installed memory, each GPU's VRAM, free disk space, live utilisation. Everything the advisor
+*concludes* from them is an estimate and says so with `"inferred": true` on the object that
+carries it: the `budget`, a `requirement`, a `fit` verdict and its speed class, the `tier` label, a
+`security` score, the safe-configuration text. The UI paints those with the inferred (violet)
+convention of §0 / C4, never as a fact. Two hardware values are themselves estimates and are
+flagged individually: the GPU share of Apple unified memory (`vram_is_estimate: true`) and the
+tier label.
+
+**No route accepts a URL.** A model is named by its catalog `id`, a pin by an `owner/name`
+repository id, and the link check only ever requests a URL already stored in the catalog. Unknown
+body fields are rejected (§0), so a `url` field is a `VALIDATION_ERROR`, not an ignored extra.
+
+**Outbound.** Only `POST /api/v1/advisor/update` and `POST /api/v1/advisor/catalog/verify-link` can cause a
+request, and only while `online_enabled` is on (§1); with it off both answer
+`503 FEATURE_UNAVAILABLE` with `details.reason = "online_disabled"`. Every other route answers
+from the hardware and the local catalog files. Catalog reads go to six exact hosts
+(`allowed_hosts` in `GET /api/v1/advisor/sources`), carry no credentials, and send nothing about this
+machine or its library (SECURITY_REVIEW §8.3).
+
+### 22.1 Vocabulary
+
+**Model kinds** (`kind`, frozen): `image` `video` `llm` `lora` `audio` `vision` `controlnet`
+`upscale` `vae` `text_encoder` `embedding` `3d` `other`. The interface lists them in the order
+`image video llm audio 3d lora controlnet upscale vision text_encoder vae embedding other`.
+`lora` `controlnet` `embedding` `vae` `text_encoder` are **add-ons**.
+
+**Verdicts** (`fit.verdict`, frozen, best first — this is also the facet order):
+
+| Verdict | `label` | `runs` | Meaning |
+|---|---|---|---|
+| `optimal` | Optimal | true | Needs no more than 85% of the safe budget — room to work |
+| `good` | Good fit | true | Fits in the safe budget, headroom left free |
+| `max` | Maximum | true | Fits on the GPU only by spending the headroom |
+| `offload` | Offload | true | Larger than the GPU: streamed from system memory, or split GPU/CPU for a language model; slow |
+| `cpu` | CPU only | true | No usable GPU; runs on the processor from system memory |
+| `base` | Add-on | false¹ | A LoRA, ControlNet, embedding, VAE or text encoder: it costs its base model's memory plus about 0.25 GB of its own |
+| `no` | Too large | false | Does not fit in this machine's memory, even with offloading |
+| `unknown` | Unknown | false | No file size is published, so nothing can be estimated |
+
+¹ `runs` is `false` on a single variant's `base` verdict and `true` on the entry-level `fit` of an
+add-on; `runs_only=true` keeps add-ons.
+
+**Speed class** (`fit.speed`): `fast` `moderate` `slow` `very_slow` `none`.
+
+**Sources** (`source`): `huggingface` `civitai` `comfy_manager` `openmodeldb` `ollama`. `github`
+is a source of *leads* only — repositories worth a look that are not catalog entries.
+
+### 22.2 The budget
+
+The advisor never plans a machine to 100%. From what is installed it subtracts a **system
+reserve** and then the **headroom** the owner asked for; what is left is *safe*. The headroom
+itself is the gap between *safe* and *max*.
+
+| Field | Meaning |
+|---|---|
+| `backend` | `cuda` `mps` `rocm` `ipex` `directml` `cpu` — what the plan is made against |
+| `unified` | GPU and system share one memory pool (Apple Silicon) |
+| `vram_total` | The largest single GPU. A diffusion pipeline runs on one device |
+| `vram_pooled` | Every discrete GPU of that backend added up — what a GGUF runner can split across |
+| `vram_reserve` | Discrete GPU: `min(0.8 GiB, vram_total / 4)`. Unified: `0` (the reserve comes out of RAM, once) |
+| `vram_max` | Discrete: `vram_total − vram_reserve`. Unified: `min(vram_total, ram_max)` |
+| `vram_safe` | Discrete: `vram_total × (1 − vram_headroom_pct/100) − vram_reserve`. Unified: `vram_max × (1 − vram_headroom_pct/100)` |
+| `pooled_safe` / `pooled_max` | The same two figures over `vram_pooled`; used for `llm` |
+| `ram_total` | Installed system memory |
+| `ram_reserve` | `max(4 GiB, 12% of ram_total)`, capped at half of `ram_total` |
+| `ram_max` | `ram_total − ram_reserve` |
+| `ram_safe` | `ram_total × (1 − ram_headroom_pct/100) − ram_reserve` |
+| `vram_headroom_pct` / `ram_headroom_pct` | The settings in force, always within 5–50 |
+| `disk_free` | Free bytes on the volume holding the model folders (else ComfyUI's, else the first), or `null` |
+| `inferred` | Always `true` |
+
+With no usable GPU, `backend` is `cpu` and every `vram_*` / `pooled_*` figure is `0`.
+`vram_safe < vram_max ≤ vram_total` and `ram_safe < ram_max ≤ ram_total` hold on every machine,
+and a headroom setting outside 5–50 is clamped, not obeyed — there is no value that plans the
+whole card.
+
+```jsonc
+// 24 GiB CUDA card, 64 GiB RAM, default headroom
+{ "backend":"cuda","unified":false,
+  "vram_total":25769803776,"vram_pooled":25769803776,"vram_reserve":858993459,
+  "vram_safe":21045339750,"vram_max":24910810317,
+  "pooled_safe":21045339750,"pooled_max":24910810317,
+  "ram_total":68719476736,"ram_reserve":8246337208,"ram_safe":43293270344,"ram_max":60473139528,
+  "vram_headroom_pct":15,"ram_headroom_pct":25,"disk_free":536870912000,"inferred":true }
+```
+
+### 22.3 Catalog entry schema
+
+One entry is one model; its `variants` are the files it ships as (precisions, quantisations).
+Stored entries are compact: a field that is `null`, `false`, `""` or `[]` is omitted from the
+file, so every one below except `id`, `name`, `kind` and `variants` is optional.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `id` | string | `hf:<owner>/<name>` · `civitai:<int>` · `comfy:<path>` · `omdb:<id>` · `ollama:<name>` |
+| `source` | enum | §22.1 |
+| `name` · `publisher` | string | |
+| `kind` | enum | §22.1 |
+| `task` · `family` · `base_model` | string | Pipeline task; model family; the repository this was made from |
+| `description` | string | Plain text, tags stripped, at most ~420 characters |
+| `url` | https URL | The model's page — for display, never fetched by the app |
+| `license` · `gated` | string · bool | |
+| `downloads` · `likes` · `trending` | number | As the host reports them |
+| `created_at` · `updated_at` | ISO-8601 string | As the host reports them (the one place §0's epoch-ms rule does not apply) |
+| `revision` | string | Upstream commit / version; an unchanged revision is not re-fetched |
+| `tags` | string[] | At most 14 |
+| `params` · `context_length` · `architecture` | | Where the host publishes them |
+| `runtime` | enum | `comfyui` `comfyui-gguf` `diffusers` `gguf` `transformers` `ollama` `other` |
+| `pull` | string | `ollama` entries: the pull command |
+| `variants[]` | object[] | `id`, `label`, `precision`, `format`, `bytes`, `parts`, `file`, `download_url`, `direct`, `sha256`, `bundled`, `save_path` |
+| `companions[]` | object[] | Encoders / VAE / projector the model needs: `role`, `label`, `precision`, `format`, `bytes`, `download_url`, `save_path` |
+| `safety` | object | `scan` (`clean` `issues` `pending` `unknown`), `scan_detail`, `publisher_trust` (`official` `trusted` `curated` `unknown`), `code_files`, `custom_code`, `hash_published` |
+| `curated` · `quality` | bool · number | Set by the source list for hand-picked entries |
+
+`variants[].bundled` marks a checkpoint that carries its own encoders, so `companions` are not
+added to its requirement. `variants[].direct` is `false` when the link is a folder (a sharded
+file) or a pull name rather than one downloadable file. `save_path` is the ComfyUI folder the file
+belongs in (`models/diffusion_models`, `models/loras`, …) and is absent for kinds ComfyUI has no
+folder for.
+
+**Links are scrubbed on read.** Any `url` or `download_url` that is not plain `https` — another
+scheme, credentials in the authority, a control character — is served as `null`, and a lead
+without an https `url` is dropped, whether the value came from a source or from a hand-edited
+catalog file. Repeated variant ids within one entry are made distinct (`<id>`, `<id>#2`, …).
+
+**Left out by default.** An entry the host flags as adult (`nsfw`), or whose name, id or tags
+match the adult-content / safety-stripped word list in `advisor/catalog.py` (`nsfw`,
+`uncensored`, `abliterated`, …), is dropped both when a catalog is written and when one is read.
+It is never listed and `GET /api/v1/advisor/catalog/entry` answers `404` for it. This applies to pinned
+repositories too: pinning one whose name matches does not bring it into the catalog.
+
+### `GET /api/v1/advisor/overview`
+
+Machine class, budget and verdict totals in one call — what the Advisor tab opens with.
+
+`200`
+```jsonc
+{ "tier":{"id":"enthusiast","label":"Enthusiast",
+          "summary":"Full-precision image models and mid-size video and language models.",
+          "inferred":true},
+  "accelerator":{"backend":"cuda","name":"NVIDIA GeForce RTX 4090","vendor":"nvidia",
+                 "vram_total_bytes":25769803776,"pooled_vram_bytes":25769803776,"unified":false,
+                 "vram_is_estimate":false,"gpu_index":0,"gpu_count":1},
+  "cpu":{…}, "memory":{…}, "os":{…}, "notes":[],
+  "budget":{…§22.2…},
+  "settings":{…as GET settings below…},
+  "totals":{"optimal":412,"good":38,"max":21,"offload":57,"base":411,"no":121},
+  "catalog_total":1060, "new":0,
+  "update":{…as GET update/status below…} }
+```
+`totals` counts verdicts over the saved kind scope (`settings.kinds`; all kinds when empty) and
+names only the verdicts that occur. `new` counts entries first seen in the last 7 days.
+`tier.id` is one of `workstation` `enthusiast` `high` `performance` `mainstream` `entry` `minimal`
+`cpu`.
+
+### `GET /api/v1/advisor/hardware`
+
+The full profile. `?refresh=true` re-probes now; otherwise the profile is cached for 5 minutes.
+
+`200`
+```jsonc
+{ "collected_at":1795108769000,"elapsed_ms":212,
+  "os":{"platform":"win32","name":"Windows","version":"11 10.0.26100","arch":"AMD64","python":"3.12.7"},
+  "cpu":{"model":"AMD Ryzen 9 7950X 16-Core Processor","vendor":"amd","arch":"AMD64",
+         "physical_cores":16,"logical_cores":32,"performance_cores":null,"efficiency_cores":null,
+         "max_mhz":4500.0,"features":["AVX","AVX2","AVX-512"]},
+  "memory":{"total_bytes":68719476736,"available_bytes":51539607552,"swap_total_bytes":8589934592},
+  "gpus":[{"index":0,"name":"NVIDIA GeForce RTX 4090","vendor":"nvidia","backend":"cuda",
+           "vram_total_bytes":25757220864,"vram_is_estimate":false,"unified":false,
+           "integrated":false,"driver":"566.36","source":"nvidia-smi"}],
+  "accelerator":{…as in overview…},
+  "volumes":[{"mount":"D:\\","device":"D:\\","fstype":"NTFS","total_bytes":2000381014016,
+              "free_bytes":536870912000,"used_bytes":1463510102016,"kind":"unknown",
+              "roles":["ComfyUI","Models"]}],
+  "tier":{…}, "notes":[],
+  "probes":[{"name":"nvidia_static","ok":true,"ms":61},{"name":"windows_registry","ok":true,"ms":0}],
+  "psutil":true,
+  "budget":{…§22.2…} }
+```
+`accelerator` is the device the plan is made against: the largest single non-integrated GPU.
+Integrated graphics alone give `backend: "cpu"`. `gpus[].source` says where the figure came from
+(`nvidia-smi`, `registry`, `sysfs`, `system_profiler`). `probes` lists the inventory commands that
+were tried and whether each answered; a probe that is missing or times out contributes nothing and
+is not an error. `psutil: false` means the optional dependency is absent and `notes` says which
+readings are missing. No GPU UUID and no device path is ever returned.
+
+### `GET /api/v1/advisor/live`
+
+One live reading for the dashboard. Rate-limited server-side to one probe per ~0.45 s, shared by
+every open tab. `?history=true` adds `history[]`, up to 180 recent points
+(`t cpu mem gpu vram disk_r disk_w net_rx net_tx`).
+
+`200`
+```jsonc
+{ "t":1795108771600,
+  "cpu":{"percent":12.4,"per_core":[9.1,15.2],"freq_mhz":4312,"load_1m":null,"temp_c":null},
+  "memory":{"total_bytes":68719476736,"used_bytes":21064581120,"available_bytes":47654895616,
+            "percent":30.7,"swap_total_bytes":8589934592,"swap_used_bytes":0},
+  "gpus":[{"index":0,"name":"NVIDIA GeForce RTX 4090","util_percent":37.0,
+           "vram_used_bytes":8517582848,"vram_total_bytes":25757220864,"temp_c":61.0,
+           "power_w":212.45,"fan_percent":44.0,
+           "processes":[{"pid":4242,"name":"python.exe","vram_bytes":9658433536}]}],
+  "disk_io":{"read_bps":0,"write_bps":131072}, "net_io":{"rx_bps":2048,"tx_bps":512},
+  "volumes":[{"mount":"D:\\","total_bytes":2000381014016,"free_bytes":536870912000,
+              "used_bytes":1463510102016,"percent":73.2,"kind":"unknown","roles":["Models"]}],
+  "top_processes":[{"pid":4242,"name":"python.exe","rss_bytes":9934766080}],
+  "budget":{"vram_safe":21045339750,"vram_max":24910810317,"vram_total":25769803776,
+            "ram_safe":51539607552,"ram_total":68719476736,
+            "vram_headroom_pct":15,"ram_headroom_pct":25,"unified":false,"backend":"cuda"},
+  "accelerator":{…} }
+```
+Any reading the platform cannot give is `null`, never `0`: GPU utilisation, temperature, power and
+fan come from `nvidia-smi` and are `null` for AMD/Intel adapters on Windows; `disk_io`, `net_io`,
+`per_core` and `top_processes` need `psutil`. `top_processes` carries names and sizes only.
+`budget` here is the set of lines the gauges draw, **not** §22.2: its `ram_safe` is measured from
+zero on the installed-memory scale (`ram_safe + ram_reserve` of §22.2), i.e. the point past which
+system memory use eats the headroom.
+
+### `GET /api/v1/advisor/catalog`
+
+Every known model, assessed for this machine.
+
+| Param | Type | Meaning |
+|---|---|---|
+| `limit` / `offset` | int | §0.3. `limit` 1–500, default 100 |
+| `kind` | enum, repeatable or CSV | §22.1 kinds. Omitted → the saved scope (`settings.kinds`), else all |
+| `verdict` | enum, repeatable or CSV | §22.1 verdicts |
+| `source` | enum, repeatable or CSV | `huggingface` `civitai` `comfy_manager` `openmodeldb` `ollama` |
+| `q` | string ≤ 120 | Case-insensitive substring over name, publisher, family, task, licence and id |
+| `runs_only` | bool | Hide what does not fit (`no`, `unknown`); add-ons stay |
+| `new_only` | bool | Only entries first seen in the last 7 days |
+| `min_security` | int 0–100 | Lowest safety score to include |
+| `sort` | enum | See below. Default `recommended` |
+
+**Sort keys (frozen):** `recommended` · `name` · `-downloads` · `-updated` · `need` · `-need` ·
+`security` · `-security` · `size` · `-size`. `recommended` orders by `rank`: curated quality or
+popularity, plus a bonus for a comfortable verdict and a penalty for one that does not fit, plus
+a small weight for the safety score. Any other value → `422 VALIDATION_ERROR` with
+`details.allowed`.
+
+`200`
+```jsonc
+{ "items":[
+    { "id":"hf:demo-labs/Demo-Image","name":"Demo Image","publisher":"demo-labs",
+      "kind":"image","kind_label":"Image","source":"huggingface","family":"Demo","task":null,
+      "runtime":"comfyui","license":"apache-2.0","gated":false,"downloads":50000,"likes":null,
+      "updated_at":"2026-06-01T00:00:00.000Z","created_at":"2025-01-01T00:00:00.000Z",
+      "params":null,"url":"https://huggingface.co/demo-labs/Demo-Image","curated":true,
+      "is_new":false,"variant_count":2,"description":null,
+      "lead":{"id":"split_files/diffusion_models/demo_fp8.safetensors","label":"demo_fp8",
+              "precision":"fp8","format":"safetensors","bytes":12884901888,
+              "download_url":"https://huggingface.co/…/demo_fp8.safetensors",
+              "direct":true,"save_path":"models/diffusion_models"},
+      "fit":{"verdict":"optimal","label":"Optimal","runs":true,"speed":"fast",
+             "need_bytes":15784004812,"used_pct_of_safe":75.0,"used_pct_of_ceiling":63.4,
+             "optimum_variant":"split_files/diffusion_models/demo_fp8.safetensors",
+             "maximum_variant":"split_files/diffusion_models/demo_fp8.safetensors",
+             "stretch_variant":"split_files/diffusion_models/demo_fp16.safetensors",
+             "inferred":true},
+      "fit_reason":"Fits with room to spare for larger outputs, extra adapters and other applications.",
+      "security":{"score":99,"grade":"A","label":"Safe","tone":"ok","inferred":true},
+      "rank":130.8,
+      "maximum":{"id":"…demo_fp8.safetensors","label":"demo_fp8","precision":"fp8",
+                 "format":"safetensors","bytes":12884901888,"download_url":"…",
+                 "verdict":"optimal","verdict_label":"Optimal","speed":"fast",
+                 "need_bytes":15784004812,"used_pct_of_ceiling":63.4},
+      "stretch":{"id":"…demo_fp16.safetensors","verdict":"offload","verdict_label":"Offload",
+                 "speed":"slow","need_bytes":27831388077,"used_pct_of_ceiling":111.7, …} } ],
+  "page":{"limit":100,"offset":0,"total":1060,"returned":100,"has_more":true},
+  "facets":{"kind":[{"value":"image","count":194,"label":"Image"}],
+            "verdict":[{"value":"optimal","count":412,"label":"Optimal"}],
+            "source":[{"value":"huggingface","count":365}]},
+  "meta":{"sort":"recommended","scope":null,"catalog_total":1060,"inferred":true} }
+```
+* An entry leads with one variant. `fit.optimum_variant` is the **largest** variant whose verdict
+  is `optimal` or `good` — within one model a larger file is a less aggressive quantisation. For
+  `llm` a comfortable variant of 4 bits or more is preferred over a larger one below 4 bits
+  (`Q2`, `Q3`, `IQ1`–`IQ3`). `fit.maximum_variant` is the largest that still runs entirely on the
+  GPU (on a CPU-only machine: the largest that runs at all). `fit.stretch_variant` is a still
+  larger one that only runs by offloading, and is `null` unless it is bigger than the maximum.
+  The row's `fit` is the verdict of the lead variant: the optimum, else the maximum.
+* `maximum` and `stretch` repeat those two variants with **their own** verdicts.
+* Each facet is counted with every *other* filter applied (§0.4), in the frozen order of §22.1.
+* `meta.scope` is the kind filter in force (`null` = all). `meta.catalog_total` is unfiltered.
+
+### `GET /api/v1/advisor/catalog/entry`
+
+Everything about one model, variant by variant. `?id=` (3–240 chars) is the catalog id; it is a
+query parameter, not a path segment, because Hub ids contain `/`.
+
+`200` — the stored entry (§22.3) plus:
+```jsonc
+{ "id":"hf:demo-labs/Demo-Image", "name":"Demo Image", "kind":"image", "kind_label":"Image", …,
+  "variants":[
+    { "id":"split_files/diffusion_models/demo_fp16.safetensors","label":"demo_fp16",
+      "precision":"fp16","format":"safetensors","bytes":23837068492,"parts":1,"direct":true,
+      "download_url":"…","sha256":"abab…",
+      "fit":{"id":"…demo_fp16.safetensors","verdict":"offload","label":"Offload","runs":true,
+             "speed":"slow","need_bytes":27831388077,"safe_bytes":21045339750,
+             "ceiling_bytes":24910810317,"used_pct_of_safe":132.2,"used_pct_of_ceiling":111.7,
+             "headroom_bytes":-6786048327,"disk_ok":true,
+             "reasons":["Larger than the GPU: ComfyUI can stream the model from system memory in low-VRAM mode, several times slower."],
+             "requirement":{"weights_bytes":23837068492,"overhead_bytes":3994319585,
+                            "companion_bytes":5683281920,"gpu_bytes":27831388077,
+                            "ram_bytes":14066017894,"total_bytes":30673029037,"inferred":true},
+             "download_bytes":29520350412,"inferred":true},
+      "security":{"score":99,"grade":"A","label":"Safe","tone":"ok","disclaimer":"…","inferred":true} } ],
+  "fit":{"verdict":"optimal","label":"Optimal","runs":true,"speed":"fast",
+         "lead_variant":"…demo_fp8.safetensors","optimum_variant":"…","maximum_variant":"…",
+         "stretch_variant":"…","need_bytes":15784004812,"used_pct_of_safe":75.0,
+         "used_pct_of_ceiling":63.4,"reasons":["…"],"inferred":true},
+  "security":{"score":99,"grade":"A","label":"Safe","tone":"ok",
+              "factors":[{"id":"format","label":"Data-only format","points":25,
+                          "detail":"safetensors cannot execute code when loaded.","tone":"ok"},
+                         {"id":"scan","label":"Host scan passed","points":10,
+                          "detail":"Hugging Face scanned the files and reported no issues.","tone":"ok"}],
+              "disclaimer":"An estimate from published facts (format, publisher, host scans, adoption). It is not a malware scan and proves nothing about the file's contents.",
+              "inferred":true},
+  "budget":{…§22.2…},
+  "first_seen_at":null,"is_new":false,
+  "installed":[{"uid":"model:812","name":"demo_fp8","filename":"demo_fp8.safetensors","folder":""}] }
+```
+* `requirement` (bytes): `gpu_bytes` must be resident on the GPU while it works; `companion_bytes`
+  is the lightest companion of each role; `ram_bytes` is system memory needed beside a GPU run;
+  `total_bytes` is everything at once — what a CPU-only or unified-memory run holds. On unified
+  memory `need_bytes` is `total_bytes`; on a discrete GPU it is `gpu_bytes`.
+* `download_bytes` is the variant plus the lightest companion of each role; `disk_ok` compares it
+  with `budget.disk_free` and is `null` when either is unknown. Short disk space adds a reason; it
+  never changes the verdict.
+* **`security`** is a 0–99 score — never 100 — with one `factors[]` row per fact that moved it:
+  `id` (`format` `scan` `publisher` `adoption` `age` `code` `hash` `license`), `label`, `points`,
+  `detail`, `tone` (`ok` `warn` `danger` `neutral`). The score is `40 + Σ points`, clamped to
+  0–99. Grades: `A` Safe ≥ 85 · `B` Low risk ≥ 70 · `C` Caution ≥ 50 · `D` Risky ≥ 30 · `F`
+  Unsafe. Per-variant `security` omits `factors`. **It is advisory, built from published facts,
+  and is not a malware scan**; `disclaimer` says so in every payload.
+* `installed` lists indexed files whose filename matches one of the entry's variants.
+
+`404 NOT_FOUND` (`details.id`) for an id that is not in the catalog.
+
+### `POST /api/v1/advisor/catalog/verify-link`
+
+Asks the host whether a **stored** download link is still live: one `HEAD`, no body, and a
+redirect is reported, not followed.
+
+```jsonc
+{ "id":"hf:demo-labs/Demo-Image", "variant":"split_files/diffusion_models/demo_fp8.safetensors" }
+```
+`variant` is optional (default: the entry's first variant). There is no `url` field.
+
+`200`
+```jsonc
+{ "state":"ok","status":302,"bytes":12884901888,"message":"The link is live.",
+  "url":"https://huggingface.co/…/demo_fp8.safetensors","checked_at":1795108771789,
+  "size_matches":true }
+```
+`state`: `ok` (any status below 400) · `gated` (401/403 — live, but needs an account or an
+accepted licence) · `dead` (404) · `unreachable` (network failure, 429, 5xx) · `unchecked` (the
+variant has no link, or its host is not on the **model** download allowlist of §20, in which case
+nothing is requested). `size_matches` appears when the host reports a size.
+
+Errors: `503 FEATURE_UNAVAILABLE` while outbound lookups are off (checked first) ·
+`404 NOT_FOUND` for an unknown `id` or `variant`.
+
+### `GET /api/v1/advisor/recommendations`
+
+Per model kind: the optimum picks and the maximum that runs.
+
+| Param | Type | Meaning |
+|---|---|---|
+| `kind` | enum, repeatable or CSV | Default: the saved scope, else every kind |
+| `per_kind` | int 1–20 | Size of each `optimum` list. Default 6 |
+
+`200`
+```jsonc
+{ "tier":{…}, "accelerator":{…}, "budget":{…§22.2…},
+  "scope":["video"],
+  "totals":{"optimal":0,"good":0,"max":1,"offload":0,"cpu":0,"base":0,"no":0,"unknown":0},
+  "runnable":1, "catalog_total":1060,
+  "groups":[
+    { "kind":"video","label":"Video","addon":false,"total":1,"counts":{"max":1},
+      "optimum":[], "maximum":[ {…catalog row…} ], "stretch":[] } ],
+  "inferred":true }
+```
+Groups come in the interface order of §22.1 and a kind with no entries is omitted. `optimum` is
+the best-ranked entries whose verdict is `optimal` or `good`; `maximum` is up to three entries
+whose largest on-GPU variant needs the most memory; `stretch` up to two that go further by
+offloading. For an add-on kind (`addon: true`) `optimum` is simply the best-ranked entries and the
+other two lists are empty. `runnable` sums `optimal good max offload cpu`.
+
+### `GET /api/v1/advisor/installed`
+
+The models already in the vault's index, assessed for this machine. An unindexed vault returns an
+empty list, not an error.
+
+| Param | Type | Meaning |
+|---|---|---|
+| `limit` / `offset` | int | §0.3 |
+| `kind` / `verdict` | enum, repeatable or CSV | §22.1 |
+| `q` | string ≤ 120 | Substring over name, filename, base model and category |
+| `sort` | enum | `need` `-need` `size` `-size` `security` `-security` `name`. Default `-need` |
+
+`200`
+```jsonc
+{ "items":[
+    { "uid":"model:812","id":812,"name":"sd15-probe","filename":"sd15-probe.safetensors",
+      "category":"checkpoints","kind":"image","kind_label":"Image","base_model":"SD 1.5",
+      "precision":"fp16","quantization":null,"params":null,"size":2132625894,"folder":"",
+      "is_bundled":true,"missing":false,
+      "fit":{"verdict":"optimal","label":"Optimal","runs":true,"speed":"fast",
+             "need_bytes":3956501256,"safe_bytes":21045339750,"ceiling_bytes":24910810317,
+             "used_pct_of_safe":18.8,"used_pct_of_ceiling":15.9,"headroom_bytes":17088838494,
+             "inferred":true},
+      "requirement":{…as §22 catalog/entry…},
+      "reasons":["Fits with room to spare for larger outputs, extra adapters and other applications."],
+      "security":{"score":73,"grade":"B","label":"Low risk","tone":"ok","factors":[…],
+                  "disclaimer":"…","inferred":true},
+      "catalog_id":null,"catalog_name":null } ],
+  "page":{…}, "facets":{"verdict":[{"value":"optimal","label":"Optimal","count":1}],"kind":[…]},
+  "meta":{"sort":"-need","indexed_total":1,"inferred":true} }
+```
+`kind` is derived from the indexed folder and modality. A local `security` score uses what the
+indexer found rather than what a host published — factor ids `format`, `integrity`,
+`provenance` (a Civitai hash match is worth the most), `source`. `catalog_id` links a file to the
+catalog entry that lists the same filename, when there is one.
+
+### `GET /api/v1/advisor/installed/{id}`
+
+One indexed model: the row above plus `budget`, `abs_path` (display only), `hash_state` and
+`integrity`. `id` is the integer model id. `404 NOT_FOUND` when it is not in the index.
+
+### `GET /api/v1/advisor/safe-config`
+
+Launch flags and environment values that keep the headroom, derived from the same budget as the
+verdicts. **Text for the owner to copy** — this route writes no file and changes no setting.
+
+`200`
+```jsonc
+{ "summary":"Plan against 19.6 GB of the 24 GB GPU: 0.8 GB is left to the system and 15% is kept as headroom.",
+  "budget":{…§22.2…},
+  "comfyui":{"flags":[{"flag":"--reserve-vram","value":"4.4",
+                       "why":"Keeps 4.4 GB free for the desktop, the browser and the safety headroom."}],
+             "env":[{"name":"PYTORCH_CUDA_ALLOC_CONF","value":"expandable_segments:True","why":"…"}],
+             "command_line":"--reserve-vram 4.4","notes":["…"]},
+  "ollama":{"env":[{"name":"OLLAMA_GPU_OVERHEAD","value":"4724464026","why":"…"},
+                   {"name":"OLLAMA_MAX_LOADED_MODELS","value":"1","why":"…"}]},
+  "llama_cpp":{"args":[{"flag":"--ctx-size","value":"8192","why":"…"}],
+               "command_line":"--ctx-size 8192 --threads 16 --n-gpu-layers 999"},
+  "files":[{"name":"comfyui_safe_launch.txt","content":"…"},{"name":"advisor_safe.env","content":"…"}],
+  "rules":["Close GPU-heavy applications (games, video editors, other generators) before a large run."],
+  "inferred":true }
+```
+On a discrete GPU `--reserve-vram` is `vram_total − vram_safe` in GB and is therefore always
+greater than zero; `--novram` is added under 4.5 GB and `--lowvram` under 9 GB. On unified memory
+there is no reserve flag — the limit is the two `PYTORCH_MPS_*_WATERMARK_RATIO` values. With no
+usable GPU the only ComfyUI flag is `--cpu`. Every row carries a `why`.
+
+### `GET /api/v1/advisor/settings`
+
+```jsonc
+{ "vram_headroom_pct":15,"ram_headroom_pct":25,"auto_update":true,"kinds":[],
+  "online_enabled":false,
+  "limits":{"min_headroom_pct":5,"max_headroom_pct":50},
+  "kind_options":[{"id":"image","label":"Image"},{"id":"video","label":"Video"}] }
+```
+`kinds` is the saved scope (`[]` = every kind). `online_enabled` is read-only here; it is changed
+through `PATCH /api/v1/system/config` (§1).
+
+### `PATCH /api/v1/advisor/settings`
+
+Any subset of `vram_headroom_pct` (int 5–50), `ram_headroom_pct` (int 5–50), `auto_update`
+(bool), `kinds` (array of §22.1 kinds; stored de-duplicated in interface order). Returns the
+settings as `GET` does. The budget and every verdict follow at once; more headroom can only leave
+a verdict as it was or make it worse. A value outside 5–50, an unknown kind or an unknown field →
+`422 VALIDATION_ERROR`, and nothing is changed.
+
+### `GET /api/v1/advisor/sources`
+
+Where model information comes from, and when each source last answered.
+
+`200`
+```jsonc
+{ "revision":1,"origin":"seed",
+  "sources":[{"id":"huggingface","name":"Hugging Face Hub","url":"https://huggingface.co",
+              "provides":"Model facts, exact file sizes, licence, the host's own security scan",
+              "kinds":["image","video","llm"],"trust":"high",
+              "entries":365,"last_ok":true,"last_at":1795107280000,"last_error":null,
+              "last_elapsed_ms":48211}],
+  "pins":82,
+  "user_pins":[{"repo":"owner/name","added_at":1795108771789,"kind":"video"}],
+  "learned":["demo-labs/Fresh-9B"],"learned_total":1,
+  "queries":{"huggingface":25,"civitai":8,"github":4,"openmodeldb":1,"follow_base_models":1},
+  "publishers":{"official":54,"trusted":20},
+  "allowed_hosts":["api.github.com","civitai.com","huggingface.co","ollama.com",
+                   "openmodeldb.info","raw.githubusercontent.com"],
+  "leads":[{"name":"demo-labs/demo-video","url":"https://github.com/demo-labs/demo-video",
+            "description":"…","stars":4200,"updated_at":"2026-10-01T00:00:00Z",
+            "topics":["text-to-video"],"license":"Apache-2.0"}],
+  "counts":{"total":1060,"by_kind":{"image":194},"by_source":{"huggingface":365}},
+  "update":{…as GET update/status below…} }
+```
+`origin` is `seed` (the list shipped with the app) or `repository` (a newer revision fetched from
+this project's own repository during a refresh). `sources[].entries` is the number of catalog
+entries from that source — for `github` the number of leads. `last_*` are `null` until a refresh
+has run on this machine. `learned` is the last 60 repositories found by following a `base_model`
+link. `allowed_hosts` is the whole catalog allowlist; no setting and no source list can add to it.
+
+### `POST /api/v1/advisor/sources/pins`
+
+Remember a Hugging Face repository for every future refresh.
+
+```jsonc
+{ "repo":"owner/name", "kind":"video" }     // kind optional
+```
+`repo` is `owner/name` in the Hub's own alphabet (letters, digits, `.`, `_`, `-`; one `/`; no
+`..`). A pasted `https://huggingface.co/owner/name` is reduced to the id; any other URL is
+refused. `200` → `{ "repo":"owner/name","added_at":1795108771789,"kind":"video" }`. Pinning a
+repository that is already pinned replaces the pin. At most 200 pins.
+`422 VALIDATION_ERROR` (`details.field = "repo"`) for anything that is not a repository id.
+
+A pin takes effect at the next refresh; it does not fetch anything by itself.
+
+### `DELETE /api/v1/advisor/sources/pins`
+
+`?repo=owner/name` → `200 { "removed": true, "repo": "owner/name" }`. `removed` is `false` when
+that repository was not pinned; this is not an error.
+
+### `GET /api/v1/advisor/update/status`
+
+```jsonc
+{ "running":false,"phase":null,"phase_label":null,"done":0,"total":0,
+  "started_at":null,"finished_at":null,"trigger":null,"error":null,"result":null,
+  "online_enabled":false,"auto_update":true,
+  "catalog_origin":"seed","catalog_generated_at":1795107287756,"catalog_age_ms":1481244,
+  "stale":false,"stale_after_ms":86400000,"entries":1060,
+  "last_run":{"started_at":1795107240000,"finished_at":1795107287900,"trigger":"manual",
+              "error":null,"kinds":null,
+              "result":{"entries":1060,"new":0,"generated_at":1795107287756,
+                        "counts":{…},"failed_sources":[]}} }
+```
+`catalog_origin` is `seed` or `refreshed`. `stale` is true once the catalog is older than
+`stale_after_ms` (24 hours). While a refresh runs, `phase` is the source being read (`vault`
+`huggingface` `civitai` `comfy_manager` `openmodeldb` `ollama` `github` `writing`) and
+`done`/`total` count within it. `last_run` is `null` until one has run.
+
+### `POST /api/v1/advisor/update` → 202
+
+Refresh the catalog from its sources, in a background thread. One run at a time.
+
+```jsonc
+{ "kinds":["llm"], "sources":["huggingface","ollama"], "auto":false }   // all optional; body may be omitted
+```
+`kinds` limits the run to those model kinds, `sources` to those source ids (unknown ids are
+ignored). Returns the status object above with `running: true`.
+
+* A source that fails keeps the entries it had; the new catalog replaces the old one only at the
+  end of the run, so a cancelled or interrupted run leaves the previous catalog untouched.
+* `last_run.result.failed_sources` names the sources that did not answer.
+* The first refresh on a machine marks nothing as new; later ones mark what they add.
+
+**`"auto": true`** is the self-initiated form, sent by the interface once when the Advisor opens
+on stale data and used by the startup timer. It **never returns an error**: it applies the
+automatic-refresh guards and answers `202` with the status plus `auto_outcome`:
+
+| `auto_outcome` | Meaning |
+|---|---|
+| `offline` | Outbound lookups are off. Nothing was requested |
+| `disabled` | `auto_update` is off |
+| `running` | A refresh is already running |
+| `fresh` | The catalog is under 24 hours old |
+| `recently_tried` | A run finished less than 6 hours ago |
+| `started` | A refresh was started, limited to the saved kind scope |
+| `skipped` | Starting failed for another reason (logged) |
+
+Errors (without `auto`): `503 FEATURE_UNAVAILABLE` — outbound lookups are off; no thread is
+started · `409 CONFLICT` — a refresh is already running.
+
+### `POST /api/v1/advisor/update/cancel`
+
+Asks a running refresh to stop and returns the status. The run ends with
+`error: "Cancelled."` and the previous catalog is kept. Harmless when nothing is running.

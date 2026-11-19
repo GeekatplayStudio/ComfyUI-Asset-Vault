@@ -34,6 +34,7 @@ you explicitly ask for it — and even then, deletions go to a recoverable trash
   - [Storage & maintenance](#storage--maintenance)
   - [ComfyUI version & updates](#comfyui-version--updates)
   - [Model Context Protocol server](#model-context-protocol-server)
+  - [System Advisor](#system-advisor)
 - [What this app never does](#what-this-app-never-does)
 - [Quick start](#quick-start)
 - [Requirements](#requirements)
@@ -257,6 +258,27 @@ the whole surface can be flipped to strictly read-only with one config flag.
 See **[docs/MCP_CLIENT_SETUP.md](docs/MCP_CLIENT_SETUP.md)** for client configuration and the full
 tool reference.
 
+### System Advisor
+
+Answers *what can this machine actually run, and how safely?* It reads your processor, memory,
+graphics cards and drives, and assesses a catalog of about a thousand known models — and the
+models already in your vault — against a memory plan that **never budgets 100% of the GPU**:
+
+- **A verdict per model and per variant** — Optimal, Good fit, Maximum, Offload, CPU only, Too
+  large — with the optimum and maximum picks for each model type.
+- **A live resource dashboard** — load, memory, GPU memory and temperature where the hardware
+  reports them.
+- **An explainable safety score** (0–99) from published facts: file format, host scan, publisher,
+  adoption. Itemised, and explicitly **not a malware scan**.
+- **Safe settings to copy** — ComfyUI launch arguments and Ollama / llama.cpp values that keep the
+  headroom. The app changes nothing on your machine.
+- **A report you can save** — machine profile, memory plan, picks and settings as one Markdown
+  file, built in the browser.
+
+Works offline from a catalog shipped with the app. With outbound lookups on, the catalog refreshes
+itself from public listings (Hugging Face, Civitai, ComfyUI-Manager, OpenModelDB, Ollama) — six
+allowlisted hosts, no credentials, nothing about your machine sent.
+
 ---
 
 ## What this app never does
@@ -267,7 +289,7 @@ These are hard product rules, not preferences.
 |---|---|
 | **Modifies a model file without an explicit action from you.** | Scanning is strictly read-only. Rename, move and delete happen only when you click them — or when an MCP client calls a mutating tool, which is audited. |
 | **Uploads anything, anywhere.** | Your files, prompts and outputs never leave the machine. Civitai and Ollama lookups are optional, off by default, and send only a hash or a short text snippet — never a file. |
-| **Downloads anything you didn't tick.** | The only thing it fetches is what you selected from a plan shown to you first, from Civitai, Hugging Face, or a registry-declared repository — nowhere else. Every download is verified and quarantined on mismatch. |
+| **Downloads anything you didn't tick.** | The only thing it fetches is what you selected from a plan shown to you first, from Civitai, Hugging Face, or a registry-declared repository — nowhere else. Every download is verified and quarantined on mismatch. The System Advisor's catalog refresh reads public model *listings* only — JSON, never weights — and only while outbound lookups are on. |
 | **Imports or executes custom node code.** | Node classes are extracted by statically parsing the source with Python's AST. A malicious `__init__.py` cannot run inside the vault. Node package installers and `requirements.txt` are never run for you — the app tells you the command and you decide. |
 | **Auto-updates ComfyUI.** | The version check is read-only and degrades to "unknown" offline. Running ComfyUI's own updater requires your explicit confirmation, names the exact absolute path that will execute, and is refused while ComfyUI appears to be running. |
 | **Deletes without confirmation.** | Every delete goes through a confirmation dialog. **Trash is the default** — files move to a recoverable folder inside the root they came from. Permanent deletion is a separate, explicit choice. |
@@ -327,7 +349,7 @@ Something looks wrong → **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**
 |---|---|
 | OS | Windows 10 / 11 is the tested platform. Linux and macOS run **experimentally**: the engine, indexing, search and file operations are platform-neutral, and POSIX launchers ship (`start_app.sh` and friends) — but the ComfyUI start/update integration still expects a Windows portable layout, and the platform-specific test suites have not yet been run there. |
 | Python | 3.11 or newer (3.12 recommended) |
-| Node.js | 18 or newer — **only when building the interface from source.** Release archives ship it pre-built; running the app never requires Node. |
+| Node.js | 20.19 or newer (or 22.12+) — **only when building the interface from source.** Release archives ship it pre-built; running the app never requires Node. |
 | ComfyUI | Any recent install — portable, `git`-checkout, or the **Desktop app's data folder** (indexes fully; version/launch/update need a source install). The vault indexes it; it doesn't need ComfyUI running. |
 | Disk | The vault database and thumbnail cache are typically well under 100 MB even for a large library |
 
@@ -360,6 +382,7 @@ No Electron, no bundled Chromium, no cloud dependency of any kind.
 ComfyUIAssetManager/
 ├── backend/
 │   ├── app/
+│   │   ├── advisor/       System Advisor: hardware profile, memory budget, model catalog, safe settings
 │   │   ├── api/           REST routers (FastAPI) — one file per resource
 │   │   ├── core/          config, database, path safety, the writer/reader connection model
 │   │   ├── enable/        the "Enable workflow" downloader: hosts, placement, verification
@@ -385,7 +408,7 @@ ComfyUIAssetManager/
 └── show_service_status.ps1 / .sh   prints a live service report
 ```
 
-Roughly **123 backend Python modules**, **91 frontend source files**, and **52 backend test
+Roughly **148 backend Python modules**, **118 frontend source files**, and **62 backend test
 modules** at the time of writing.
 
 ---

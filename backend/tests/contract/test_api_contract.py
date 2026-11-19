@@ -59,6 +59,7 @@ PARAM_SENTINEL = re.compile(r"\{[^}]*\}")
 #: paths.  Informational: this list passing means the divergence is exactly the
 #: known naming style and nothing else.
 PATH_PARAM_NAME_DIVERGENCES: frozenset[tuple[str, str, str]] = frozenset({
+    ("GET", "/api/v1/advisor/installed/{id}", "/api/v1/advisor/installed/{model_id}"),
     ("DELETE", "/api/v1/albums/{id}", "/api/v1/albums/{album_id}"),
     ("PATCH", "/api/v1/albums/{id}", "/api/v1/albums/{album_id}"),
     ("POST", "/api/v1/albums/{id}/items", "/api/v1/albums/{album_id}/items"),
@@ -96,8 +97,8 @@ PATH_PARAM_NAME_DIVERGENCES: frozenset[tuple[str, str, str]] = frozenset({
 
 #: Expected size of PATH_PARAM_NAME_DIVERGENCES, spelled out so the informational
 #: test reports the shape of the divergence and not just its identity.
-EXPECTED_PARAM_DIVERGENCE_PAIRS = 25
-EXPECTED_PARAM_DIVERGENCE_PATHS = 20
+EXPECTED_PARAM_DIVERGENCE_PAIRS = 26
+EXPECTED_PARAM_DIVERGENCE_PATHS = 21
 
 # --- triaged divergence 2: implemented but undocumented -----------------------
 #: Routes that exist in the app but are absent from API_CONTRACT.md.  This is a

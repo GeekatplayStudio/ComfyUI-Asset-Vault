@@ -2,13 +2,15 @@ import React, { useMemo, useCallback } from 'react'
 import {
   Folder, Layers, Star, Clock, Hash, ArrowUp, AlertTriangle, Image as ImageIcon,
   Film, Music, Boxes, FileText, Users, ShieldCheck, CheckCircle2, XCircle,
-  Gauge, Copy, Trash2, Package, HardDrive, ShieldQuestion, Coffee, Globe, Youtube
+  Gauge, Copy, Trash2, Package, HardDrive, ShieldQuestion, Coffee, Globe, Youtube,
+  Activity, Sparkles, Database, SlidersHorizontal, Radar, MessageSquare, Box,
+  Puzzle, Maximize2, Eye, Type, CircleDot
 } from 'lucide-react'
 import api from '../../services/api.js'
 import useResource from '../../hooks/useResource.js'
 import Tree from '../common/Tree.jsx'
 import { useVault, useTabView } from '../../state/VaultContext.jsx'
-import { STORAGE_SECTIONS } from '../../state/actions.js'
+import { STORAGE_SECTIONS, ADVISOR_SECTIONS } from '../../state/actions.js'
 import { humanise } from '../../services/format.js'
 import { AUTHOR, SUPPORT_URL, SITE_URL, CHANNELS, copyright } from '../../services/links.js'
 
@@ -78,6 +80,17 @@ const STORAGE_ICONS = {
   overview: Gauge, cleanup: HardDrive, duplicates: Copy, trash: Trash2, comfyui: Package
 }
 
+const ADVISOR_ICONS = {
+  dashboard: Activity, recommend: Sparkles, catalog: Database, installed: HardDrive,
+  safe: SlidersHorizontal, sources: Radar
+}
+
+const KIND_ICONS = {
+  image: ImageIcon, video: Film, llm: MessageSquare, audio: Music, '3d': Boxes,
+  lora: Puzzle, controlnet: SlidersHorizontal, upscale: Maximize2, vision: Eye,
+  text_encoder: Type, vae: Box, embedding: CircleDot, other: Layers
+}
+
 export default function LeftRail() {
   const { state } = useVault()
   const tab = state.tab
@@ -121,10 +134,19 @@ export default function LeftRail() {
     { epoch }
   )
 
+  /* --------------------------------------------------------------- advisor */
+  /* One tiny request: the catalog's own facets carry the per-type and
+     per-verdict counts the rail shows. */
+  const advisorFacets = useResource(
+    tab === 'advisor' ? 'rail:advisor:facets' : null,
+    (s) => api.advisorCatalog({ limit: 1 }, s),
+    { epoch }
+  )
+
   /* ---------------------------------------------------------------- albums */
   const albumScope = tab === 'models' ? 'models' : (tab === 'outputs' ? 'outputs' : 'all')
   const albums = useResource(
-    tab === 'storage' ? null : 'rail:albums:' + albumScope,
+    tab === 'storage' || tab === 'advisor' ? null : 'rail:albums:' + albumScope,
     (s) => api.albums(albumScope, s),
     { epoch }
   )
@@ -203,6 +225,35 @@ export default function LeftRail() {
     }
     return Array.from(byReason.values()).sort((a, b) => b.bytes - a.bytes)
   }, [storageSummary.data])
+
+  const advisorNodes = useMemo(() => ADVISOR_SECTIONS.map((sct) => ({
+    key: sct.id,
+    label: sct.label,
+    icon: ADVISOR_ICONS[sct.id],
+    children: []
+  })), [])
+
+  const advisorKindNodes = useMemo(() => {
+    const facets = advisorFacets.data && advisorFacets.data.facets
+    return ((facets && facets.kind) || []).map((f) => ({
+      key: f.value,
+      label: f.label || humanise(f.value),
+      count: f.count,
+      icon: KIND_ICONS[f.value] || Layers,
+      children: []
+    }))
+  }, [advisorFacets.data])
+
+  const advisorVerdictNodes = useMemo(() => {
+    const facets = advisorFacets.data && advisorFacets.data.facets
+    return ((facets && facets.verdict) || []).map((f) => ({
+      key: f.value,
+      label: f.label || humanise(f.value),
+      count: f.count,
+      icon: ShieldQuestion,
+      children: []
+    }))
+  }, [advisorFacets.data])
 
   const sections = []
 
@@ -343,8 +394,9 @@ export default function LeftRail() {
     })
   }
 
-  const railTitle = tab === 'storage' ? 'Storage' : humanise(tab)
-  const railSuffix = tab === 'storage' ? ' - sections' : ' - groups'
+  const workspace = tab === 'storage' || tab === 'advisor'
+  const railTitle = humanise(tab)
+  const railSuffix = workspace ? ' - sections' : ' - groups'
 
   return (
     <aside className="gp-rail">
@@ -361,6 +413,58 @@ export default function LeftRail() {
       </div>
 
       <div className="gp-rail__body">
+        {tab === 'advisor' ? (
+          <>
+            <div className="gp-rail__section">
+              <div className="gp-rail__section-head">View</div>
+              <Tree
+                label="Advisor sections"
+                nodes={advisorNodes}
+                selectedKey={view.section || 'dashboard'}
+                onSelect={(node) => patch({ section: node.key, offset: 0, detailUid: null })}
+              />
+            </div>
+            {advisorKindNodes.length ? (
+              <div className="gp-rail__section">
+                <div className="gp-rail__section-head">Model types</div>
+                <Tree
+                  label="Model types"
+                  nodes={advisorKindNodes}
+                  selectedKey={view.filters && view.filters.kind ? view.filters.kind : null}
+                  onSelect={(node) => {
+                    const filters = { ...(view.filters || {}) }
+                    if (filters.kind === node.key) delete filters.kind
+                    else filters.kind = node.key
+                    patch({
+                      filters,
+                      section: view.section === 'recommend' || view.section === 'installed'
+                        ? view.section : 'catalog',
+                      offset: 0
+                    })
+                  }}
+                />
+              </div>
+            ) : null}
+            {advisorVerdictNodes.length ? (
+              <div className="gp-rail__section">
+                <div className="gp-rail__section-head">Fit on this machine</div>
+                <Tree
+                  label="Fit on this machine"
+                  nodes={advisorVerdictNodes}
+                  selectedKey={view.filters && view.filters.verdict
+                    ? view.filters.verdict : null}
+                  onSelect={(node) => {
+                    const filters = { ...(view.filters || {}) }
+                    if (filters.verdict === node.key) delete filters.verdict
+                    else filters.verdict = node.key
+                    patch({ filters, section: 'catalog', offset: 0 })
+                  }}
+                />
+              </div>
+            ) : null}
+          </>
+        ) : null}
+
         {tab === 'storage' ? (
           <>
             <div className="gp-rail__section">
@@ -467,7 +571,7 @@ export default function LeftRail() {
           ) : null
         ))}
 
-        {!sections.length && !albumNodes.length && tab !== 'storage' ? (
+        {!sections.length && !albumNodes.length && !workspace ? (
           <p className="gp-u-fs-11 gp-u-meta gp-u-p-5">
             No groups yet. Run a scan to populate the vault.
           </p>

@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react'
 import {
-  Download, ExternalLink, FolderOpen, Star, RefreshCw, Info, AlertTriangle, Maximize2
+  Download, ExternalLink, FolderOpen, Star, RefreshCw, Info, AlertTriangle, Maximize2, Cpu
 } from 'lucide-react'
 import api, { thumbnailUrl } from '../../services/api.js'
 import useResource from '../../hooks/useResource.js'
@@ -36,6 +36,51 @@ function formatAdapter(adapter) {
   return parts.length ? parts.join(' · ') : null
 }
 
+
+/*
+ * SystemFit - the System Advisor's verdict for this file, in three rows.
+ *
+ * The full analysis (memory breakdown, safety factors, launch settings) lives
+ * in the Advisor tab; this is the one-glance answer plus the way there. Every
+ * value is an estimate, so every value is rendered as inferred.
+ */
+function SystemFit({ id }) {
+  const { state, dispatch } = useVault()
+  const fit = useResource('model-fit:' + id,
+    (s) => api.advisorInstalledDetail(id, s).catch(() => null),
+    { epoch: state.dataEpoch })
+  const a = fit.data
+  if (!a) return null
+  const openAdvisor = () => {
+    dispatch({ type: 'set-tab', tab: 'advisor' })
+    dispatch({
+      type: 'patch-view', tab: 'advisor',
+      patch: { section: 'installed', detailUid: 'installed:' + id },
+      resetOffset: false
+    })
+    dispatch({ type: 'set-panel', key: 'detailsOpen', value: true })
+  }
+  const source = 'Estimated by the System Advisor from the file size and this machine\'s memory'
+  const need = a.fit.need_bytes ? (a.fit.need_bytes / 1073741824).toFixed(1) + ' GB' : null
+  return (
+    <Section
+      title="On this machine"
+      aside={<Button variant="ghost" size="sm" icon={Cpu} label="Advisor"
+        title="Open the full analysis in the System Advisor" onClick={openAdvisor} />}
+    >
+      <div className="gp-meta">
+        <MetaRow label="fit" value={a.fit.label} inferred inferredTitle={source}
+          title={(a.reasons || [])[0]} />
+        <MetaRow label="needs" value={need} num inferred inferredTitle={source} />
+        <MetaRow label="safety" value={a.security.label + ' (' + a.security.score + ')'}
+          inferred inferredTitle="An estimate from the format, integrity and provenance of this file - not a malware scan" />
+      </div>
+      {(a.reasons || []).length ? (
+        <p className="gp-u-fs-11 gp-u-meta gp-u-mt-4">{a.reasons[0]}</p>
+      ) : null}
+    </Section>
+  )
+}
 
 export default function ModelDetails({ id, onOpenUid, onLightbox }) {
   const { state, toast, toastError, invalidate } = useVault()
@@ -172,6 +217,8 @@ export default function ModelDetails({ id, onOpenUid, onLightbox }) {
         <Section title="Your library">
           <Annotations item={model} onPatch={onAnnotate} />
         </Section>
+
+        <SystemFit id={id} />
 
         <Section title="Technical">
           <div className="gp-meta">

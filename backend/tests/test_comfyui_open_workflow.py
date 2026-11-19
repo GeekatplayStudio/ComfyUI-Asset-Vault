@@ -242,6 +242,7 @@ def test_the_plan_names_the_launcher_the_port_and_the_url(portable, not_running)
     assert any(plan["launcher"]["path"] in step for step in plan["steps"])
 
 
+@pytest.mark.windows_paths
 def test_the_plan_admits_when_there_is_no_deep_link(portable, not_running):
     wid = _add_workflow(portable["root"], "user/default/workflows/mine.json")
     plan = cs.open_workflow_plan(f"workflow:{wid}")
@@ -253,6 +254,7 @@ def test_the_plan_admits_when_there_is_no_deep_link(portable, not_running):
     assert plan["copy"]["reason"] == "already_in_the_workflows_folder"
 
 
+@pytest.mark.windows_paths
 def test_the_plan_names_the_exact_copy_destination(portable, not_running):
     wid = _add_workflow(portable["root"], "workflows/root_flow.json")
     plan = cs.open_workflow_plan(f"workflow:{wid}")
@@ -461,6 +463,7 @@ def test_a_copy_confirmed_for_another_path_writes_nothing(portable, not_running)
     assert not destination.exists()
 
 
+@pytest.mark.windows_paths
 def test_a_confirmed_copy_lands_exactly_where_the_plan_said(portable, not_running):
     wid = _add_workflow(portable["root"], "workflows/root_flow.json")
     plan = cs.open_workflow_plan(f"workflow:{wid}")
@@ -472,6 +475,7 @@ def test_a_confirmed_copy_lands_exactly_where_the_plan_said(portable, not_runnin
     assert destination.read_text(encoding="utf-8") == GRAPH
 
 
+@pytest.mark.windows_paths
 def test_a_copy_never_overwrites_a_file_that_is_already_there(portable,
                                                              not_running):
     wid = _add_workflow(portable["root"], "workflows/root_flow.json")
@@ -489,6 +493,7 @@ def test_a_copy_never_overwrites_a_file_that_is_already_there(portable,
     assert existing.read_text(encoding="utf-8") == "ALREADY HERE"
 
 
+@pytest.mark.windows_paths
 def test_open_workflow_can_copy_and_then_refuse_to_start(portable, not_running,
                                                          monkeypatch):
     """The two gates are independent: consenting to the copy is not consenting
@@ -682,6 +687,7 @@ def test_a_deep_link_is_confirmed_against_the_running_comfyui(portable,
     assert plan["manual_hint"] is None
 
 
+@pytest.mark.windows_paths
 def test_a_package_comfyui_is_not_serving_is_not_offered_as_a_link(portable,
                                                                    monkeypatch):
     """The failure that reads as "it opened ComfyUI and did nothing".
@@ -748,6 +754,7 @@ def test_the_check_asks_only_for_fixed_paths(portable, monkeypatch):
                           cs.CORE_TEMPLATE_INDEX_PATH}
 
 
+@pytest.mark.windows_paths
 def test_a_user_workflow_names_the_file_to_pick(portable, monkeypatch):
     _running(monkeypatch)
     _served(monkeypatch, {})

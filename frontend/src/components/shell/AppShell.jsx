@@ -33,11 +33,17 @@ const StorageTab = lazy(() => import('../tabs/StorageTab.jsx'))
    for the same reason Storage does - it carries six tabs and the updater. */
 const SettingsModal = lazy(() => import('../modals/SettingsModal.jsx'))
 
-function TabFallback() {
+/* The System Advisor carries the live resource dashboard, its charts and the
+   model catalog. It is a workspace of its own, so both its tab and its details
+   pane load only when it is opened. */
+const AdvisorTab = lazy(() => import('../tabs/AdvisorTab.jsx'))
+const AdvisorDetails = lazy(() => import('../advisor/AdvisorDetails.jsx'))
+
+function TabFallback({ label }) {
   return (
     <>
       <div className="gp-toolbar">
-        <span className="gp-toolbar__label">Storage and maintenance</span>
+        <span className="gp-toolbar__label">{label || 'Storage and maintenance'}</span>
       </div>
       <div className="gp-facetbar gp-facetbar--empty" />
       <div className="gp-main__body"><SkeletonRows rows={10} /></div>
@@ -56,7 +62,7 @@ function TabFallback() {
 
 const TAB_TO_VIEW = {
   models: 'models', nodes: 'nodes', workflows: 'workflows', outputs: 'outputs',
-  storage: 'storage'
+  storage: 'storage', advisor: 'advisor'
 }
 
 export default function AppShell() {
@@ -228,7 +234,10 @@ export default function AppShell() {
 
   const shellClasses = ['gp-shell']
   if (!state.railOpen) shellClasses.push('gp-shell--no-rail')
-  if (!state.detailsOpen) shellClasses.push('gp-shell--no-details')
+  // The advisor's dashboards use the full width; its details pane appears
+  // only once a model has been picked.
+  const advisorIdle = tab === 'advisor' && !view.detailUid
+  if (!state.detailsOpen || advisorIdle) shellClasses.push('gp-shell--no-details')
   if (resizing) shellClasses.push('gp-shell--resizing')
 
   const tabProps = {
@@ -243,7 +252,13 @@ export default function AppShell() {
   else if (tab === 'nodes') main = <NodesTab {...tabProps} />
   else if (tab === 'workflows') main = <WorkflowsTab {...tabProps} />
   else if (tab === 'outputs') main = <OutputsTab {...tabProps} />
-  else {
+  else if (tab === 'advisor') {
+    main = (
+      <Suspense fallback={<TabFallback label="System advisor" />}>
+        <AdvisorTab {...tabProps} />
+      </Suspense>
+    )
+  } else {
     main = (
       <Suspense fallback={<TabFallback />}>
         <StorageTab {...tabProps} />
@@ -313,6 +328,15 @@ export default function AppShell() {
         onKeyDown={rightResizer.onKeyDown}
       />
 
+      {tab === 'advisor' ? (
+        <Suspense fallback={<aside className="gp-details" />}>
+          <AdvisorDetails
+            target={view.detailUid}
+            onClose={() => patchView({ detailUid: null }, { keepOffset: true })}
+            onOpenUid={openUid}
+          />
+        </Suspense>
+      ) : (
       <DetailsPanel
         uid={view.detailUid}
         onOpenUid={openUid}
@@ -334,6 +358,7 @@ export default function AppShell() {
           })
         }}
       />
+      )}
 
       <StatusBar
         page={status && status.page}

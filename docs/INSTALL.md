@@ -10,7 +10,7 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 |---|---|---|
 | Windows | 10 or 11, 64-bit | Windows 11 Pro 26200 |
 | Python on PATH | 3.11 | **3.12.10** |
-| Node.js on PATH | 18 — **source checkouts only**; a release archive ships the interface pre-built and never needs Node | **22.22.0** (npm 10.9.4) |
+| Node.js on PATH | 20.19 (or 22.12+) — **source checkouts only**; a release archive ships the interface pre-built and never needs Node | **22.22.0** (npm 10.9.4) |
 | A ComfyUI installation | any | **ComfyUI 0.33.0** portable, frontend package 1.49.6 |
 
 Linux and macOS are **experimental**: use `./install_dependencies.sh` and `./start_app.sh` in
@@ -76,11 +76,12 @@ npm run build
 ### What gets installed
 
 Engine: `fastapi`, `uvicorn[standard]`, `pydantic`, `httpx`, `pillow`, `numpy`, `PyYAML`,
-`onnxruntime`, `tokenizers`, plus `pytest`, `pytest-asyncio` and `ruff` for the test suite.
+`onnxruntime`, `tokenizers`, `psutil` (the System Advisor's live readings), plus `pytest`,
+`pytest-asyncio` and `ruff` for the test suite.
 There is deliberately **no torch** — the optional semantic search runs on CPU through ONNX
 Runtime.
 
-Interface: React 18, Vite, `lucide-react`. Nothing else.
+Interface: React 18, Vite 8, `lucide-react`. Nothing else.
 
 ---
 

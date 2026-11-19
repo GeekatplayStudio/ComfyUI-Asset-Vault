@@ -4,6 +4,96 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 ---
 
+## 2.4.0 — 2026-11-19
+
+### Added — System Advisor
+
+A new **Advisor** tab that answers *what can this machine actually run, and how safely?*
+USER_GUIDE §14 · API_CONTRACT §22 · ARCHITECTURE §14 · SECURITY_REVIEW §8.3.
+
+- **Hardware profile and live dashboard**: processor, memory, every GPU with its real VRAM, and
+  every volume, on Windows, Linux and macOS. Live load, memory, GPU memory, temperature, disk and
+  network throughput where the platform reports them — a reading that is unavailable is shown as
+  missing, never as zero.
+- **A memory budget that never plans 100%**: a system reserve plus a configurable headroom
+  (GPU 15%, system memory 25% by default, each 5–50%). What is left is the *safe* budget; the
+  headroom is the gap between *safe* and *maximum*.
+- **Verdicts**: Optimal, Good fit, Maximum, Offload, CPU only, Too large, Add-on, Unknown — per
+  model and per variant, with the reason. Multi-GPU machines are planned against the largest card
+  for diffusion models and the pooled figure for language models; Apple unified memory is one pool
+  and its GPU share is flagged as an estimate.
+- **Recommendations** per model type: the optimum picks, the maximum that still runs on the GPU,
+  and a stretch option that offloads. For language models a 4-bit-or-better variant is preferred
+  over a larger one below 4 bits.
+- **Model catalog**: about a thousand models shipped with the app (1,060 at release), so the
+  Advisor works offline on first launch. Filter by type, verdict, source and safety score.
+  Adult-flagged and safety-stripped models are left out by default — pinned ones included.
+- **My models**: the models already indexed in the vault, assessed against the same budget.
+- **Safety score**, 0–99 with a letter grade, itemised factor by factor: file format, the host's
+  own scan, publisher, adoption, age, custom code, checksum, licence. Advisory, from published
+  facts — **not a malware scan**, and never 100.
+- **Safe settings**: ComfyUI launch arguments and Ollama / llama.cpp values derived from the same
+  budget, each with its reason. Text to copy; nothing on the machine is changed.
+- **Report**: saves `system-advisor-report-YYYY-MM-DD.md` — machine profile, memory plan, the
+  per-type optimum / maximum / stretch picks with links, and the safe settings — built in the
+  browser; nothing is uploaded.
+- **Catalog refresh**: from Hugging Face, Civitai, the ComfyUI-Manager model list, OpenModelDB and
+  the Ollama library, plus GitHub repository leads. Manual (**Update now**) or self-initiated when
+  the data is over 24 hours old — 45 seconds after startup, every six hours after that, and when
+  the Advisor is opened on stale data. Only while **Allow outbound lookups at all** is on. A
+  source that fails keeps the entries it had; a cancelled run leaves the previous catalog.
+- **Pins**: add a Hugging Face repository as `owner/name` and it is read at every refresh.
+- **Models tab**: the details pane gained an **On this machine** block that links into the
+  Advisor.
+- **API**: 18 operations under `/api/v1/advisor` (API_CONTRACT §22). No route accepts a URL.
+- **Configuration**: four new keys — `advisor_auto_update`, `advisor_vram_headroom_pct`,
+  `advisor_ram_headroom_pct`, `advisor_kinds`. **No database migration**; the schema stays at v9.
+  The catalog and the updater's state are JSON files under `backend/data/advisor/`
+  (DATA_MODEL §21).
+- **Dependency**: `psutil>=7.0` for the live readings. Optional at run time — without it the
+  profile, the budget and every verdict still work.
+
+### Security
+
+- **A fifth `subprocess` call site**, `advisor/probe.py`: read-only hardware inventory from a
+  frozen table of nine commands over six programs. The entry point takes a row name and nothing
+  else; list argv, no shell, closed stdin, timeout, capped output.
+- **A fourth host allowlist**, `KIND_CATALOG`: six exact hosts, no suffix rule, checked before
+  every request and on every redirect hop. Requests carry no credentials and nothing about the
+  machine. What comes back is size-capped JSON treated as data; links that are not plain https
+  are blanked when a catalog is read.
+
+### Changed — frontend toolchain
+
+- Vite 4 → 8, `@vitejs/plugin-react` 6, Vitest 1 → 5, jsdom 31, three 0.187, lucide-react 0.577
+  (the last line with the brand icons the rail uses; 1.x removed them). `npm audit` went from 6
+  advisories (2 critical) to 0.
+- **Building the interface from source now needs Node.js 20.19+ (or 22.12+).** Release archives
+  ship it pre-built; running the app still needs no Node.
+- The entry bundle went from 381.5 kB to about 366 kB.
+- Testing Library cleanup is registered in `src/test/setup.js`.
+
+### Tests
+
+- **Backend**: seven new modules for the Advisor — hardware parsers fed canned `nvidia-smi`,
+  `system_profiler`, `/proc` and `lspci` text; the budget and verdict arithmetic, including that
+  more headroom never improves a verdict; the safety score's bounds; one normaliser per source
+  against hand-written documents; the frozen probe table and the catalog allowlist; the shipped
+  seed data; and the API end to end with a fake machine, a tmp catalog and no network.
+- `tests/security/test_no_code_execution.py` now pins **five** `subprocess` modules and
+  `test_dos_and_secrets.py` **nine** network-capable modules; `API_CONTRACT.md` conformance covers
+  the new routes.
+- **Test temp files are no longer kept**: `pytest.ini` sets `tmp_path_retention_policy = failed`.
+  The shared `temp_vault` fixture writes a real ~76 MB model file per test and pytest kept the
+  last three runs, which reached 76 GB of temp data on a development machine.
+- **`windows_paths` marker**: the tests that feed Windows paths to the path layer are skipped with
+  a reason on macOS and Linux and run unchanged on Windows, so a non-Windows run no longer reports
+  them as failures.
+- `tests/test_build.py` finds `venv/bin/python` as well as `venv\Scripts\python.exe`, so the ruff
+  and import gates run on macOS and Linux instead of skipping.
+- **Frontend**: 7 Vitest files, 39 tests, including the Advisor's charts, catalog panel and
+  report builder.
+
 ## 2.3.1 — 2026-09-06
 
 ### Fixed — "Recently added" sort on the Models tab returned a 500

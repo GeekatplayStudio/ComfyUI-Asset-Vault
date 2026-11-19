@@ -182,6 +182,8 @@ def test_no_sql_fstring_interpolates_a_bare_request_value(app_dir):
         # module-built SQL fragments, each a literal chosen by the module itself
         "hash_reset", "_CLASS_SELECT", "_MODEL_SQL", "_OUTPUT_SQL",
         "_AUDIT_COLUMNS",
+        # advisor/service.py: a run of ``?`` marks, one per bound filename
+        "marks",
     }
     offenders = []
     for path in app_dir.rglob("*.py"):

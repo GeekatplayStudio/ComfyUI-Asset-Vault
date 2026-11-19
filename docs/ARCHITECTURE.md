@@ -7,7 +7,7 @@ change to both, in the same commit.
 
 ## 0. Ground rules
 
-* Stack is fixed: **Python 3.12 + FastAPI + SQLite (stdlib `sqlite3`) + React 18 + Vite 4 (JSX, no TypeScript)**.
+* Stack is fixed: **Python 3.12 + FastAPI + SQLite (stdlib `sqlite3`) + React 18 + Vite 8 (JSX, no TypeScript)**. Building the frontend from source needs Node.js 20.19+ (or 22.12+); running a release does not need Node at all.
 * No ORM, no Electron, no cloud dependency, no TypeScript.
 * **Windows-first.** Every path operation assumes NTFS, case-insensitive compares, `\\?\` long paths, and UTF-16 filenames.
 * **Local-first.** Civitai and Ollama are optional enrichment. The app is 100% functional offline.
@@ -53,10 +53,15 @@ change to both, in the same commit.
 │  search/       fts (SQLite FTS5) + vec (numpy matrix) + hybrid (RRF fusion)              │
 │                                                                                          │
 │  mcp/          server (tool registry) · http transport · stdio transport                 │
+│                                                                                          │
+│  advisor/      System Advisor (§14): probe (frozen hardware-inventory commands) ·        │
+│                hardware · fit (memory budget, verdicts) · security (safety score) ·      │
+│                catalog (seed + refreshed JSON) · sources/updater (allowlisted refresh)   │
 └──────────────────────────────────────┬──────────────────────────────────────────────────┘
                                        │
         backend/data/vault.db (WAL) · backend/data/thumbs/ · backend/data/models/ ·
-        backend/data/.vault-trash/ (per-root trash lives beside the root, see §9.3)
+        backend/data/.vault-trash/ (per-root trash lives beside the root, see §9.3) ·
+        backend/data/advisor/ (refreshed model catalog + updater state, plain JSON, §14)
 ```
 
 ---
@@ -872,6 +877,7 @@ A `qa`-owned `backend/tests/perf/test_budgets.py` asserts the index and search b
 | `PyYAML` | `>=6.0.1,<7` | Parse `extra_model_paths.yaml`. **Not currently installed** (verified). Hand-rolling a YAML subset is a bug farm — the file supports multi-line scalars (`loras: \|`), anchors, and comments. Loaded exclusively with `yaml.safe_load`. | Yes, `cp312` wheel |
 | `onnxruntime` | `>=1.17,<2` | CPU inference for the MiniLM embedder (user decision). Self-contained ~55 MB; **does not pull torch**. | Yes, official `cp312-win_amd64` |
 | `tokenizers` | `>=0.15,<1` | HuggingFace Rust tokenizer; loads `tokenizer.json` directly. Alternative (`transformers`) drags in torch/huggingface_hub. | Yes, prebuilt `cp312-win_amd64` |
+| `psutil` | `>=7.0` | System Advisor live readings: per-core load, disk and network throughput, top processes (§14). **Optional at run time** — `advisor/hardware.py` imports it in a `try` and every reading has a stdlib or probe fallback, so an install without it still gets a profile. | Yes, `cp312` wheel |
 | `pytest-asyncio` | `>=0.23` | dev — async router tests | pure python |
 | `ruff` | `>=0.4` | dev — lint gate, replaces flake8+isort | prebuilt |
 
@@ -894,6 +900,10 @@ A `qa`-owned `backend/tests/perf/test_budgets.py` asserts the index and search b
 
 ### 11.4 Frontend
 Unchanged: `react@^18.2`, `react-dom@^18.2`, `lucide-react@^0.294`. Dev: `vite@^4.4`, `@vitejs/plugin-react@^4`. **No new runtime dependencies.**
+
+*As of 2.4.0:* `lucide-react@^0.577` (the last line that still carries the brand icons the rail
+uses), `three@^0.187`. Dev: `vite@^8`, `@vitejs/plugin-react@^6`, `vitest@^5`, `jsdom@^31`.
+`package.json` pins `engines.node` to `^20.19.0 || >=22.12.0`.
 
 ---
 
@@ -930,3 +940,109 @@ Unchanged: `react@^18.2`, `react-dom@^18.2`, `lucide-react@^0.294`. Dev: `vite@^
 6. Hashing may run while ComfyUI is running; locked files are retried, never fatal.
 7. Single-user, single-machine, localhost only. No multi-user, no auth.
 8. `O:` is treated as a potentially slow/removable volume: a missing root degrades to "offline root" (rows soft-flagged), never a wipe.
+
+---
+
+## 14. System Advisor  *(2.4.0)*
+
+Answers one question — *what can this machine actually run, and how safely?* — by joining three
+things the app can know without running a model: the hardware, a catalog of known models with
+their real file sizes, and a memory budget that deliberately stops short of 100%. API surface:
+API_CONTRACT §22. Security argument: SECURITY_REVIEW §8.3. Files: DATA_MODEL §21.
+
+### 14.1 Modules — `backend/app/advisor/`
+
+| Module | Job | Reaches outside the process? |
+|---|---|---|
+| `probe` | Runs one read-only hardware inventory command chosen by **name** from the frozen `COMMANDS` table | **Yes — the app's fifth `subprocess` site** (§14.4) |
+| `hardware` | `profile()` — CPU, memory, every GPU, volumes, the accelerator to plan against (cached 5 min); `sample()` — the live reading the dashboard polls (one probe per ~0.45 s however many tabs are open). All parsing is in pure `parse_*` functions over text | Only through `probe`, plus `psutil`, the Windows registry and `/proc` · `/sys` reads |
+| `fit` | The budget, a model's requirement, and the verdict (§14.2). Pure arithmetic | No |
+| `security` | An explainable 0–99 safety score: base 40 plus one signed factor per published fact | No |
+| `safe_config` | Launch flags and environment values derived from the same budget. Returns text; writes nothing | No |
+| `catalog` | Loads the seed (`advisor/data/model_catalog.json`) or the refreshed catalog (`data/advisor/catalog.json`), whichever is newer; validates every row, drops unsuitable ones, blanks any link that is not plain https | Local files only |
+| `sources` | URL builders, `fetch_json`, and one pure normaliser per source (Hugging Face, Civitai, ComfyUI-Manager list, OpenModelDB, Ollama, GitHub leads) | **Yes — the only request code** (§14.3) |
+| `updater` | The refresh job: one background thread, one run at a time; pins | Through `sources` only |
+| `service` | Joins the others for the router. `api/v1/advisor_router.py` is presentation only | No |
+
+**Provenance.** Hardware figures are *measured*. Everything concluded from them — budget,
+requirement, verdict, speed class, tier, safety score — is an *estimate*, and every such object
+carries `"inferred": true` so the interface paints it with the violet convention of §7.1.
+
+### 14.2 The budget arithmetic
+
+A machine is never planned to 100%. From what is installed the advisor subtracts a **system
+reserve** (what the desktop already holds and will not give back) and then a **headroom** share
+(`advisor_vram_headroom_pct`, default 15; `advisor_ram_headroom_pct`, default 25; both clamped to
+5–50 wherever they are read).
+
+```
+discrete GPU   vram_reserve = min(0.8 GiB, vram_total / 4)
+               vram_max     = vram_total − vram_reserve
+               vram_safe    = vram_total × (1 − headroom) − vram_reserve
+unified memory vram_reserve = 0
+               vram_max     = min(gpu_share_of_ram, ram_max)
+               vram_safe    = vram_max × (1 − headroom)
+system memory  ram_reserve  = min(max(4 GiB, 12% × ram_total), ram_total / 2)
+               ram_max      = ram_total − ram_reserve
+               ram_safe     = ram_total × (1 − headroom) − ram_reserve
+```
+
+`vram_total` is the **largest single GPU**, because a diffusion pipeline runs on one device; a
+language model is assessed against the *pooled* figure (every discrete GPU of the same backend),
+because a GGUF runner can split layers across cards. On Apple Silicon the GPU share of unified
+memory is an estimate (66% of RAM under 32 GiB, 75% from 32 GiB) and is flagged as one.
+
+A variant's **requirement** is its weights plus a working set that depends on the kind (image:
+1.5 GiB + 10%; video: 3.5 GiB + 12%; a language model: 0.6 GiB + 10% for context) — encoders and
+the VAE are loaded around the sampler, so on a discrete GPU only the largest one can overlap it,
+while on unified memory or a CPU run half of them counts against the same pool.
+
+The **verdict** places that need against the budget: `optimal` (≤ 85% of safe) → `good` (≤ safe)
+→ `max` (≤ ceiling: it fits only by spending the headroom) → `offload` (larger than the GPU but
+system memory can carry the rest) → `no`. `cpu` replaces the first four when there is no usable
+GPU; `base` marks an add-on; `unknown` a file with no published size. Raising either headroom can
+only keep a verdict or make it worse — asserted over a grid of machines and sizes in
+`tests/unit/test_advisor_fit.py`.
+
+### 14.3 The outbound rule
+
+Same shape as the C9 downloader (§8.4, `enable/hosts.py`), with its own, narrower list:
+
+* **No caller supplies a URL.** Every URL is built in `sources.py` from a constant plus an
+  identifier that passed `valid_repo_id`, or an enum value checked against a fixed tuple. No REST
+  route takes one; the link check requests only a URL already stored in the catalog.
+* **Six exact hosts** — `hosts.CATALOG_HOSTS_EXACT` (`KIND_CATALOG`): `huggingface.co`,
+  `civitai.com`, `api.github.com`, `raw.githubusercontent.com`, `openmodeldb.info`, `ollama.com`.
+  No suffix rule, so no CDN or user-content subdomain is reachable through it. Checked before the
+  request and again on every redirect hop (`follow_redirects=False`, at most five hops).
+* **Nothing about the machine leaves.** No API key, no cookie, no hardware profile, no library
+  contents — a fixed `User-Agent` naming the app and its version, and `Accept: application/json`.
+* **What comes back is data.** A size-capped (12 MB) JSON body, parsed with `json.loads`, mapped
+  by a pure normaliser and written only to `data/advisor/catalog.json`. A newer `sources.json`
+  fetched from this project's own repository can change *which repositories and queries* are
+  asked; it cannot add a host.
+* **Kill-switch.** Nothing opens a socket unless `online_enabled` is on. Self-initiated refresh
+  needs `advisor_auto_update` as well, a catalog older than 24 hours, and no attempt in the last
+  6 hours; it is armed by a timer 45 s after startup that re-arms every 6 hours, and the interface
+  asks once (`POST /advisor/update {"auto": true}`) when the Advisor tab opens on stale data.
+
+A refresh isolates each source: one that fails keeps the entries it had, and the catalog file is
+replaced atomically only at the end, so an interrupted run leaves the previous catalog in place.
+
+### 14.4 The fifth `subprocess` call site
+
+`advisor/probe.py` joins `api/v1/files_router.py` (Explorer reveal),
+`services/comfyui_service.py` (updater, launcher), `enable/git_fetch.py` (C9 clone) and
+`jobs/video_frame.py` (poster frame). It is the only module in the package that imports
+`subprocess`, and it holds to the same rules as the last two:
+
+* program and arguments are **constants** in a frozen table — `nvidia-smi` (three queries),
+  `system_profiler`, `sysctl` (two), `vm_stat`, `ioreg`, `lspci`; nine rows in all;
+* the entry point is `probe.run(name)`: a key of that table and nothing else, so there is no
+  parameter through which a path, a flag or a query could arrive;
+* list argv, `shell=False`, `stdin=DEVNULL`, a timeout of at most 8 s, output capped at 2 MB;
+* every command only **reads** machine state; a probe that is missing, slow or fails returns
+  `None` and the profile is assembled from whatever answered.
+
+The table is pinned literally in `tests/security/test_advisor_probe.py`, and
+`test_no_code_execution.py` pins the five-module list.

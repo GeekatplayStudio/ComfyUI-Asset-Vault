@@ -46,7 +46,7 @@ CREATE TABLE config (
     updated_at INTEGER NOT NULL
 );
 ```
-**The only persistent home of the ComfyUI path.** Keys: `comfyui_path`, `is_configured`, `auto_reindex`, `online_enabled`, `civitai_enabled`, `civitai_api_key`, `ollama_enabled`, `ollama_url`, `ollama_model`, `smart_search_enabled`, `embedding_model_id`, `embedding_state`, `hash_concurrency`, `hash_throttle_mbps`, `thumb_cache_max_mb`, `thumb_video_ffmpeg`, `page_size_default`, `watch_enabled`, `trash_mode`, `trash_retention_days`, `read_held_extra_paths`, `extra_workflow_dirs`, `ui_prefs_json`.
+**The only persistent home of the ComfyUI path.** Keys: `comfyui_path`, `is_configured`, `auto_reindex`, `online_enabled`, `civitai_enabled`, `civitai_api_key`, `ollama_enabled`, `ollama_url`, `ollama_model`, `smart_search_enabled`, `embedding_model_id`, `embedding_state`, `hash_concurrency`, `hash_throttle_mbps`, `thumb_cache_max_mb`, `thumb_video_ffmpeg`, `page_size_default`, `watch_enabled`, `trash_mode`, `trash_retention_days`, `read_held_extra_paths`, `extra_workflow_dirs`, `ui_prefs_json`. Added in 2.4.0 for the System Advisor (§21): `advisor_auto_update`, `advisor_vram_headroom_pct`, `advisor_ram_headroom_pct`, `advisor_kinds`.
 
 No index needed (tiny, PK lookups only).
 
@@ -1199,3 +1199,89 @@ tables directly and were never affected. Reported by a user who traced the missi
 
 `tests/unit/test_sort_vocabulary.py` now executes every advertised sort of every scope against
 a migrated DB so the vocabulary and the schema it orders cannot drift apart silently again.
+
+---
+
+## 21. System Advisor — JSON files and config keys (2.4.0)
+
+**No SQL schema change.** `PRAGMA user_version` stays at 9 and there is no migration: the advisor
+adds four `config` keys (rows in the existing key/value table of §2) and keeps everything else in
+four JSON files. It reads the index through the existing `v_model_list` view and writes nothing to
+the database except those config rows.
+
+### 21.1 Config keys
+
+| Key | `value_type` | Default | Meaning |
+|---|---|---|---|
+| `advisor_auto_update` | `bool` | `true` | Refresh the model catalog on its own when it is over 24 hours old. Has no effect while `online_enabled` is off |
+| `advisor_vram_headroom_pct` | `int` | `15` | Share of GPU memory the advisor never plans to use |
+| `advisor_ram_headroom_pct` | `int` | `25` | The same for system memory |
+| `advisor_kinds` | `json` | `[]` | Model kinds the owner wants assessed and refreshed; `[]` means all of them |
+
+The two headroom values are clamped to **5–50 wherever they are read** (`fit.clamp_pct`), so a row
+edited by hand to `0` or `100` still plans with headroom. `PATCH /api/v1/advisor/settings` refuses
+a value outside that range instead of clamping it.
+
+### 21.2 Files
+
+All four are plain JSON, read with `json.load` and written with an atomic replace (a `.tmp`
+sibling, then `os.replace`). Nothing in them is code and nothing is executed.
+
+| File | Shipped / written by | Purpose |
+|---|---|---|
+| `backend/app/advisor/data/model_catalog.json` | Shipped with the app (the **seed**) | A snapshot of the catalog taken at release time — about a thousand entries — so the advisor answers on first launch and with outbound lookups off |
+| `backend/app/advisor/data/sources.json` | Shipped with the app | The **source list**: which services are asked, which Hub repositories are pinned, which discovery queries run, which publishers are recognised |
+| `backend/data/advisor/catalog.json` | The updater | The **refreshed** catalog. Used instead of the seed when it has entries and its `generated_at` is not older than the seed's |
+| `backend/data/advisor/state.json` | The updater and the pin routes | What the updater learned between runs |
+
+`backend/data/advisor/` does not exist until a refresh runs or a pin is added; reading never
+creates it. Deleting the folder is safe — the advisor falls back to the seed and forgets its pins.
+
+**Catalog file** (seed and refreshed share one shape):
+
+```jsonc
+{ "schema": 1,
+  "generated_at": 1795107287756,                       // epoch ms
+  "generator": "Geekatplay ComfyUI Asset Vault 2.4.0",
+  "sources": { "ollama": {"ok": true, "entries": 17, "at": 1795107283553} },   // per-source outcome of the run that wrote it
+  "leads": [ {"name": "owner/repo", "url": "https://github.com/owner/repo", "stars": 4200} ],
+  "entries": [ { /* one model — API_CONTRACT §22.3 */ } ] }
+```
+Entries are stored compact: a field that is `null`, `false`, `""` or `[]` is left out. On load a
+row is kept only if it has a string `id` and `name`, a known `kind` and at least one variant;
+adult-flagged or name-matched rows are dropped (`catalog.suitable`), every `url` / `download_url`
+that is not plain https is blanked, and repeated variant ids are made distinct. A file that is not
+valid JSON is ignored with a warning and the other catalog is used.
+
+**`sources.json`:**
+
+```jsonc
+{ "revision": 1,                     // integer; a fetched list replaces the built-in one only when higher
+  "sources":   [ {"id": "huggingface", "name": "Hugging Face Hub", "url": "https://huggingface.co",
+                  "provides": "…", "kinds": ["image","video","llm"], "trust": "high"} ],
+  "pins":      { "huggingface": [ {"repo": "owner/name", "kind": "image", "curated": true, "quality": 95} ] },
+  "discovery": { "huggingface": [ {"kind": "image", "pipeline_tag": "text-to-image", "sort": "downloads", "limit": 24} ],
+                 "civitai":     [ {"types": "LORA", "sort": "Most Downloaded", "period": "Month", "limit": 60} ],
+                 "github":      [ {"q": "topic:comfyui stars:>200", "limit": 10} ],
+                 "openmodeldb": {"limit": 120},
+                 "follow_base_models": {"enabled": true, "limit": 30} },
+  "publishers": { "official": ["black-forest-labs"], "trusted": ["Comfy-Org"] } }
+```
+The `url` on a source row is a display link. **No field in this file is read as an endpoint**:
+request URLs are built in `advisor/sources.py` from constants, each `repo` must pass
+`valid_repo_id`, each query value is checked against a fixed pattern or enum, and the host
+allowlist lives in `enable/hosts.py`. Editing this file changes *what is asked*, never *who*.
+
+**`state.json`:**
+
+| Key | Type | Meaning |
+|---|---|---|
+| `sources` | object | Per source id: `ok`, `entries`, `error`, `at` (epoch ms), `elapsed_ms` — the last time it was asked |
+| `user_pins` | array | `{repo, added_at, kind?}` — repositories the owner pinned. At most 200 |
+| `learned` | array of `owner/name` | Repositories found by following a `base_model` link; asked again on later runs. The newest 400 are kept |
+| `first_seen` | object | Catalog id → epoch ms first seen. `0` means "known since the first refresh", which is why that first refresh marks nothing as new |
+| `remote_sources` | object or `null` | A newer `sources.json` fetched from this project's repository, shape-checked before it is stored |
+| `last_run` | object or `null` | `started_at`, `finished_at`, `trigger` (`manual` / `auto`), `error`, `kinds`, `result` (`entries`, `new`, `generated_at`, `counts`, `failed_sources`) |
+
+A refresh re-reads this file when it finishes and updates only `sources`, `last_run`,
+`first_seen` and newly learned repositories, so a pin added or removed while it ran is kept.

@@ -19,6 +19,19 @@ from c6 import AUTHOR, AUTHOR_FULL, attribution_hits, bare_token_hits
 BUNDLE_BUDGET_KB = 400  # ARCHITECTURE 10 targets 350; 344.08 kB measured
 
 
+def venv_python(repo_root):
+    """The project interpreter: ``Scripts`` on Windows, ``bin`` everywhere else.
+
+    These gates used to look for ``venv/Scripts/python.exe`` only, so on macOS
+    and Linux they skipped with "no venv" and never ran at all.
+    """
+    for candidate in (repo_root / "venv" / "Scripts" / "python.exe",
+                      repo_root / "venv" / "bin" / "python"):
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def run(cmd, cwd, timeout=900):
     return subprocess.run(  # noqa: S603
         cmd, cwd=str(cwd), capture_output=True, text=True, timeout=timeout, check=False)
@@ -30,8 +43,8 @@ def run(cmd, cwd, timeout=900):
 
 def test_ruff_is_clean(repo_root):
     """Cross-agent rule 5: every agent leaves its area lint-clean before handoff."""
-    python = repo_root / "venv" / "Scripts" / "python.exe"
-    if not python.exists():
+    python = venv_python(repo_root)
+    if python is None:
         pytest.skip("no venv")
     r = run([str(python), "-m", "ruff", "check", "backend"], repo_root, timeout=300)
     assert r.returncode == 0, f"ruff check backend failed:\n{r.stdout}\n{r.stderr}"
@@ -59,8 +72,8 @@ def test_the_backend_imports_cleanly(repo_root):
     flattening its routes into ``app.routes``, so a naive ``len(app.routes)``
     reads 8 and would pass just as happily for an app with no endpoints at all.
     """
-    python = repo_root / "venv" / "Scripts" / "python.exe"
-    if not python.exists():
+    python = venv_python(repo_root)
+    if python is None:
         pytest.skip("no venv")
     r = run([str(python), "-c", COUNT_ROUTES], repo_root / "backend", timeout=180)
     assert r.returncode == 0, f"importing app.main failed:\n{r.stderr}"

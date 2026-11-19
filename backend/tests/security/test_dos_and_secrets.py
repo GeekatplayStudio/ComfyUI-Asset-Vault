@@ -412,12 +412,22 @@ def test_the_bus_refuses_the_subscription_past_the_cap():
 # Outbound network surface
 # ---------------------------------------------------------------------------
 
-def test_only_seven_modules_may_reach_the_network(app_dir):
+def test_only_nine_modules_may_reach_the_network(app_dir):
     """The fifth is the C9 fetcher, whose every URL passes ``enable/hosts.py``;
     the sixth is the node-registry catalogue, which only ever fetches metadata
     from its fixed official endpoint behind the ``online_enabled`` kill-switch;
     the seventh is the self-updater, whose repository is a module constant and
     whose every URL passes ``hosts.check(kind=KIND_RELEASE)``.
+
+    The eighth and ninth are the System Advisor's catalog reader.
+    ``advisor/sources.py`` holds the only request code (``fetch_json`` and the
+    link check), and every URL it asks passes ``hosts.check(kind=KIND_CATALOG)``
+    - six exact hosts, no suffix rule - before the request and again on every
+    redirect hop.  ``advisor/updater.py`` appears here only because it builds
+    the one shared ``httpx.Client`` a refresh hands to ``fetch_json``; it never
+    calls the client itself, and it opens nothing unless ``online_enabled`` is
+    on.  Both are asserted in ``test_advisor_probe.py`` and
+    ``integration/test_advisor_api.py``.
     """
     users = []
     for path in app_dir.rglob("*.py"):
@@ -427,7 +437,9 @@ def test_only_seven_modules_may_reach_the_network(app_dir):
         if "import httpx" in text or "import requests" in text or \
                 "urllib.request" in text:
             users.append(str(path.relative_to(app_dir)).replace("\\", "/"))
-    assert sorted(users) == ["enable/download.py",
+    assert sorted(users) == ["advisor/sources.py",
+                             "advisor/updater.py",
+                             "enable/download.py",
                              "jobs/embed_service.py",
                              "services/app_update_service.py",
                              "services/civitai_service.py",

@@ -88,6 +88,7 @@ def test_field_separators_prevent_boundary_collisions() -> None:
     assert file_fingerprint(PATH, 1, 23) != file_fingerprint(PATH, 12, 3)
 
 
+@pytest.mark.windows_paths
 def test_file_fingerprint_normalizes_the_path_spelling() -> None:
     """The same file arrives spelled differently depending on which layer produced
     the path - the config, a directory walk, or a URL-decoded API argument.  On
@@ -227,6 +228,7 @@ def test_path_hash_is_stable() -> None:
     assert path_hash(Path(PATH)) == path_hash(PATH)
 
 
+@pytest.mark.windows_paths
 def test_path_hash_folds_case_and_separators_on_windows() -> None:
     """One file must have one thumbnail, however the path reached the function.
     On a case-sensitive filesystem these are different files and must differ."""

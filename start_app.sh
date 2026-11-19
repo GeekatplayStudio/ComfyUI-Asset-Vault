@@ -91,7 +91,7 @@ if [ -n "$PREBUILT" ]; then
 else
     echo "[1/3] Building the interface ..."
     if ! command -v npm >/dev/null 2>&1; then
-        echo "[ERROR] npm was not found on PATH. Install Node.js 18 or newer."
+        echo "[ERROR] npm was not found on PATH. Install Node.js 20.19 or newer."
         exit 1
     fi
     if ! (cd "$ROOT/frontend" && npm run build); then

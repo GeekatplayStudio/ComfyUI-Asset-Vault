@@ -51,6 +51,7 @@ def _root(path: str, root_id: int = 1, kind: str = "models") -> Root:
 # normalize
 # ---------------------------------------------------------------------------
 
+@pytest.mark.windows_paths
 def test_normalize_resolves_traversal_segments() -> None:
     """Containment is decided on the normalized form, so ``..`` has to collapse
     here or every later check is comparing the wrong path."""
@@ -104,6 +105,7 @@ def test_normalize_is_idempotent() -> None:
 # path_key
 # ---------------------------------------------------------------------------
 
+@pytest.mark.windows_paths
 def test_path_key_folds_case_and_separator_spelling() -> None:
     """The key backs a UNIQUE constraint.  NTFS is case-insensitive, so two
     spellings of one file must collide in the index rather than create a duplicate
@@ -177,11 +179,13 @@ def test_long_path_returns_a_string() -> None:
 # is_contained - the predicate every destructive operation is gated on
 # ---------------------------------------------------------------------------
 
+@pytest.mark.windows_paths
 def test_a_file_inside_the_root_is_contained() -> None:
     """The base case: without it nothing in the app could be modified at all."""
     assert is_contained(r"C:\ComfyUI\models\loras\detail.safetensors", ROOT) is True
 
 
+@pytest.mark.windows_paths
 def test_a_deeply_nested_file_is_contained() -> None:
     """Users organise models into subfolders many levels deep."""
     assert is_contained(r"C:\ComfyUI\models\loras\style\anime\v2\x.safetensors", ROOT) is True
@@ -222,6 +226,7 @@ def test_traversal_out_of_the_root_is_rejected() -> None:
     assert is_contained(ROOT + r"\loras\..\..\output\x.png", ROOT) is False
 
 
+@pytest.mark.windows_paths
 def test_traversal_that_stays_inside_the_root_is_allowed() -> None:
     """Refusing every ``..`` would be safe but wrong; paths assembled from a folder
     plus a relative name legitimately contain one."""
@@ -235,6 +240,7 @@ def test_a_path_on_another_drive_is_not_contained() -> None:
     assert is_contained(r"D:\ComfyUI\models\sd15.safetensors", ROOT) is False
 
 
+@pytest.mark.windows_paths
 def test_an_empty_root_contains_nothing() -> None:
     """An unconfigured root arrives as an empty string; treating that as "matches
     everything" would open the whole filesystem on a fresh install."""
@@ -242,6 +248,7 @@ def test_an_empty_root_contains_nothing() -> None:
     assert is_contained(r"C:\ComfyUI\models\sd15.safetensors", ".") is False
 
 
+@pytest.mark.windows_paths
 def test_containment_ignores_case_and_separator_spelling() -> None:
     """A root read from the config and a path read from a directory walk rarely
     agree on casing; refusing the mismatch would break every operation."""
@@ -269,6 +276,7 @@ def test_containment_holds_for_directories_that_really_exist(tmp_path: Path) -> 
 # resolve_within_roots
 # ---------------------------------------------------------------------------
 
+@pytest.mark.windows_paths
 def test_resolve_returns_the_normalized_path_and_its_root() -> None:
     """Callers store the returned path, so it has to be the resolved form rather
     than whatever spelling the request happened to use."""
@@ -280,6 +288,7 @@ def test_resolve_returns_the_normalized_path_and_its_root() -> None:
     assert owner.id == 1
 
 
+@pytest.mark.windows_paths
 def test_resolve_prefers_the_deepest_matching_root() -> None:
     """Users add a nested root - a LoRA folder on a second drive mounted inside
     the model tree - and the file belongs to that root, not to its ancestor."""
@@ -461,6 +470,7 @@ def test_names_over_the_filesystem_limit_are_rejected() -> None:
 # safe_relpath
 # ---------------------------------------------------------------------------
 
+@pytest.mark.windows_paths
 def test_safe_relpath_of_a_file_under_its_root() -> None:
     """The relative path is what the UI shows and what the index groups on."""
     assert safe_relpath(r"C:\ComfyUI\models\loras\detail.safetensors", ROOT) == \
@@ -472,6 +482,7 @@ def test_safe_relpath_of_the_root_itself() -> None:
     assert safe_relpath(ROOT, ROOT) == "."
 
 
+@pytest.mark.windows_paths
 def test_safe_relpath_falls_back_to_the_basename_outside_the_root() -> None:
     """``os.path.relpath`` would answer with a ``..`` chain that walks out of the
     root; storing that would put an escaping path in the database and hand it to
@@ -482,6 +493,7 @@ def test_safe_relpath_falls_back_to_the_basename_outside_the_root() -> None:
     assert ".." not in rel
 
 
+@pytest.mark.windows_paths
 def test_safe_relpath_across_drives_falls_back_to_the_basename() -> None:
     """There is no relative path between two drives; ``relpath`` raises, and the
     raise must not escape into a directory walk."""

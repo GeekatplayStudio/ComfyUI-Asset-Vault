@@ -1,0 +1,896 @@
+{
+ "revision": 1,
+ "about": "Where the System Advisor looks for model information. Plain data: read with a JSON parser, never executed. Edit a row to change what is asked; nothing here can add a host - the host allowlist lives in backend/app/enable/hosts.py.",
+ "sources": [
+  {
+   "id": "huggingface",
+   "name": "Hugging Face Hub",
+   "url": "https://huggingface.co",
+   "provides": "Model facts, exact file sizes, licence, the host's own security scan",
+   "kinds": [
+    "image",
+    "video",
+    "llm",
+    "audio",
+    "3d",
+    "lora",
+    "vae",
+    "text_encoder",
+    "vision",
+    "controlnet"
+   ],
+   "trust": "high"
+  },
+  {
+   "id": "civitai",
+   "name": "Civitai",
+   "url": "https://civitai.com",
+   "provides": "Community checkpoints, LoRAs, embeddings, upscalers and per-file scan results",
+   "kinds": [
+    "image",
+    "video",
+    "lora",
+    "embedding",
+    "controlnet",
+    "upscale",
+    "vae"
+   ],
+   "trust": "community"
+  },
+  {
+   "id": "comfy_manager",
+   "name": "ComfyUI-Manager model list",
+   "url": "https://github.com/Comfy-Org/ComfyUI-Manager",
+   "provides": "Curated ComfyUI-ready files with the folder each one belongs in",
+   "kinds": [
+    "image",
+    "video",
+    "lora",
+    "vae",
+    "controlnet",
+    "upscale",
+    "text_encoder",
+    "vision",
+    "embedding"
+   ],
+   "trust": "curated"
+  },
+  {
+   "id": "openmodeldb",
+   "name": "OpenModelDB",
+   "url": "https://openmodeldb.info",
+   "provides": "The community upscaler database: architecture, scale, licence, checksums",
+   "kinds": [
+    "upscale"
+   ],
+   "trust": "curated"
+  },
+  {
+   "id": "ollama",
+   "name": "Ollama library",
+   "url": "https://ollama.com/library",
+   "provides": "Language models by pull name",
+   "kinds": [
+    "llm"
+   ],
+   "trust": "curated"
+  },
+  {
+   "id": "github",
+   "name": "GitHub",
+   "url": "https://github.com",
+   "provides": "This app's own source list, and repository search for projects not yet in the catalog",
+   "kinds": [],
+   "trust": "leads"
+  }
+ ],
+ "pins": {
+  "huggingface": [
+   {
+    "repo": "Comfy-Org/Qwen-Image-2.1",
+    "kind": "image",
+    "curated": true,
+    "quality": 95
+   },
+   {
+    "repo": "Comfy-Org/Krea-2",
+    "kind": "image",
+    "curated": true,
+    "quality": 92
+   },
+   {
+    "repo": "Comfy-Org/MiniMax-H3-Image",
+    "kind": "image",
+    "curated": true,
+    "quality": 93
+   },
+   {
+    "repo": "Comfy-Org/MOSS-Image",
+    "kind": "image",
+    "curated": true,
+    "quality": 90
+   },
+   {
+    "repo": "Comfy-Org/Z-Image-Turbo",
+    "kind": "image",
+    "curated": true,
+    "quality": 88,
+    "note": "Fast distilled image model; a strong choice for mid-range GPUs."
+   },
+   {
+    "repo": "Comfy-Org/Flux-2-Klein-4B",
+    "kind": "image",
+    "curated": true,
+    "quality": 84
+   },
+   {
+    "repo": "Comfy-Org/Flux-1-Dev",
+    "kind": "image",
+    "curated": true,
+    "quality": 85
+   },
+   {
+    "repo": "Comfy-Org/Qwen-Image",
+    "kind": "image",
+    "curated": true,
+    "quality": 86
+   },
+   {
+    "repo": "Comfy-Org/Qwen-Image-Edit",
+    "kind": "image",
+    "curated": true,
+    "quality": 86
+   },
+   {
+    "repo": "black-forest-labs/flux-3-image-klein-comfy",
+    "kind": "image",
+    "curated": true,
+    "quality": 94
+   },
+   {
+    "repo": "black-forest-labs/FLUX.2-dev",
+    "kind": "image",
+    "curated": true,
+    "quality": 93
+   },
+   {
+    "repo": "black-forest-labs/FLUX.2-klein-9B",
+    "kind": "image",
+    "curated": true,
+    "quality": 88
+   },
+   {
+    "repo": "black-forest-labs/FLUX.1-dev",
+    "kind": "image",
+    "curated": true,
+    "quality": 85
+   },
+   {
+    "repo": "black-forest-labs/FLUX.1-schnell",
+    "kind": "image",
+    "curated": true,
+    "quality": 78
+   },
+   {
+    "repo": "black-forest-labs/FLUX.1-Kontext-dev",
+    "kind": "image",
+    "curated": true,
+    "quality": 84
+   },
+   {
+    "repo": "stabilityai/stable-diffusion-xl-base-1.0",
+    "kind": "image",
+    "curated": true,
+    "quality": 70,
+    "note": "The SDXL base checkpoint: modest memory needs and the largest LoRA ecosystem."
+   },
+   {
+    "repo": "stabilityai/stable-diffusion-3.5-medium",
+    "kind": "image",
+    "curated": true,
+    "quality": 72
+   },
+   {
+    "repo": "stabilityai/sdxl-turbo",
+    "kind": "image",
+    "curated": true,
+    "quality": 60
+   },
+   {
+    "repo": "stable-diffusion-v1-5/stable-diffusion-v1-5",
+    "kind": "image",
+    "curated": true,
+    "quality": 50,
+    "note": "Stable Diffusion 1.5: runs on almost anything, 512 px native."
+   },
+   {
+    "repo": "Tongyi-MAI/Z-Image-Turbo",
+    "kind": "image",
+    "curated": true,
+    "quality": 88
+   },
+   {
+    "repo": "Comfy-Org/Fibo-2.0",
+    "kind": "image",
+    "curated": true,
+    "quality": 80
+   },
+   {
+    "repo": "unsloth/Qwen-Image-2.1-GGUF",
+    "kind": "image",
+    "curated": true,
+    "quality": 93,
+    "note": "Quantised Qwen-Image 2.1 for smaller GPUs (needs the ComfyUI-GGUF node)."
+   },
+   {
+    "repo": "unsloth/Z-Image-Turbo-GGUF",
+    "kind": "image",
+    "curated": true,
+    "quality": 86
+   },
+   {
+    "repo": "unsloth/FLUX.2-klein-9B-GGUF",
+    "kind": "image",
+    "curated": true,
+    "quality": 86
+   },
+   {
+    "repo": "unsloth/flux-3-image-klein-GGUF",
+    "kind": "image",
+    "curated": true,
+    "quality": 92
+   },
+   {
+    "repo": "city96/FLUX.1-dev-gguf",
+    "kind": "image",
+    "curated": true,
+    "quality": 83
+   },
+   {
+    "repo": "city96/FLUX.2-dev-gguf",
+    "kind": "image",
+    "curated": true,
+    "quality": 91
+   },
+   {
+    "repo": "unsloth/Qwen-Image-Edit-2511-GGUF",
+    "kind": "image",
+    "curated": true,
+    "quality": 87
+   },
+   {
+    "repo": "Comfy-Org/MiniMax-H3",
+    "kind": "video",
+    "curated": true,
+    "quality": 95
+   },
+   {
+    "repo": "Comfy-Org/Wan-2.2",
+    "kind": "video",
+    "curated": true,
+    "quality": 90
+   },
+   {
+    "repo": "Comfy-Org/Wan-2.1",
+    "kind": "video",
+    "curated": true,
+    "quality": 80
+   },
+   {
+    "repo": "Lightricks/LTX-2.5",
+    "kind": "video",
+    "curated": true,
+    "quality": 92
+   },
+   {
+    "repo": "Lightricks/LTX-2.3",
+    "kind": "video",
+    "curated": true,
+    "quality": 86
+   },
+   {
+    "repo": "Lightricks/LTX-2.3-fp8",
+    "kind": "video",
+    "curated": true,
+    "quality": 85
+   },
+   {
+    "repo": "Comfy-Org/PAN2",
+    "kind": "video",
+    "curated": true,
+    "quality": 84
+   },
+   {
+    "repo": "Wan-AI/Wan2.2-TI2V-5B",
+    "kind": "video",
+    "curated": true,
+    "quality": 78,
+    "note": "The 5B Wan 2.2 model: the entry point for video on 8-12 GB GPUs."
+   },
+   {
+    "repo": "QuantStack/Wan2.2-T2V-A14B-GGUF",
+    "kind": "video",
+    "curated": true,
+    "quality": 88
+   },
+   {
+    "repo": "QuantStack/Wan2.2-I2V-A14B-GGUF",
+    "kind": "video",
+    "curated": true,
+    "quality": 88
+   },
+   {
+    "repo": "QuantStack/Wan2.2-TI2V-5B-GGUF",
+    "kind": "video",
+    "curated": true,
+    "quality": 77
+   },
+   {
+    "repo": "unsloth/LTX-2.5-GGUF",
+    "kind": "video",
+    "curated": true,
+    "quality": 90
+   },
+   {
+    "repo": "unsloth/MiniMax-H3-GGUF",
+    "kind": "video",
+    "curated": true,
+    "quality": 93
+   },
+   {
+    "repo": "Kijai/WanVideo_comfy_fp8_scaled",
+    "kind": "video",
+    "curated": true,
+    "quality": 86
+   },
+   {
+    "repo": "stabilityai/stable-video-diffusion-img2vid-xt",
+    "kind": "video",
+    "curated": true,
+    "quality": 55
+   },
+   {
+    "repo": "unsloth/Qwen3.8-27B-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 93
+   },
+   {
+    "repo": "unsloth/Qwen3.8-Flash-Next-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 90
+   },
+   {
+    "repo": "unsloth/Qwen3.6-35B-A3B-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 91
+   },
+   {
+    "repo": "unsloth/Qwen3.5-9B-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 84
+   },
+   {
+    "repo": "unsloth/Qwen3.5-4B-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 74
+   },
+   {
+    "repo": "unsloth/gemma-4-12b-it-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 85
+   },
+   {
+    "repo": "unsloth/gemma-4-26B-A4B-it-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 90
+   },
+   {
+    "repo": "unsloth/DeepSeek-V4.1-Flash-1017-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 94
+   },
+   {
+    "repo": "unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 76
+   },
+   {
+    "repo": "lmstudio-community/Qwen3.8-27B-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 93
+   },
+   {
+    "repo": "lmstudio-community/Qwen3.5-9B-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 84
+   },
+   {
+    "repo": "bartowski/Qwen3.8-27B-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 93
+   },
+   {
+    "repo": "bartowski/Llama-3.3-70B-Instruct-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 86
+   },
+   {
+    "repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 70
+   },
+   {
+    "repo": "bartowski/Llama-3.2-3B-Instruct-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 58
+   },
+   {
+    "repo": "bartowski/Llama-3.2-1B-Instruct-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 45
+   },
+   {
+    "repo": "Qwen/Qwen3-VL-8B-Instruct-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 80
+   },
+   {
+    "repo": "ornith-ai/Ornith-1.5-9B-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 85
+   },
+   {
+    "repo": "ornith-ai/Ornith-1.5-35B-A3B-GGUF",
+    "kind": "llm",
+    "curated": true,
+    "quality": 91
+   },
+   {
+    "repo": "hexgrad/Kokoro-82M",
+    "kind": "audio",
+    "curated": true,
+    "quality": 80
+   },
+   {
+    "repo": "Comfy-Org/ACE-Step-1.5",
+    "kind": "audio",
+    "curated": true,
+    "quality": 86
+   },
+   {
+    "repo": "stabilityai/stable-audio-3-medium",
+    "kind": "audio",
+    "curated": true,
+    "quality": 85
+   },
+   {
+    "repo": "ResembleAI/chatterbox",
+    "kind": "audio",
+    "curated": true,
+    "quality": 82
+   },
+   {
+    "repo": "SWivid/F5-TTS",
+    "kind": "audio",
+    "curated": true,
+    "quality": 78
+   },
+   {
+    "repo": "openai/whisper-large-v3-turbo",
+    "kind": "audio",
+    "curated": true,
+    "quality": 80
+   },
+   {
+    "repo": "stabilityai/stable-audio-open-1.0",
+    "kind": "audio",
+    "curated": true,
+    "quality": 70
+   },
+   {
+    "repo": "facebook/musicgen-medium",
+    "kind": "audio",
+    "curated": true,
+    "quality": 65
+   },
+   {
+    "repo": "microsoft/TRELLIS.2-4B",
+    "kind": "3d",
+    "curated": true,
+    "quality": 90
+   },
+   {
+    "repo": "tencent/Hunyuan3D-2.1",
+    "kind": "3d",
+    "curated": true,
+    "quality": 86
+   },
+   {
+    "repo": "Comfy-Org/Hunyuan-3D-2.1",
+    "kind": "3d",
+    "curated": true,
+    "quality": 86
+   },
+   {
+    "repo": "stabilityai/TripoSR",
+    "kind": "3d",
+    "curated": true,
+    "quality": 60
+   },
+   {
+    "repo": "stabilityai/stable-fast-3d",
+    "kind": "3d",
+    "curated": true,
+    "quality": 68
+   },
+   {
+    "repo": "city96/t5-v1_1-xxl-encoder-gguf",
+    "kind": "text_encoder",
+    "curated": true,
+    "note": "Quantised T5-XXL text encoder for FLUX-family models."
+   },
+   {
+    "repo": "city96/umt5-xxl-encoder-gguf",
+    "kind": "text_encoder",
+    "curated": true,
+    "note": "Quantised UMT5-XXL text encoder for Wan video models."
+   },
+   {
+    "repo": "stabilityai/sdxl-vae",
+    "kind": "vae",
+    "curated": true
+   },
+   {
+    "repo": "stabilityai/sd-vae-ft-mse",
+    "kind": "vae",
+    "curated": true
+   },
+   {
+    "repo": "openai/clip-vit-large-patch14",
+    "kind": "vision",
+    "curated": true
+   },
+   {
+    "repo": "google/siglip2-giant-opt-patch16-384",
+    "kind": "vision",
+    "curated": true
+   },
+   {
+    "repo": "microsoft/Florence-2-base",
+    "kind": "vision",
+    "curated": true
+   }
+  ]
+ },
+ "discovery": {
+  "huggingface": [
+   {
+    "kind": "image",
+    "pipeline_tag": "text-to-image",
+    "sort": "downloads",
+    "limit": 24
+   },
+   {
+    "kind": "image",
+    "pipeline_tag": "text-to-image",
+    "sort": "trendingScore",
+    "limit": 14
+   },
+   {
+    "kind": "image",
+    "pipeline_tag": "image-to-image",
+    "sort": "downloads",
+    "limit": 16
+   },
+   {
+    "kind": "video",
+    "pipeline_tag": "text-to-video",
+    "sort": "downloads",
+    "limit": 18
+   },
+   {
+    "kind": "video",
+    "pipeline_tag": "text-to-video",
+    "sort": "trendingScore",
+    "limit": 10
+   },
+   {
+    "kind": "video",
+    "pipeline_tag": "image-to-video",
+    "sort": "downloads",
+    "limit": 18
+   },
+   {
+    "kind": "video",
+    "pipeline_tag": "image-to-video",
+    "sort": "trendingScore",
+    "limit": 10
+   },
+   {
+    "kind": "llm",
+    "pipeline_tag": "text-generation",
+    "filter": "gguf",
+    "sort": "downloads",
+    "limit": 30
+   },
+   {
+    "kind": "llm",
+    "pipeline_tag": "text-generation",
+    "filter": "gguf",
+    "sort": "trendingScore",
+    "limit": 14
+   },
+   {
+    "kind": "llm",
+    "pipeline_tag": "image-text-to-text",
+    "filter": "gguf",
+    "sort": "downloads",
+    "limit": 16
+   },
+   {
+    "kind": "audio",
+    "pipeline_tag": "text-to-speech",
+    "sort": "downloads",
+    "limit": 14
+   },
+   {
+    "kind": "audio",
+    "pipeline_tag": "text-to-audio",
+    "sort": "downloads",
+    "limit": 12
+   },
+   {
+    "kind": "3d",
+    "pipeline_tag": "image-to-3d",
+    "sort": "downloads",
+    "limit": 10
+   },
+   {
+    "kind": "lora",
+    "filter": "lora",
+    "pipeline_tag": "text-to-image",
+    "sort": "downloads",
+    "limit": 24
+   },
+   {
+    "kind": "lora",
+    "filter": "lora",
+    "pipeline_tag": "text-to-video",
+    "sort": "downloads",
+    "limit": 12
+   },
+   {
+    "kind": "lora",
+    "filter": "lora",
+    "pipeline_tag": "image-to-video",
+    "sort": "downloads",
+    "limit": 12
+   },
+   {
+    "kind": "controlnet",
+    "filter": "controlnet",
+    "sort": "downloads",
+    "limit": 12
+   },
+   {
+    "author": "Comfy-Org",
+    "sort": "downloads",
+    "limit": 40
+   },
+   {
+    "author": "Comfy-Org",
+    "sort": "createdAt",
+    "limit": 12
+   },
+   {
+    "author": "city96",
+    "sort": "downloads",
+    "limit": 12
+   },
+   {
+    "author": "QuantStack",
+    "sort": "downloads",
+    "limit": 12
+   },
+   {
+    "author": "Kijai",
+    "sort": "downloads",
+    "limit": 10
+   },
+   {
+    "kind": "llm",
+    "author": "unsloth",
+    "filter": "gguf",
+    "sort": "downloads",
+    "limit": 24
+   },
+   {
+    "kind": "llm",
+    "author": "lmstudio-community",
+    "filter": "gguf",
+    "sort": "downloads",
+    "limit": 14
+   },
+   {
+    "kind": "llm",
+    "author": "bartowski",
+    "filter": "gguf",
+    "sort": "downloads",
+    "limit": 14
+   }
+  ],
+  "civitai": [
+   {
+    "types": "LORA",
+    "sort": "Most Downloaded",
+    "period": "Month",
+    "limit": 60
+   },
+   {
+    "types": "LORA",
+    "sort": "Most Downloaded",
+    "period": "AllTime",
+    "limit": 40
+   },
+   {
+    "types": "Checkpoint",
+    "sort": "Most Downloaded",
+    "period": "Month",
+    "limit": 40
+   },
+   {
+    "types": "Checkpoint",
+    "sort": "Most Downloaded",
+    "period": "AllTime",
+    "limit": 30
+   },
+   {
+    "types": "TextualInversion",
+    "sort": "Most Downloaded",
+    "period": "AllTime",
+    "limit": 20
+   },
+   {
+    "types": "Controlnet",
+    "sort": "Most Downloaded",
+    "period": "AllTime",
+    "limit": 20
+   },
+   {
+    "types": "Upscaler",
+    "sort": "Most Downloaded",
+    "period": "AllTime",
+    "limit": 15
+   },
+   {
+    "types": "VAE",
+    "sort": "Most Downloaded",
+    "period": "AllTime",
+    "limit": 12
+   }
+  ],
+  "github": [
+   {
+    "q": "topic:comfyui topic:diffusion-models stars:>200",
+    "limit": 10
+   },
+   {
+    "q": "topic:text-to-video stars:>500 pushed:>2026-06-01",
+    "limit": 10
+   },
+   {
+    "q": "topic:text-to-image topic:diffusion stars:>500 pushed:>2026-06-01",
+    "limit": 10
+   },
+   {
+    "q": "topic:llm topic:local-inference stars:>500 pushed:>2026-06-01",
+    "limit": 10
+   }
+  ],
+  "openmodeldb": {
+   "limit": 120
+  },
+  "follow_base_models": {
+   "enabled": true,
+   "limit": 30
+  }
+ },
+ "publishers": {
+  "official": [
+   "black-forest-labs",
+   "stabilityai",
+   "stable-diffusion-v1-5",
+   "Wan-AI",
+   "Qwen",
+   "Lightricks",
+   "tencent",
+   "Tongyi-MAI",
+   "google",
+   "meta-llama",
+   "mistralai",
+   "microsoft",
+   "deepseek-ai",
+   "nvidia",
+   "openai",
+   "apple",
+   "facebook",
+   "MiniMaxAI",
+   "krea",
+   "OpenMOSS-Team",
+   "HiDream-ai",
+   "ByteDance",
+   "Alibaba-NLP",
+   "hexgrad",
+   "ResembleAI",
+   "SWivid",
+   "ACE-Step",
+   "ornith-ai",
+   "Pika-Labs",
+   "zai-org",
+   "moonshotai",
+   "ibm-granite",
+   "HuggingFaceTB",
+   "LiquidAI",
+   "fishaudio",
+   "coqui",
+   "k2-fsa",
+   "openbmb",
+   "Zyphra",
+   "meituan-longcat",
+   "genmo",
+   "rhymes-ai",
+   "Kwai-Kolors",
+   "playgroundai",
+   "briaai",
+   "lllyasviel",
+   "xinsir",
+   "InstantX",
+   "Shakker-Labs",
+   "XLabs-AI",
+   "TencentARC",
+   "cagliostrolab",
+   "SG161222",
+   "Lykon"
+  ],
+  "trusted": [
+   "Comfy-Org",
+   "city96",
+   "Kijai",
+   "unsloth",
+   "bartowski",
+   "lmstudio-community",
+   "QuantStack",
+   "calcuis",
+   "mradermacher",
+   "TheBloke",
+   "second-state",
+   "ggml-org",
+   "mlx-community",
+   "onnx-community",
+   "Xenova",
+   "lightx2v",
+   "alibaba-pai",
+   "PrunaAI",
+   "leejet",
+   "comfyanonymous"
+  ]
+ }
+}

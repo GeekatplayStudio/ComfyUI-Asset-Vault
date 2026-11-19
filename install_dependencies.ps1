@@ -90,7 +90,7 @@ if (-not $npm) {
     } else {
         Write-Host ''
         Write-Host '[WARN]  Node.js was not found on PATH, so the interface was skipped.' -ForegroundColor Yellow
-        Write-Host '        Install Node.js 18 or newer from https://nodejs.org and run' -ForegroundColor Yellow
+        Write-Host '        Install Node.js 20.19 or newer from https://nodejs.org and run' -ForegroundColor Yellow
         Write-Host '        this installer again. The engine and its API already work.' -ForegroundColor Yellow
     }
 } else {

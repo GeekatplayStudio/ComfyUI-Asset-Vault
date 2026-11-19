@@ -64,6 +64,15 @@ DEFAULTS: dict[str, tuple[str, object]] = {
     # and of extra_model_paths.yaml.
     "extra_model_dirs": ("json", []),
     "mcp_read_only": ("bool", False),
+    # System Advisor.  The catalog refresh is self-initiated when the reference
+    # data is stale, but - like every outbound call - only while
+    # ``online_enabled`` is on.  The two headroom values are the share of GPU
+    # and system memory the advisor never plans to use.  ``advisor_kinds`` is
+    # the set of model types the owner wants checked ([] = all of them).
+    "advisor_auto_update": ("bool", True),
+    "advisor_vram_headroom_pct": ("int", 15),
+    "advisor_ram_headroom_pct": ("int", 25),
+    "advisor_kinds": ("json", []),
     "needs_relink": ("bool", False),
     "ui_prefs_json": ("json", {}),
 }

@@ -1,6 +1,6 @@
 import React from 'react'
 import {
-  Box, Package, Workflow, Image as ImageIcon, HardDrive,
+  Box, Package, Workflow, Image as ImageIcon, HardDrive, Cpu,
   Settings, Activity, RefreshCw, Hash, Coffee, Globe
 } from 'lucide-react'
 import Button from '../common/Button.jsx'
@@ -25,7 +25,8 @@ function BrandMark() {
 }
 
 const TAB_ICONS = {
-  models: Box, nodes: Package, workflows: Workflow, outputs: ImageIcon, storage: HardDrive
+  models: Box, nodes: Package, workflows: Workflow, outputs: ImageIcon, storage: HardDrive,
+  advisor: Cpu
 }
 
 /*

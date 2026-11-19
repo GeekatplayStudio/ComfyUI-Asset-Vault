@@ -8,7 +8,9 @@ export const TABS = [
   { id: 'outputs', label: 'Outputs', statKey: 'outputs' },
   // C10 - Storage and Maintenance. No stat key: this tab counts bytes, not rows,
   // and its own header carries the footprint.
-  { id: 'storage', label: 'Storage', statKey: null }
+  { id: 'storage', label: 'Storage', statKey: null },
+  // System Advisor - what this machine can run. Counts neither rows nor bytes.
+  { id: 'advisor', label: 'Advisor', statKey: null }
 ]
 
 export const TAB_IDS = TABS.map((t) => t.id)
@@ -94,6 +96,29 @@ export const STORAGE_SECTIONS = [
   { id: 'comfyui', label: 'ComfyUI install' }
 ]
 
+/* API_CONTRACT 22: one workspace, six layers, picked from the rail. The live
+   dashboard comes first because it answers "what is this machine doing now". */
+export const ADVISOR_SECTIONS = [
+  { id: 'dashboard', label: 'Resource dashboard' },
+  { id: 'recommend', label: 'Recommendations' },
+  { id: 'catalog', label: 'Model catalog' },
+  { id: 'installed', label: 'My models' },
+  { id: 'safe', label: 'Safe settings' },
+  { id: 'sources', label: 'Sources and updates' }
+]
+
+/** Sort vocabulary for the advisor catalog, verbatim from API_CONTRACT 22. */
+export const ADVISOR_SORTS = [
+  { value: 'recommended', label: 'Recommended' },
+  { value: '-need', label: 'Heaviest first' },
+  { value: 'need', label: 'Lightest first' },
+  { value: '-security', label: 'Safest first' },
+  { value: '-downloads', label: 'Most downloaded' },
+  { value: '-updated', label: 'Recently updated' },
+  { value: '-size', label: 'Largest file' },
+  { value: 'name', label: 'Name A-Z' }
+]
+
 export const PAGE_SIZES = [50, 100, 200, 500]
 
 export const TILE_MIN = 120
@@ -133,6 +158,15 @@ export const initialViews = {
     limit: 100,
     includeProtected: true,
     dupMethod: 'name+size'
+  },
+  /* The advisor lists, like Storage. `filters.kind` is the per-view type
+     filter; the persistent "types to check" set lives in the server settings. */
+  advisor: {
+    ...baseView('advisor', 'recommended'),
+    view: 'list',
+    section: 'dashboard',
+    limit: 100,
+    runsOnly: false
   }
 }
 

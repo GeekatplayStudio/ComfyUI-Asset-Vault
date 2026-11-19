@@ -39,6 +39,31 @@ LIVE_ROOT = Path(os.environ.get("VAULT_LIVE_COMFYUI", r"C:\ComfyUI"))
 
 
 # ---------------------------------------------------------------------------
+# Platform
+# ---------------------------------------------------------------------------
+
+def pytest_collection_modifyitems(config, items):
+    """Skip, rather than fail, the tests that assert Windows path semantics.
+
+    The app is Windows-first and a block of its tests feeds ``C:\\ComfyUI\\...``
+    paths, backslash-separated ``rel_path`` values and ``\\\\?\\`` long-path
+    prefixes straight into the path layer.  Those inputs mean something different
+    on POSIX - a backslash is an ordinary filename character there - so the same
+    assertions cannot hold, and they used to show up as 22 red tests on macOS and
+    Linux that said nothing about the code.  They still run, unchanged, on
+    Windows; elsewhere they are reported as skipped with this reason.
+    """
+    if os.name == "nt":
+        return
+    skip = pytest.mark.skip(
+        reason="asserts Windows path semantics (drive letters, backslashes, "
+               "long-path prefixes); runs on Windows only")
+    for item in items:
+        if "windows_paths" in item.keywords:
+            item.add_marker(skip)
+
+
+# ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 

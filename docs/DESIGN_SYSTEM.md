@@ -12,6 +12,7 @@ those disagree, **they win** — reconcile the disagreement rather than editing 
 | `frontend/src/styles/layout.css` | App shell, rails, resizers, toolbars, status bar | 7.5 / 9.6 KB |
 | `frontend/src/styles/components.css` | Every component | 42.4 / 45.7 KB |
 | `frontend/src/styles/utilities.css` | `.gp-u-*` single-purpose helpers | 3.4 / 4.3 KB |
+| `frontend/src/styles/advisor.css` | The System Advisor workspace (§6.26). **Not** in the cold-path total: it is imported by `AdvisorTab.jsx` and ships in that lazy chunk | lazy |
 | **Total** | | **59.7 KB minified** (budget 60 KB) · 71.5 KB commented source |
 
 Assets: `frontend/src/assets/brand/{mark,wordmark,favicon,placeholder-local,placeholder-inferred,placeholder-broken}.svg`
@@ -37,7 +38,10 @@ import './styles/utilities.css'
    * `--gp-grid-size` on `.gp-shell` (the tile-size slider — one variable write);
    * `--gp-progress` on `.gp-progress` (e.g. `"43.3%"`);
    * `top` / `height` on `.gp-vgrid__row` / `.gp-vgrid__spacer`, and `left`/`top` on a
-     portalled `.gp-tooltip` / `.gp-menu--fixed`.
+     portalled `.gp-tooltip` / `.gp-menu--fixed` / `.gp-hovercard`;
+   * `--gp-adv-v` (a length along a bar) and `--gp-adv-x` (a position along a bar) on the
+     System Advisor's bars, plus SVG path data and dash arrays on its gauges and sparklines
+     (§6.26). Same rule as `--gp-progress`: a number becomes a length, never a colour.
 2. **No `#hex` outside `tokens.css`.** No `!important` anywhere.
 3. **Never `outline: none`** without a replacement ring. `base.css` gives *every* focusable
    element a `:focus-visible` ring; leave it alone.
@@ -129,6 +133,7 @@ cover and supplies accessible text-weight siblings.
 | `--gp-hover` `--gp-hover-strong` `--gp-active` `--gp-selected` `--gp-selected-strong` `--gp-selection-text` `--gp-scrim` | Interaction overlays. |
 | `--gp-focus-ring` `--gp-focus-ring-inset` `--gp-focus-ring-danger` | Two-stop ring: dark spacer + amber halo, so it reads on dark canvas *and* on an amber button. |
 | `--gp-tr-micro` `--gp-tr-base` `--gp-tr-overlay` | `duration + easing` shorthands. |
+| `--gp-inst-*` | The instrument panel (§6.26): panel and hero gradients, gauge track, per-hue glows and area fills, the violet headroom hatch, and the slower `--gp-inst-t` / `--gp-inst-ease` used when a live value moves. `--gp-inst-t` is zeroed under `prefers-reduced-motion`. |
 | `--gp-spine-w` `--gp-spine` `--gp-spine-inferred` | The amber spine (signature #1). |
 | `--gp-grid-size` `--gp-grid-gap` `--gp-grid-meta-h` `--gp-row-h` `--gp-tree-row-h` | Sizing. |
 | `--gp-z-sticky` … `--gp-z-tooltip` | Stacking scale. Never write a raw `z-index`. |
@@ -454,6 +459,46 @@ highlighting.
 `.gp-divider` (`--v`), `.gp-panel` (`--inset`), `.gp-code`, `.gp-perpage` / `__label`,
 `.gp-check-row` / `__dot` (`--ok --warn --error`) `__id` `__msg` (the Health drawer),
 `.gp-focus-inset` (opt into the inset focus ring for full-bleed rows).
+
+### 6.26 Instrument panel — the System Advisor (`advisor.css`)
+
+The Advisor tab is the one place the product is allowed to glow, and the glow is bound by the
+same rules as everything else.
+
+* **A glow belongs to a mark, never to a container.** An arc, a sparkline, a status dot, the
+  filled part of a bar may carry `filter: drop-shadow(…)` or a tight `box-shadow` in one of
+  the `--gp-inst-glow-*` tokens. A panel, a card or a table row may not — signature #2 holds.
+* **Provenance still picks the hue (§2).** A reading taken from the machine is **amber**:
+  utilisation, memory in use, temperatures, throughput, file sizes. It shifts to gold and then
+  red only as it nears its ceiling (`--warn`, `--danger`), which is status, not provenance.
+  Anything the advisor *worked out* is **violet** and carries a `title` naming its source: the
+  safe limit, the headroom zone, a requirement ("needs ~11.9 GB"), a verdict, a speed class, a
+  safety score, a machine tier.
+* **A verdict is never colour alone.** `.gp-fit` pairs a status dot (`--ok --warn --info
+  --danger --neutral`) with a violet text label and, where it applies, a speed word.
+
+| Class | Use |
+|---|---|
+| `.gp-inst` `.gp-inst-hero` `.gp-inst-gauges` `.gp-inst-row` (`--two`) `.gp-inst-panel` (`--wide --flat --vio`) `.gp-inst-card` | Dashboard layout. `--vio` is the panel for the advisor's opinions (recommendations, headroom); the amber default is for readings. |
+| `.gp-gauge` (`--amber --warn --danger --idle`) + `__track __value __headroom __safe __tick __read __num __unit __label` | 270° arc for one live percentage. `__headroom` is the violet stretch past the safe limit; `__safe` is the violet tick. `--idle` when the driver publishes no reading — show `--`, never `0`. |
+| `.gp-spark` (`--tall`) + `__line--amber/info/vio/ok` `__limit` `__grid` | History of one or two series. `__limit` is the violet dashed safe-limit line. |
+| `.gp-cores` / `__bar` (`--perf --warn --danger`) | One bar per processor core; height is `--gp-adv-v`. |
+| `.gp-budget` + `__track __used` (`--over`) `__headroom __safe __need` (`--over`) | Memory drawn to scale: amber in-use fill, violet safe-limit marker at `--gp-adv-x`, violet hatch for the headroom, and a violet `__need` bar when a model is being placed against the plan. |
+| `.gp-fit` (`--lg`) / `__dot __label __speed` | The verdict badge. |
+| `.gp-needbar` / `__fill __safe` | A thin bar in a table row: share of the ceiling a model would take. |
+| `.gp-ring` (`--lg`) / `__track __value __num` | The 0–99 safety estimate. The number is violet; the ring takes the tone. |
+| `.gp-advtable` `.gp-advrow` (`--selected --dim`) `.gp-advcol--a/b/c` | The catalog table. Two columns flex and truncate; the rest size to content. `--c`, `--b`, `--a` drop out in that order as the centre column narrows (container queries on `.gp-adv-scope`). |
+| `.gp-hovercard` | The row preview. An overlay, so it may use `--gp-e-3`; it is `pointer-events:none` and never the only route to the facts it shows. |
+| `.gp-pick` (`--top`) `.gp-recgroup` `.gp-rechero` `.gp-verdictbar` | Recommendations. |
+| `.gp-advd*` | The details-pane blocks: fit, safety factors, variants, companions. |
+| `.gp-safe-*` `.gp-updatecard` `.gp-source` `.gp-pinform` `.gp-pins` `.gp-lead` | Safe settings and the sources page. |
+
+* **Do** give every chart a text equivalent: `role="img"` with an `aria-label` that states the
+  values, and the figures printed beside the mark.
+* **Do** size the dashboard with the container (`.gp-adv-scope`), not the viewport — the centre
+  column is resizable and the details pane opens beside it.
+* **Don't** animate a value with anything but `--gp-inst-t`; it is zeroed for reduced motion.
+* **Don't** paint a verdict amber. It is an estimate, however confident it looks.
 
 ---
 

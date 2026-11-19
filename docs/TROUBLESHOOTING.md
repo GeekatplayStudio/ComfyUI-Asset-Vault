@@ -416,7 +416,77 @@ you only need a full re-parse after changing the ComfyUI path or upgrading the a
 
 ---
 
+## The Advisor shows no GPU, or the wrong amount of GPU memory
+
+The Advisor plans against the **largest single discrete graphics card** it can identify. Where the
+figure comes from depends on the card:
+
+| Card | Source | What can go wrong |
+|---|---|---|
+| NVIDIA | `nvidia-smi` | Not on `PATH` and not in `C:\Windows\System32` — reinstall the NVIDIA driver, which provides it |
+| AMD / Intel on Windows | The display driver's own registry entry | A generic or very old driver does not write its memory size, so the card has no figure and is not planned against |
+| AMD / Intel on Linux | `/sys/class/drm` and `lspci` | The driver does not publish `mem_info_vram_total` |
+| Apple Silicon | `system_profiler` | See "an estimate" below |
+
+**Integrated graphics are deliberately not planned against.** An Intel UHD / Iris or an AMD APU
+borrows system memory, so a machine with only that reads **CPU only**. That is a verdict, not a
+detection failure.
+
+**An AMD or Intel card on Windows runs through DirectML**, which is slower and less
+memory-efficient than CUDA. The Advisor says so in its notes; treat its verdicts for such a card
+as optimistic.
+
+After a driver update, re-probe the hardware from the Advisor — the profile is otherwise cached
+for five minutes. `GET /api/v1/advisor/hardware?refresh=true` does the same, and its `probes`
+field lists each inventory command that was tried and whether it answered.
+
+### Live GPU readings are blank on an AMD or Intel card (Windows)
+
+Utilisation, memory in use, temperature, power and fan speed come from `nvidia-smi`. Windows has
+no equivalent the app can read for AMD or Intel adapters without extra software, so those gauges
+stay empty there — shown as "no reading", never as zero. The installed memory, the budget and
+every verdict are unaffected. On Linux, AMD utilisation and memory in use are read from sysfs when
+the driver publishes them.
+
+### The Apple GPU memory figure is an estimate
+
+On Apple Silicon the GPU shares system memory and macOS publishes no fixed GPU allowance. The
+Advisor uses about two thirds of RAM on machines under 32 GB and three quarters from 32 GB up,
+marks the figure as an estimate, and counts a model's text encoders against the same pool. If a
+model marked **Maximum** fails, that estimate is the first thing to distrust — raise the GPU
+headroom.
+
+### "Outbound lookups are disabled, so the model catalog cannot be refreshed"
+
+**Update now** needs **Settings → Search → Allow outbound lookups at all**. With it off the
+Advisor still works, from the catalog shipped with the app — it just does not get newer. The same
+switch gates the link check in a model's details.
+
+If lookups are on and the catalog still looks old: **Sources and updates** shows when each source
+last answered and its last error. One source failing does not fail the refresh; the entries it had
+are kept. The automatic refresh only runs when the catalog is over 24 hours old and at most once
+every six hours.
+
+### The dashboard says psutil is not installed
+
+`psutil` supplies per-core load, disk and network throughput and the list of the largest
+processes. It was added in 2.4.0; an install updated by copying files over an older one may not
+have it. Run the dependency installer again (`install_dependencies.bat` / `.sh`), or:
+
+```bat
+venv\Scripts\python.exe -m pip install "psutil>=7.0"
+```
+
+Without it the Advisor still produces a hardware profile, a budget and every verdict — only those
+live readings are missing.
+
+---
+
 ## Other things worth knowing
+
+**Some backend tests are skipped off Windows.** Tests that feed Windows paths (`C:\…`, `\\?\`)
+to the path layer carry the `windows_paths` marker; on macOS and Linux they are skipped with a
+reason instead of failing, and on Windows they run as before.
 
 **`backend\data\vault.db-wal` can get large.** SQLite's write-ahead log grows during heavy
 indexing and is only truncated when the last connection closes. On the reference install it sat at

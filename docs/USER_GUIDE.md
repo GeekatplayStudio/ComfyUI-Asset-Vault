@@ -465,7 +465,119 @@ See **[MCP_CLIENT_SETUP.md](MCP_CLIENT_SETUP.md)**.
 
 ---
 
-## 14. Updating the vault itself
+## 14. System Advisor
+
+The **Advisor** tab answers a question the rest of the app cannot: *what can this machine actually
+run, and how safely?* It reads your hardware, compares it with a catalog of about a thousand known
+models and their real file sizes, and tells you which ones fit — leaving room for everything else
+your computer is doing.
+
+Hardware figures are **measured** and shown in amber. Everything the advisor works out from them —
+how much a model needs, the verdict, the speed, the safety score — is an **estimate** and shown in
+violet with a `~` (§1). An estimate here is a planning figure, not a benchmark.
+
+Six sections:
+
+| Section | What it shows |
+|---|---|
+| **Resource dashboard** | Your processor, memory, every graphics card and every drive, with live load, memory in use, GPU memory in use and temperature where the hardware reports them. The lines on the memory gauges are your *safe* and *maximum* limits |
+| **Recommendations** | For each type of model — image, video, language, audio and so on — the **optimum** picks for this machine, the **maximum** that still runs on the GPU, and a **stretch** option that only runs by offloading |
+| **Model catalog** | Every known model with its verdict. Filter by type, verdict, source or safety score; search by name; open one to see every variant, what each needs, and where to get it |
+| **My models** | The models already in your vault, assessed the same way — including which of your own files are too large for this machine |
+| **Safe settings** | Launch arguments for ComfyUI and environment values for Ollama and llama.cpp that keep the headroom, each with the reason for it. Text to copy — the app changes nothing on your machine |
+| **Sources and updates** | Where the model information comes from, when each source last answered, your pinned repositories, and the update controls |
+
+### What the verdicts mean
+
+| Verdict | Meaning |
+|---|---|
+| **Optimal** | Fits with room to spare — larger images, an extra LoRA and a browser tab are all fine |
+| **Good fit** | Fits inside the safe budget, with your headroom left free |
+| **Maximum** | Runs entirely on the GPU, but only by using the headroom. Close other GPU applications first, and lower the resolution or batch size if it fails |
+| **Offload** | Larger than the GPU. ComfyUI streams part of it from system memory, or a language model is split between GPU and processor. It works; it is several times slower |
+| **CPU only** | No usable graphics card was found, so it runs on the processor. Fine for a small language model, minutes per image for anything else |
+| **Too large** | Does not fit in this machine's memory, even with offloading |
+| **Add-on** | A LoRA, ControlNet, embedding, VAE or text encoder. It has no verdict of its own: it costs whatever its base model costs, plus a little |
+| **Unknown** | The publisher lists no file size, so nothing can be estimated |
+
+A model usually ships in several variants — full precision, half precision, quantised. The
+advisor leads with the **largest one that fits comfortably**, because within one model a larger
+file means less quality was traded away. For language models it prefers a 4-bit or better variant
+over a larger one squeezed below 4 bits.
+
+### Headroom, and why the advisor never plans for 100%
+
+A graphics card that is exactly full does not run a model; it fails partway through, usually on
+the largest image of the session. Your desktop, your browser and ComfyUI's own working memory all
+need a share, and that share moves.
+
+So the advisor subtracts two things from what is installed. First a **system reserve** — about
+0.8 GB of a discrete GPU, and at least 4 GB of system memory. Then the **headroom** you choose:
+15% of GPU memory and 25% of system memory by default. What is left is the *safe* budget. The
+headroom is the gap between *safe* and *maximum*, which is exactly what the **Maximum** verdict
+spends.
+
+You can set each headroom anywhere from **5% to 50%**, with the two sliders in **Safe settings**. More headroom is more cautious: verdicts
+stay the same or get worse, never better. There is no setting that plans the whole card — 5% is
+the floor.
+
+On a Mac with Apple Silicon the GPU shares system memory, so there is one pool, and the GPU's
+share of it is an estimate (and marked as one).
+
+### The safety score
+
+Each model has a score from 0 to 99 and a grade from **A** (Safe) to **F** (Unsafe). Open a model
+to see every factor that added or removed points.
+
+What moves it most is the **file format**. `safetensors` and `gguf` are data-only: loading one
+cannot run code. `.ckpt`, `.pt`, `.pth` and `.bin` are Python pickles, and loading an untrusted
+one can. After that: whether the host's own scanner passed or flagged the files, whether the
+publisher is the organisation that made the model, how widely it is used, how new it is, whether
+the repository asks to run its own code, and whether a checksum and a licence are published.
+
+**What the score is not: a malware scan.** Nothing in the advisor opens a model file. A score of
+95 means *nothing published about this file suggests a problem* — not that the file has been
+proven clean. That is why it stops at 99.
+
+### Updating the catalog
+
+The app ships with a catalog, so the Advisor **works offline from the first launch**.
+
+Refreshing it needs **Settings → Search → Allow outbound lookups at all** (§12). With that on:
+
+* the catalog **refreshes itself** when it is more than 24 hours old — shortly after the app
+  starts, again every six hours while it stays running, and when you open the Advisor on stale
+  data. Turn this off with the automatic-update switch in **Sources and updates**;
+* **Update now** refreshes it on demand, and shows which source is being read.
+
+A refresh reads public listings from Hugging Face, Civitai, the ComfyUI-Manager model list,
+OpenModelDB and the Ollama library. It sends no account, no key and nothing about your machine or
+your library. If one source is down, the entries it had are kept; if you cancel, the previous
+catalog stays as it was.
+
+With outbound lookups off, **Update now** tells you so and nothing is requested.
+
+### Pinning a Hugging Face repository
+
+If a model you care about is not in the catalog, pin it: in **Sources and updates**, enter the
+repository as `owner/name` — or paste its Hugging Face page address — and optionally say what type
+of model it is. The pin is remembered and read at every refresh from then on; it appears in the
+catalog after the next one. Remove a pin from the same list.
+
+The default catalog leaves out models their host marks as adult, and models whose name or tags
+say `nsfw`, `uncensored`, `abliterated` and the like. **This applies to pins as well:** pinning a
+repository whose name matches does not bring it in.
+
+### The report
+
+**Report** in the Advisor toolbar saves `system-advisor-report-YYYY-MM-DD.md`: your machine
+profile, the memory plan, the optimum / maximum / stretch picks for each type with their links,
+and the safe settings. It is built in your browser from what the tab already shows; nothing is
+uploaded.
+
+---
+
+## 15. Updating the vault itself
 
 **Settings → Updates** shows the version you are running, the newest release
 published on GitHub, and the changelog entry for it — so you can read what
@@ -505,7 +617,7 @@ the updater at another project.
 
 ---
 
-## 15. About this build
+## 16. About this build
 
 The Asset Vault is a ground-up rebuild, not an incremental patch. Its predecessor installed
 cleanly but did not work — a full scan against a real ComfyUI installation crashed before its

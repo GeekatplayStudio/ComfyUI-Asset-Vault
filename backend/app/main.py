@@ -22,6 +22,7 @@ from .api.deps import require_vault_request
 from .api.schemas.common import BASE_ERRORS
 from .api.schemas.system import Pong
 from .api.v1 import (
+    advisor_router,
     ai_router,
     albums_router,
     comfyui_router,
@@ -145,6 +146,7 @@ v1.include_router(fileops_router.router)
 v1.include_router(albums_router.router)
 v1.include_router(tags_router.router)
 v1.include_router(ai_router.router)
+v1.include_router(advisor_router.router)
 # The MCP *activity log*.  The JSON-RPC transport on `/api/v1/mcp` itself is
 # mounted further down from `app/mcp/http.py`; this router owns only `/audit`.
 v1.include_router(mcp_router.router)

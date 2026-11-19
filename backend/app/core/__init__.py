@@ -15,6 +15,9 @@ log = logging.getLogger(__name__)
 AUTO_REINDEX_DELAY_S = 2.0
 #: Long enough that a cold start finishes serving the interface first.
 UPDATE_CHECK_DELAY_S = 20.0
+#: After the update check, so the two never compete for the first seconds.
+ADVISOR_UPDATE_DELAY_S = 45.0
+ADVISOR_RECHECK_S = 6 * 60 * 60.0
 
 _timer: threading.Timer | None = None
 
@@ -90,6 +93,14 @@ def startup(*, auto_reindex: bool | None = None) -> dict:
         timer.start()
         report["app_update_check"] = "scheduled"
 
+    # Same rule for the model catalog: refreshed on its own when it is stale,
+    # on a timer, and only while outbound lookups are allowed.
+    if cfg.online_enabled and cfg.raw.get("advisor_auto_update", True):
+        timer = threading.Timer(ADVISOR_UPDATE_DELAY_S, _refresh_model_catalog)
+        timer.daemon = True
+        timer.start()
+        report["advisor_catalog"] = "scheduled"
+
     want_auto = cfg.auto_reindex if auto_reindex is None else auto_reindex
     if want_auto and cfg.is_configured:
         _timer = threading.Timer(AUTO_REINDEX_DELAY_S, _auto_reindex)
@@ -99,6 +110,22 @@ def startup(*, auto_reindex: bool | None = None) -> dict:
     else:
         report["auto_reindex"] = "off"
     return report
+
+
+def _refresh_model_catalog() -> None:
+    """Self-initiated catalog refresh; a no-op unless the data is stale."""
+    try:
+        from ..advisor import updater
+
+        outcome = updater.maybe_auto_update()
+        if outcome == "started":
+            log.info("model catalog is stale; refreshing in the background")
+    except Exception as exc:  # noqa: BLE001 - never fatal
+        log.debug("model catalog refresh did not run: %s", exc)
+    # A vault left running for days still gets fresh data: look again later.
+    timer = threading.Timer(ADVISOR_RECHECK_S, _refresh_model_catalog)
+    timer.daemon = True
+    timer.start()
 
 
 def _check_for_app_update() -> None:

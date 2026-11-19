@@ -105,7 +105,7 @@ if !errorlevel! neq 0 (
     )
     echo.
     echo [WARN]  Node.js was not found on PATH, so the interface was skipped.
-    echo         Install Node.js 18 or newer from https://nodejs.org and run
+    echo         Install Node.js 20.19 or newer from https://nodejs.org and run
     echo         this installer again. The engine and its API already work.
     echo.
     goto :done

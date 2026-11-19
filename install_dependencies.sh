@@ -92,7 +92,7 @@ if ! command -v npm >/dev/null 2>&1; then
     else
         echo
         echo "[WARN]  Node.js was not found on PATH, so the interface was skipped."
-        echo "        Install Node.js 18 or newer from https://nodejs.org and run"
+        echo "        Install Node.js 20.19 or newer from https://nodejs.org and run"
         echo "        this installer again. The engine and its API already work."
         echo
     fi
@@ -100,9 +100,9 @@ else
     NODE_VERSION="$(node --version 2>/dev/null || echo v0)"
     NODE_MAJOR="${NODE_VERSION#v}"
     NODE_MAJOR="${NODE_MAJOR%%.*}"
-    if [ "${NODE_MAJOR:-0}" -lt 18 ] 2>/dev/null; then
+    if [ "${NODE_MAJOR:-0}" -lt 20 ] 2>/dev/null; then
         echo
-        echo "[WARN]  Node.js $NODE_VERSION is too old; this app needs Node 18 or newer."
+        echo "[WARN]  Node.js $NODE_VERSION is too old; the interface build needs Node 20.19 or newer."
         echo "        Install a newer Node.js from https://nodejs.org and run"
         echo "        this installer again. The engine and its API already work."
         echo
