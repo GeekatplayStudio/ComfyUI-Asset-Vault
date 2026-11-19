@@ -77,11 +77,13 @@ function PickCard({ row, pick, rank, onOpen, tone }) {
           <Est>{gb(variant.need_bytes)}</Est>
           <span className="gp-u-meta">file {fmtBytes(variant.bytes)}</span>
         </span>
+        <span className="gp-pick__fit">
+          <FitBadge verdict={variant.verdict} label={variant.verdict_label}
+            speed={variant.speed} />
+        </span>
       </span>
       <span className="gp-pick__side">
         <ScoreRing score={row.security.score} tone={row.security.tone} />
-        <FitBadge verdict={variant.verdict} label={variant.verdict_label}
-          speed={variant.speed} />
       </span>
     </button>
   )

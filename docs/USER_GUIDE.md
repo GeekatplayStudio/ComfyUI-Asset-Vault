@@ -487,6 +487,12 @@ Six sections:
 | **Safe settings** | Launch arguments for ComfyUI and environment values for Ollama and llama.cpp that keep the headroom, each with the reason for it. Text to copy — the app changes nothing on your machine |
 | **Sources and updates** | Where the model information comes from, when each source last answered, your pinned repositories, and the update controls |
 
+![The resource dashboard](screenshots/13-advisor-dashboard.png)
+
+![Recommendations per model type](screenshots/14-advisor-recommendations.png)
+
+![My models: the files already in the vault, assessed for this machine](screenshots/16-advisor-my-models.png)
+
 ### What the verdicts mean
 
 | Verdict | Meaning |
@@ -524,6 +530,8 @@ the floor.
 On a Mac with Apple Silicon the GPU shares system memory, so there is one pool, and the GPU's
 share of it is an estimate (and marked as one).
 
+![Safe settings and the headroom sliders](screenshots/17-advisor-safe-settings.png)
+
 ### The safety score
 
 Each model has a score from 0 to 99 and a grade from **A** (Safe) to **F** (Unsafe). Open a model
@@ -538,6 +546,8 @@ the repository asks to run its own code, and whether a checksum and a licence ar
 **What the score is not: a malware scan.** Nothing in the advisor opens a model file. A score of
 95 means *nothing published about this file suggests a problem* — not that the file has been
 proven clean. That is why it stops at 99.
+
+![The catalog with one model open, showing its safety factors](screenshots/15-advisor-catalog.png)
 
 ### Updating the catalog
 
@@ -556,6 +566,8 @@ your library. If one source is down, the entries it had are kept; if you cancel,
 catalog stays as it was.
 
 With outbound lookups off, **Update now** tells you so and nothing is requested.
+
+![Sources and updates](screenshots/18-advisor-sources.png)
 
 ### Pinning a Hugging Face repository
 

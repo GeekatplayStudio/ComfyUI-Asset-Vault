@@ -83,6 +83,8 @@ USER_GUIDE §14 · API_CONTRACT §22 · ARCHITECTURE §14 · SECURITY_REVIEW §8
 - `tests/security/test_no_code_execution.py` now pins **five** `subprocess` modules and
   `test_dos_and_secrets.py` **nine** network-capable modules; `API_CONTRACT.md` conformance covers
   the new routes.
+- **Screenshots**: six Advisor screenshots (`docs/screenshots/13`–`18`) added to the README and the
+  user guide. The twelve older ones predate the Advisor tab and are unchanged.
 - **Test temp files are no longer kept**: `pytest.ini` sets `tmp_path_retention_policy = failed`.
   The shared `temp_vault` fixture writes a real ~76 MB model file per test and pytest kept the
   last three runs, which reached 76 GB of temp data on a development machine.

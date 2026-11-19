@@ -260,6 +260,8 @@ tool reference.
 
 ### System Advisor
 
+![The Advisor's live resource dashboard: load, memory and GPU memory gauges, with the safe limit and headroom drawn on the memory plan](docs/screenshots/13-advisor-dashboard.png)
+
 Answers *what can this machine actually run, and how safely?* It reads your processor, memory,
 graphics cards and drives, and assesses a catalog of about a thousand known models — and the
 models already in your vault — against a memory plan that **never budgets 100% of the GPU**:
@@ -274,6 +276,12 @@ models already in your vault — against a memory plan that **never budgets 100%
   headroom. The app changes nothing on your machine.
 - **A report you can save** — machine profile, memory plan, picks and settings as one Markdown
   file, built in the browser.
+
+![Recommendations per model type: the optimum picks, the maximum that still runs on the GPU, and stretch picks that need offloading](docs/screenshots/14-advisor-recommendations.png)
+
+![The model catalog with one model open: fit against the memory plan, the itemised safety estimate, and every variant with its download link](docs/screenshots/15-advisor-catalog.png)
+
+![Safe settings: the two headroom sliders and the ComfyUI, Ollama and llama.cpp values derived from them](docs/screenshots/17-advisor-safe-settings.png)
 
 Works offline from a catalog shipped with the app. With outbound lookups on, the catalog refreshes
 itself from public listings (Hugging Face, Civitai, ComfyUI-Manager, OpenModelDB, Ollama) — six
