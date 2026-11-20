@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import platform
+import signal
 import sys
 import time
 from pathlib import Path
@@ -35,6 +37,7 @@ from ..schemas.system import (
     RootDeleted,
     RootItem,
     RootsList,
+    ShutdownResponse,
     SystemConfig,
     SystemInfo,
     ThumbsGcRequest,
@@ -520,6 +523,36 @@ def thumbs_gc(body: ThumbsGcRequest) -> dict:
     return {"deleted": int(result.get("removed") or 0),
             "freed_bytes": int(result.get("freed_bytes") or 0),
             "remaining_bytes": int(result.get("remaining_bytes") or 0)}
+
+
+#: Long enough for the 202 to reach the caller before the server stops listening.
+SHUTDOWN_DELAY_S = 0.3
+
+
+def _request_exit() -> None:
+    """Ask uvicorn for the same graceful exit Ctrl+C gives it.
+
+    A separate function so tests can replace it: raising SIGINT inside the test
+    process would end the test run.
+    """
+    signal.raise_signal(signal.SIGINT)
+
+
+@router.post("/shutdown", status_code=202, response_model=ShutdownResponse,
+             responses=MUTATION_ERRORS,
+             summary="Stop the engine cleanly (used by stop_app)")
+async def shutdown_engine() -> dict:
+    """Graceful stop: running work is told to stop, the write-ahead log is folded
+    into the database and truncated, then the process exits.
+
+    ``stop_app`` used to end the engine with ``taskkill /F``, which skips all of
+    that.  The log then stayed at full size and the next launch had to fold it
+    first - 15 minutes for 1.3 GB on a hard disk.  Guarded by ``X-Vault-Request``
+    like every other mutating route, so a web page cannot trigger it.
+    """
+    asyncio.get_running_loop().call_later(SHUTDOWN_DELAY_S, _request_exit)
+    return {"stopping": True,
+            "note": "The engine is finishing its work and will exit on its own."}
 
 
 # ---------------------------------------------------------------------------

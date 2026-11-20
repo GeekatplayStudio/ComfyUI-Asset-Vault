@@ -754,6 +754,30 @@ its own host allowlist and is unchanged.
 `tests/integration/test_official_templates.py` (11) and `tests/test_official_templates_unit.py`
 (15) pin all of the above.
 
+## 8.5 Clean-stop endpoint — 2026-11-20 (2.5.1)
+
+`POST /api/v1/system/shutdown` lets `stop_app` stop the engine cleanly instead of with
+`taskkill /F`. A forced stop skipped the WAL checkpoint, which left a 1.3 GB log for the next start
+to fold.
+
+**Who can call it:** the same parties who could already end the process. The engine binds only
+`127.0.0.1`. The route sits behind the `X-Vault-Request: 1` dependency like every mutating route,
+and the route-walking CSRF test covers it automatically. A cross-origin page cannot send that
+header without a preflight, which the built app refuses. Any local program that can send it
+could already kill the process outright, so the endpoint adds no new power. It is **not**
+exposed as an MCP tool, so an assistant cannot stop the vault.
+
+**What it does:** it answers 202, then raises SIGINT in its own process about 0.3 s later. That is
+uvicorn's ordinary Ctrl+C path: lifespan shutdown, job services stopped, readers closed,
+`wal_checkpoint(TRUNCATE)`. It takes no input, so there is nothing to validate or inject. A test
+suite fixture (`no_real_engine_exit`) replaces the signal, so the route-walking tests can call
+it safely.
+
+**Startup fold.** A leftover log over 64 MB is now checkpointed explicitly before migrations, and
+any log a migration wrote is checkpointed right after. Both are logged. This changes when SQLite's
+own checkpoint work happens, not what it does. `tests/test_clean_shutdown.py` pins the endpoint,
+the fold and the launcher behaviour.
+
 ## 9. Sign-off
 
 **Signed off for the findings raised in this review.** Both Highs, all seven Mediums, the dependency floors and both QA defects are fixed and gated. Every test that was written as an `xfail` reproduction is now a hard regression gate carrying a comment that says what a failure there would mean — there is no `xfail` left in the suite.

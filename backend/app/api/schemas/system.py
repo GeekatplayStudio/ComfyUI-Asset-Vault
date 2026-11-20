@@ -315,6 +315,11 @@ class ThumbsGcResponse(Lenient):
     remaining_bytes: int
 
 
+class ShutdownResponse(Lenient):
+    stopping: bool
+    note: str
+
+
 class OllamaTestRequest(Strict):
     url: str | None = Field(default=None, max_length=2048)
 

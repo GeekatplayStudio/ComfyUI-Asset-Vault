@@ -11,8 +11,30 @@ Organised by symptom. Two things solve most problems:
 
 ## The engine will not start
 
-`start_app.bat` waits 45 seconds for the port to answer, then prints the last 20 lines of
-`backend_log.txt` and stops. Read those lines first; the cause is almost always in them.
+`start_app.bat` waits for as long as the engine process is alive. If the engine exits before it
+opens its port, the launcher prints the last 20 lines of `backend_log.txt` and stops. Read those
+lines first; the cause is almost always in them.
+
+### It says "still starting" for minutes
+
+This is not a failure. The log line it shows will say something like:
+
+```
+WARNING app.core: startup: folding a 1268 MB write-ahead log left by an earlier run that did not
+stop cleanly into the database. On a hard disk this can take several minutes ...
+```
+
+SQLite keeps recent writes in a separate log (`vault.db-wal`) and copies them into `vault.db`
+later. A clean stop does that copy and empties the log. A forced stop (Task Manager, a power cut,
+or `stop_app` before 2.5.1, which always forced) leaves the log at full size. A database upgrade
+can also grow the log a lot. The 2.5 upgrade over 2.2 million outputs left it at 1.3 GB. The next
+start then copies the whole log first. On a spinning hard disk that was measured at 15 minutes.
+Leave the window open; the browser opens when it is done, and the next start is quick again.
+Do not end the engine while it is doing this. That is safe for your data, but the next start
+has to repeat the work.
+
+Versions before 2.5.1 gave up after 45 seconds and reported the engine as failed while it kept
+working in the background. If that happened, run `stop_app.bat` and start again.
 
 | What the log says | What to do |
 |---|---|
@@ -61,8 +83,10 @@ tasklist /FI "PID eq <the pid>"
 ```
 
 Usually it is a previous engine that outlived its window — the interface exits before the engine
-does if the window was closed the hard way. `stop_app.bat` kills whatever is listening on 8127 and
-tells you which PID it stopped. If it is genuinely another application, change nothing here: 8127
+does if the window was closed the hard way. `stop_app.bat` asks whatever is listening on 8127 to
+shut down cleanly, waits for it, and tells you which PID it stopped. It forces the stop only when
+the process does not answer or has not exited after five minutes. It also ends an engine that is
+still getting ready and has no port open yet. If it is genuinely another application, change nothing here: 8127
 is the agreed port and the interface's dev-server proxy, the MCP origin allowlist and the test
 suite all assume it.
 

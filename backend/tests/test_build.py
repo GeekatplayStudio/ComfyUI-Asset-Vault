@@ -188,7 +188,7 @@ def test_no_ai_tool_attribution_anywhere_in_the_product(repo_root):
 
 
 BARE_TOKEN_FILES = (
-    "start_app.bat", "start_app.ps1", "stop_app.bat",
+    "start_app.bat", "start_app.ps1", "stop_app.bat", "stop_app.ps1",
     "install_dependencies.bat", "install_dependencies.ps1",
     "README.md", "package.json", "vite.config.js", "index.html",
 )

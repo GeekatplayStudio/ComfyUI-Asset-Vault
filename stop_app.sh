@@ -34,17 +34,29 @@ else
 fi
 
 STOPPED=
+# SIGTERM is uvicorn's clean shutdown: running work stops and the database log
+# is folded back into the database before the process exits.  On a hard disk a
+# large log takes minutes, so the grace period is generous; escalating early
+# would skip the fold and hand the work to the next start.
+GRACE=300
 for pid in $PIDS; do
     [ -n "$pid" ] || continue
     if kill "$pid" 2>/dev/null; then
         STOPPED=1
-        [ -z "$QUIET" ] && echo "  Stopped the vault engine (pid $pid) on port $PORT."
-        # Give it a moment; escalate only if it ignores the polite request.
-        for i in 1 2 3 4 5; do
-            kill -0 "$pid" 2>/dev/null || break
+        [ -z "$QUIET" ] && echo "  Asked the vault engine (pid $pid) on port $PORT to shut down cleanly ..."
+        i=0
+        while [ "$i" -lt "$GRACE" ] && kill -0 "$pid" 2>/dev/null; do
+            i=$((i + 1))
+            if [ -z "$QUIET" ] && [ $((i % 10)) -eq 0 ]; then
+                echo "  Still finishing up (saving the database) ..."
+            fi
             sleep 1
         done
-        kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null || true
+        if kill -0 "$pid" 2>/dev/null; then
+            [ -z "$QUIET" ] && echo "  It did not exit on its own; stopping it by force."
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+        [ -z "$QUIET" ] && echo "  Stopped the vault engine (pid $pid) on port $PORT."
     fi
 done
 

@@ -458,7 +458,8 @@ def wal_bytes() -> int:
         return 0
 
 
-def checkpoint(mode: str = "TRUNCATE", *, reap: bool = True) -> dict:
+def checkpoint(mode: str = "TRUNCATE", *, reap: bool = True,
+               timeout: float = 60.0) -> dict:
     """``PRAGMA wal_checkpoint(mode)`` on the writer connection.
 
     SQLite's own automatic checkpoint is PASSIVE, and PASSIVE never shrinks the
@@ -474,6 +475,10 @@ def checkpoint(mode: str = "TRUNCATE", *, reap: bool = True) -> dict:
     first; ``busy`` in the result then means the pin is somewhere this process
     cannot reach (another process holding the same vault open), which is worth
     reporting rather than silently retrying.
+
+    ``timeout`` bounds how long the *caller* waits for the writer thread.  Copying
+    a log of a gigabyte or more back into the database is random I/O, which on a
+    spinning disk is measured in minutes, not seconds; startup passes a long one.
 
     Returns ``{"busy", "log_pages", "checkpointed", "mode", "wal_before",
     "wal_after", "reaped"}``.  Never raises.
@@ -501,7 +506,7 @@ def checkpoint(mode: str = "TRUNCATE", *, reap: bool = True) -> dict:
         return tuple(row) if row else (1, -1, -1)
 
     try:
-        busy, log_pages, done = writer().run(_op, timeout=60.0)
+        busy, log_pages, done = writer().run(_op, timeout=timeout)
         out.update({"busy": int(busy), "log_pages": int(log_pages),
                     "checkpointed": int(done), "ok": int(busy) == 0})
     except BaseException as exc:  # noqa: BLE001 - a checkpoint is best effort

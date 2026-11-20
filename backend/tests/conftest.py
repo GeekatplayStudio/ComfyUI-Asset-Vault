@@ -199,6 +199,22 @@ def temp_vault(tmp_path: Path, synthetic_comfyui: Path, monkeypatch):
         config_service.invalidate()
 
 
+@pytest.fixture(autouse=True, scope="session")
+def no_real_engine_exit():
+    """``POST /system/shutdown`` raises SIGINT in its own process, which inside
+    pytest would end the whole run.  Every test gets a recorder instead; the
+    route-walking security tests send that request like any other."""
+    from app.api.v1 import system_router
+
+    calls: list[bool] = []
+    original = system_router._request_exit
+    system_router._request_exit = lambda: calls.append(True)
+    try:
+        yield calls
+    finally:
+        system_router._request_exit = original
+
+
 @pytest.fixture
 def hermetic_client(temp_vault):
     """FastAPI TestClient bound to the synthetic vault."""

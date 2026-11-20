@@ -281,6 +281,9 @@ List / add / remove extra scan roots (`kind` ∈ `extra_models`, `extra_workflow
 ### `POST /api/v1/system/thumbs/gc`
 Body `{"max_mb": 2048}` → `200 {"deleted":1204,"freed_bytes":318000000,"remaining_bytes":220000000}`.
 
+### `POST /api/v1/system/shutdown` → 202
+No body → `202 {"stopping": true, "note": "The engine is finishing its work and will exit on its own."}`. *(2.5.1)* The answer is sent first; about 0.3 s later the engine starts the same graceful exit Ctrl+C gives it. Running work stops, the write-ahead log is folded into the database and truncated, then the process exits. `stop_app` uses this and force-stops only an engine that does not answer or does not exit within its grace period. Like every mutating route it requires `X-Vault-Request: 1` (`400 CSRF_HEADER_MISSING` otherwise), so a web page cannot trigger it. It is not exposed over MCP.
+
 ### `POST /api/v1/system/ollama/test`
 Body `{"url":"…"}` → `200 {"available":true,"models":["llama3:latest"],"latency_ms":41}` or `200 {"available":false,"reason":"connection refused"}`. **Never a 5xx** — unavailability is a normal state.
 

@@ -119,9 +119,14 @@ nohup "$PY" -m uvicorn app.main:app --host 127.0.0.1 --port "$PORT" --app-dir ba
 ENGINE_PID=$!
 
 # --------------------------------------------- wait until it really listens
+# No fixed deadline while the engine is alive: after an upgrade, or after it was
+# not stopped cleanly, it first folds its database log, which on a hard disk
+# takes minutes. Giving up early reported a working engine as failed.
 echo "[3/3] Waiting for the engine to accept connections ..."
 READY=
-for i in $(seq 1 45); do
+MAX_WAIT=3600
+WAITED=0
+while [ "$WAITED" -lt "$MAX_WAIT" ]; do
     if http_get "http://127.0.0.1:$PORT/api/v1/ping" >/dev/null 2>&1; then
         READY=1
         break
@@ -129,17 +134,31 @@ for i in $(seq 1 45); do
     if ! kill -0 "$ENGINE_PID" 2>/dev/null; then
         break
     fi
+    WAITED=$((WAITED + 1))
+    if [ $((WAITED % 15)) -eq 0 ]; then
+        if [ "$WAITED" -eq 15 ]; then
+            echo "      The engine is still getting ready. After an upgrade, or when it was"
+            echo "      not stopped cleanly, this can take several minutes on a hard disk."
+            echo "      Leave this terminal open - the browser opens when it is ready."
+        fi
+        echo "      still starting (${WAITED} s) $([ -f "$LOG" ] && tail -n 1 "$LOG")"
+    fi
     sleep 1
 done
 
 if [ -z "$READY" ]; then
     echo
-    echo "[ERROR] The engine did not start within 45 seconds."
-    echo "        Look at backend_log.txt for the reason. Last lines:"
+    if kill -0 "$ENGINE_PID" 2>/dev/null; then
+        echo "[WARN]  The engine is still working after an hour and has not opened its port."
+        echo "        It has been left running. Open http://127.0.0.1:$PORT/ later, or run"
+        echo "        ./stop_app.sh to stop it. Last lines of backend_log.txt:"
+    else
+        echo "[ERROR] The engine stopped before it was ready."
+        echo "        Look at backend_log.txt for the reason. Last lines:"
+    fi
     echo "---------------------------------------------------------------"
     [ -f "$LOG" ] && tail -n 20 "$LOG"
     echo "---------------------------------------------------------------"
-    "$ROOT/stop_app.sh" --quiet || true
     exit 1
 fi
 echo "      Engine is up."

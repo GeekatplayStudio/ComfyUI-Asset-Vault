@@ -331,10 +331,10 @@ export function presentTemplate(item) {
   const t = item.template || {}
   const missingNodes = (item.counts && item.counts.missing_nodes) || 0
   const missingModels = (item.counts && item.counts.missing_models) || 0
-  const api = t.open_source === false
+  const paidApi = t.open_source === false
   const ready = !missingNodes && !missingModels
   const state = ready
-    ? { tone: 'dep-satisfied', text: api ? 'API' : 'ready' }
+    ? { tone: 'dep-satisfied', text: paidApi ? 'API' : 'ready' }
     : missingNodes
       ? { tone: 'warn', text: missingNodes + ' node' + (missingNodes === 1 ? '' : 's') + ' missing' }
       : { tone: 'warn', text: 'needs ' + missingModels + ' model' + (missingModels === 1 ? '' : 's') }
@@ -353,12 +353,12 @@ export function presentTemplate(item) {
     },
     meta: [
       t.category,
-      api ? 'partner API' : (t.required_size ? bytes(t.required_size) + ' of models' : null),
+      paidApi ? 'partner API' : (t.required_size ? bytes(t.required_size) + ' of models' : null),
       item.counts_outputs ? item.counts_outputs + ' outputs' : null
     ].filter(Boolean),
     badges: [
       { key: 'tpl', node: <Badge tone="brand" overlay title="Official ComfyUI template - read-only">template</Badge> },
-      api ? { key: 'api', node: <Badge tone="info" overlay title="Runs on a partner API, not on local models">API</Badge> } : null,
+      paidApi ? { key: 'api', node: <Badge tone="info" overlay title="Runs on a partner API, not on local models">API</Badge> } : null,
       matchBadge(item)
     ].filter(Boolean),
     corner: [{ key: 'state', node: <Badge tone={state.tone} overlay>{state.text}</Badge> }],
@@ -490,7 +490,7 @@ function AssetCard(props) {
           type="button"
           className="gp-card__action gp-btn gp-btn--ghost gp-btn--sm gp-btn--icon"
           aria-label={'Open ' + p.title + ' in ComfyUI'}
-          title="Open in ComfyUI"
+          title="Open in ComfyUI - starts ComfyUI first if it is not running (you confirm it)"
           onClick={(e) => { e.stopPropagation(); onOpenExternal(item) }}
         >
           <ExternalLink className="gp-btn__icon" aria-hidden="true" />

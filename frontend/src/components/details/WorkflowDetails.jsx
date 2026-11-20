@@ -62,7 +62,7 @@ export default function WorkflowDetails({ id, onOpenUid, onLightbox }) {
   const derived = wf.description_source === 'derived' || wf.description_source === 'ollama'
   const isTemplate = wf.origin === 'official_template'
   const t = wf.template || {}
-  const api = isTemplate && t.open_source === false
+  const paidApi = isTemplate && t.open_source === false
   const outputsTotal = wf.counts_outputs || (wf.outputs_recent || []).length
 
   /* Every output carrying this graph's id - for a template that includes the
@@ -84,7 +84,7 @@ export default function WorkflowDetails({ id, onOpenUid, onLightbox }) {
         <h2 className="gp-details__title">{isTemplate ? (wf.title || wf.name) : wf.name}</h2>
         <div className="gp-u-row gp-u-gap-3 gp-u-wrap gp-u-mt-4">
           {isTemplate ? <Badge tone="brand" title="Official ComfyUI template - read-only">template</Badge> : null}
-          {api ? <Badge tone="info" title="Runs on a partner API, not on local models">API</Badge> : null}
+          {paidApi ? <Badge tone="info" title="Runs on a partner API, not on local models">API</Badge> : null}
           {wf.base_model && wf.base_model !== 'Unknown'
             ? <Badge tone="base">{wf.base_model}</Badge> : null}
           {wf.modality ? <Badge tone="media">{wf.modality}</Badge> : null}
@@ -139,7 +139,7 @@ export default function WorkflowDetails({ id, onOpenUid, onLightbox }) {
                   (counts.missing_nodes ? ' and ' + counts.missing_nodes + ' node class(es)' : '') +
                   ' it uses are not in your library yet. Each one below links to where ComfyUI ' +
                   'downloads it and names the models/ folder it belongs in. '
-                : api
+                : paidApi
                   ? 'Runs on a partner API rather than on local models, so there is nothing to download. '
                   : 'Every model and node it uses is already in your library. '}
               It ships with ComfyUI, so the vault only reads it: open it in ComfyUI and save a
@@ -191,7 +191,7 @@ export default function WorkflowDetails({ id, onOpenUid, onLightbox }) {
             ) : null}
             <div className="gp-meta">
               <MetaRow label="category" value={[t.category_group, t.category].filter(Boolean).join(' · ')} />
-              <MetaRow label="runs on" value={api ? 'partner API (no local models)' : 'your models'} />
+              <MetaRow label="runs on" value={paidApi ? 'partner API (no local models)' : 'your models'} />
               {t.model_families && t.model_families.length
                 ? <MetaRow label="models" value={t.model_families.join(', ')} /> : null}
               {t.required_size ? <MetaRow label="model size" value={bytes(t.required_size)} num /> : null}

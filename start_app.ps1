@@ -36,11 +36,16 @@ function Test-PortListening([int]$p) {
     return [bool]$conn
 }
 
-function Stop-Engine {
-    $conns = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
-    foreach ($c in $conns) {
-        try { Stop-Process -Id $c.OwningProcess -Force -ErrorAction Stop } catch {}
+function Get-EngineProcess {
+    # Matched on the command line, so it also finds an engine this window did not start.
+    Get-CimInstance Win32_Process | Where-Object {
+        $_.Name -eq 'python.exe' -and $_.CommandLine -like "*app.main:app*--port $Port*"
     }
+}
+
+function Stop-Engine {
+    # Clean first, so the engine folds its database log; forced only as a fallback.
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root 'stop_app.ps1') -Quiet
 }
 
 Write-Head '==================================================================='
@@ -124,36 +129,63 @@ if ($PreBuilt) {
 }
 
 # ------------------------------------------------------------------ backend
-Write-Host "[2/3] Starting the vault engine on http://127.0.0.1:$Port ..."
-# Launched through cmd so stdout and stderr merge into one backend_log.txt,
-# exactly as start_app.bat does it - the troubleshooting guide points at that
-# single file.
-#
-# The whole thing is ONE string. Start-Process re-quotes a multi-element
-# -ArgumentList using backslash escaping, which cmd.exe does not understand; a
-# single string is passed through verbatim, so cmd sees the quoting it expects.
-$argLine = '/c ""' + $Py + '" -m uvicorn app.main:app --host 127.0.0.1 --port ' +
-           $Port + ' --app-dir backend > "' + $LogFile + '" 2>&1"'
-$engine = Start-Process -FilePath $env:ComSpec -ArgumentList $argLine `
-    -WorkingDirectory $Root -WindowStyle Minimized -PassThru
+# An engine from an earlier launch may still be getting ready (not listening
+# yet, so the port test above passed). Starting a second one on the same
+# database would only make both slower: wait for that one instead.
+if (Get-EngineProcess) {
+    Write-Host '[2/3] A vault engine from an earlier launch is still getting ready.'
+    Write-Host '      Waiting for it instead of starting a second one.'
+} else {
+    Write-Host "[2/3] Starting the vault engine on http://127.0.0.1:$Port ..."
+    # Launched through cmd so stdout and stderr merge into one backend_log.txt,
+    # exactly as start_app.bat does it - the troubleshooting guide points at that
+    # single file.
+    #
+    # The whole thing is ONE string. Start-Process re-quotes a multi-element
+    # -ArgumentList using backslash escaping, which cmd.exe does not understand; a
+    # single string is passed through verbatim, so cmd sees the quoting it expects.
+    $argLine = '/c ""' + $Py + '" -m uvicorn app.main:app --host 127.0.0.1 --port ' +
+               $Port + ' --app-dir backend > "' + $LogFile + '" 2>&1"'
+    $null = Start-Process -FilePath $env:ComSpec -ArgumentList $argLine `
+        -WorkingDirectory $Root -WindowStyle Minimized -PassThru
+}
 
 # --------------------------------------------- wait until it really listens
+# No fixed deadline while the engine is alive: after an upgrade, or after it was
+# not stopped cleanly, it first folds its database log, which on a hard disk
+# takes minutes. Giving up at 45 seconds reported a working engine as failed
+# and left it running with nobody waiting for it.
 Write-Host '[3/3] Waiting for the engine to accept connections ...'
 $ready = $false
-foreach ($i in 1..45) {
+$maxWait = 3600
+for ($waited = 1; $waited -le $maxWait; $waited++) {
     if (Test-PortListening $Port) { $ready = $true; break }
-    if ($engine.HasExited) { break }
+    if ($waited % 15 -eq 0) {
+        if (-not (Get-EngineProcess)) { break }
+        if ($waited -eq 15) {
+            Write-Host '      The engine is still getting ready. After an upgrade, or when it was'
+            Write-Host '      not stopped cleanly, this can take several minutes on a hard disk.'
+            Write-Host '      Leave this window open - the browser opens when it is ready.'
+        }
+        $last = if (Test-Path $LogFile) { Get-Content -LiteralPath $LogFile -Tail 1 } else { '' }
+        Write-Host "      still starting ($waited s) $last"
+    }
     Start-Sleep -Seconds 1
 }
 
 if (-not $ready) {
     Write-Host ''
-    Write-Host '[ERROR] The engine did not start within 45 seconds.' -ForegroundColor Red
-    Write-Host '        Look at backend_log.txt for the reason. Last lines:' -ForegroundColor Red
+    if (Get-EngineProcess) {
+        Write-Host '[WARN]  The engine is still working after an hour and has not opened its port.' -ForegroundColor Yellow
+        Write-Host "        It has been left running. Open http://127.0.0.1:$Port/ later, or run" -ForegroundColor Yellow
+        Write-Host '        stop_app.bat to stop it. Last lines of backend_log.txt:' -ForegroundColor Yellow
+    } else {
+        Write-Host '[ERROR] The engine stopped before it was ready.' -ForegroundColor Red
+        Write-Host '        Look at backend_log.txt for the reason. Last lines:' -ForegroundColor Red
+    }
     Write-Host '---------------------------------------------------------------'
     if (Test-Path $LogFile) { Get-Content $LogFile -Tail 20 }
     Write-Host '---------------------------------------------------------------'
-    Stop-Engine
     exit 1
 }
 Write-Host '      Engine is up.'

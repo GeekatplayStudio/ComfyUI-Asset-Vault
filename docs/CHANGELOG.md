@@ -4,6 +4,62 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 ---
 
+## 2.5.1 — 2026-11-20
+
+### Fixed: the workflow details panel crashed for every workflow
+
+Clicking any workflow or template showed "The details panel hit an error - Cannot access 'C'
+before initialization". In 2.5.0, `WorkflowDetails` declared a local `const api` (the "runs on a
+paid API" flag). That shadowed the imported `api` service. The loader that fetches the details
+then read the local before it was assigned, and the panel died before it could render. The
+flag is now `paidApi`, and the same name is changed in `AssetCard` so the trap cannot return.
+`WorkflowDetails.test.jsx` renders the panel through the real data hook. It reproduces the
+exact error against the old code. Nothing covered this panel before.
+
+With the panel back, **Open in ComfyUI** is reachable again. For a template it opens
+`/?template=<name>` in ComfyUI, which loads the graph itself. If ComfyUI is not running, the dialog
+offers to start it, naming the exact launcher (`run_nvidia_gpu.bat`) for you to confirm. It then
+waits for ComfyUI to answer and opens the template. The card's open icon now says so in its
+tooltip.
+
+### Fixed: "the app will not start" after the 2.5 upgrade
+
+The engine was starting; the launcher just stopped waiting. Measured on the reference vault, where
+the database is on a spinning hard disk:
+
+- The 2.5 database upgrade builds new indexes over 2.2 million outputs. It took 16 s and left
+  1.3 GB in the write-ahead log (`vault.db-wal`).
+- `stop_app.bat` ended the engine with `taskkill /F`. That skips the shutdown checkpoint, so the
+  log stayed at full size.
+- On the next start, SQLite folded the whole log back into the database during the first write,
+  with no log line and almost no CPU. That took **15 minutes**.
+- `start_app` gave up after 45 seconds and printed "The engine did not start". Its clean-up step
+  found nothing listening, so the engine kept running with nobody waiting for it. It came up 15
+  minutes later and no browser window opened.
+
+What changed:
+
+- **The launchers wait for a live engine.** `start_app.bat`, `.ps1` and `.sh` keep waiting while
+  the engine process is alive, up to an hour, and print a progress line from the log every
+  15 seconds. A crash is still reported straight away, with the last 20 log lines. If an engine
+  from an earlier launch is still getting ready, the launcher waits for it instead of starting
+  a second one on the same database.
+- **The engine says what it is doing.** A leftover log over 64 MB is folded explicitly before
+  migrations run, with a log line that says why and how long it took. The log is then truncated
+  to 0 bytes. Any log a migration writes is folded right after the migration, so an upgrade no
+  longer leaves the next start to pay for it.
+- **`stop_app` stops cleanly.** New `POST /api/v1/system/shutdown` (requires `X-Vault-Request`,
+  not exposed over MCP) starts uvicorn's normal graceful exit, which includes the checkpoint.
+  The new `stop_app.ps1` calls it, waits up to five minutes, and forces the stop only as a
+  fallback. `stop_app.bat` calls `stop_app.ps1` and keeps `taskkill` only for when PowerShell
+  cannot run. `stop_app.sh` now gives SIGTERM five minutes instead of five seconds before it
+  escalates.
+
+`tests/test_clean_shutdown.py` adds 12 tests. Docs updated: INSTALL, TROUBLESHOOTING ("It says
+'still starting' for minutes"), API_CONTRACT §1, SECURITY_REVIEW §8.5, README.
+
+---
+
 ## 2.5.0 — 2026-11-20
 
 ### Added — official ComfyUI templates, linked to your models and images

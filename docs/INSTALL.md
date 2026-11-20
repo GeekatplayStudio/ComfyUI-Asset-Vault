@@ -118,9 +118,13 @@ What the launcher does, in order:
    `frontend\dist`) even after that,
 2. refuses to continue if something is already listening on **8127**,
 3. starts the engine — `uvicorn app.main:app --host 127.0.0.1 --port 8127 --app-dir backend` —
-   with all output going to `backend_log.txt`,
-4. polls the port for up to 45 seconds and **only then** opens the browser; if the engine never
-   comes up it prints the last 20 lines of `backend_log.txt` and stops,
+   with all output going to `backend_log.txt`. If an engine from an earlier launch is still
+   getting ready, it waits for that one instead of starting a second,
+4. polls the port and **only then** opens the browser. It keeps waiting as long as the engine is
+   alive, printing a progress line from the log every 15 seconds. A start normally takes about a
+   second. After an upgrade, or after the engine was not stopped cleanly, it can take minutes on
+   a hard disk, while the engine folds its database log. If the engine exits before it is ready,
+   the launcher prints the last 20 lines of `backend_log.txt` and stops,
 5. builds the interface, serves it from the engine on **http://127.0.0.1:8127/**,
    and opens it. The hashing service keeps running if the browser or launcher closes.
 
@@ -131,7 +135,9 @@ check. A port opening alone is not treated as a successful startup.
 On the reference machine the engine answers `/api/v1/ping` about **one second** after launch.
 
 Closing the launcher window does **not** shut the engine down. Use `stop_app.bat` when you
-explicitly want to stop the vault; queued hashing resumes safely after a restart.
+explicitly want to stop the vault; queued hashing resumes safely after a restart. `stop_app`
+asks the engine to shut down cleanly, so it saves its database log before exiting. It forces the
+engine to stop only if the engine does not answer, or has not exited after five minutes.
 
 ### Two ways to open the interface
 

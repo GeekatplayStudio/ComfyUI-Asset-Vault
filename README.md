@@ -352,7 +352,9 @@ The launcher starts the vault engine on **http://127.0.0.1:8127**, waits until i
 accepts connections (not just until the process launches), builds the interface if needed and
 opens it at **http://127.0.0.1:8127/**. The vault and its hash queue remain running if the
 launcher or browser closes; `stop_app.bat` / `./stop_app.sh` explicitly shuts the engine down
-cleanly.
+cleanly. A start normally takes about a second. After an upgrade, or after the engine was not
+stopped cleanly, the launcher shows "still starting" with a line from the log while the engine
+saves its database log. On a hard disk that can take a few minutes; it is not a failure.
 
 On first launch a short wizard asks where ComfyUI is installed, validates the folder live as you
 type, and runs the first scan. On a portable build you can point at the folder that holds
@@ -429,7 +431,7 @@ ComfyUIAssetManager/
 ├── docs/                  architecture, API contract, data model, security review, user guides
 ├── install_dependencies.bat / .ps1 / .sh
 ├── start_app.bat / .ps1 / .sh
-├── stop_app.bat / .sh
+├── stop_app.bat / .ps1 / .sh
 ├── apply_update.py            applies a staged self-update before the engine starts
 ├── make_release.ps1           builds the release archive
 └── show_service_status.ps1 / .sh   prints a live service report

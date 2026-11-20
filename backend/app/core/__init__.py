@@ -9,8 +9,18 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 
 log = logging.getLogger(__name__)
+
+#: A write-ahead log bigger than this at startup is folded into the database
+#: before anything else runs.  Left alone, SQLite's own automatic checkpoint does
+#: the same work silently inside whichever write happens first - measured on a
+#: spinning disk at 15 minutes for a 1.3 GB log - and the launcher, seeing no
+#: port and no log line, reported that the engine had failed to start.
+WAL_FOLD_BYTES = 64 * 1024 * 1024
+#: The caller's wait for that fold.  The work itself is never cut short.
+WAL_FOLD_TIMEOUT_S = 6 * 60 * 60.0
 
 AUTO_REINDEX_DELAY_S = 2.0
 #: Long enough that a cold start finishes serving the interface first.
@@ -29,7 +39,13 @@ def startup(*, auto_reindex: bool | None = None) -> dict:
     from .migrations import migrate
 
     report: dict = {"migrations": [], "warnings": []}
+    report["wal_fold"] = fold_wal("left by an earlier run that did not stop cleanly")
     report["migrations"] = migrate()
+    if report["migrations"]:
+        # A migration that builds indexes over millions of rows writes all of it
+        # to the log first.  Fold it now, while it is known to be the only work,
+        # rather than leave it for the next launch to stumble over.
+        fold_wal("written by the database upgrade", threshold=0)
     cfg = config_service.reload_config()
     report["configured"] = cfg.is_configured
     report["comfyui_path"] = str(cfg.comfyui_path) if cfg.comfyui_path else None
@@ -110,6 +126,34 @@ def startup(*, auto_reindex: bool | None = None) -> dict:
     else:
         report["auto_reindex"] = "off"
     return report
+
+
+def fold_wal(why: str, *, threshold: int = WAL_FOLD_BYTES) -> dict | None:
+    """Copy a large ``-wal`` back into the database and truncate it, out loud.
+
+    Returns the checkpoint result, or ``None`` when the log was small enough to
+    leave to SQLite.  Never raises: a failed fold only means SQLite does the same
+    work later, exactly as it did before this existed.
+    """
+    from . import db as dbmod
+
+    size = dbmod.wal_bytes()
+    if size <= 0 or size < threshold:
+        return None
+    if size >= WAL_FOLD_BYTES:
+        log.warning("startup: folding a %.0f MB write-ahead log %s into the database. "
+                    "On a hard disk this can take several minutes; the vault opens "
+                    "when it is done.", size / 1048576, why)
+    else:
+        log.info("startup: folding a %.1f MB write-ahead log %s into the database",
+                 size / 1048576, why)
+    t0 = time.perf_counter()
+    result = dbmod.checkpoint("TRUNCATE", timeout=WAL_FOLD_TIMEOUT_S)
+    result["seconds"] = round(time.perf_counter() - t0, 1)
+    log.info("startup: write-ahead log folded in %.1f s (busy=%s, wal %d -> %d bytes)",
+             result["seconds"], result.get("busy"), result.get("wal_before"),
+             result.get("wal_after"))
+    return result
 
 
 def _refresh_model_catalog() -> None:

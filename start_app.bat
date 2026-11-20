@@ -107,36 +107,69 @@ if defined PREBUILT (
 )
 
 REM ------------------------------------------------------------ backend
-echo [2/3] Starting the vault engine on http://127.0.0.1:%PORT% ...
-start "Geekatplay Vault Engine" /min cmd /c ""%ROOT%venv\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port %PORT% --app-dir backend > "%ROOT%backend_log.txt" 2>&1"
+REM An engine from an earlier launch may still be getting ready (not listening
+REM yet, so the port test above passed).  Starting a second one on the same
+REM database would only make both slower: wait for that one instead.
+call :engine_running
+if !errorlevel! equ 0 (
+    echo [2/3] A vault engine from an earlier launch is still getting ready.
+    echo       Waiting for it instead of starting a second one.
+) else (
+    echo [2/3] Starting the vault engine on http://127.0.0.1:%PORT% ...
+    start "Geekatplay Vault Engine" /min cmd /c ""%ROOT%venv\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port %PORT% --app-dir backend > "%ROOT%backend_log.txt" 2>&1"
+)
 
 REM ------------------------------------------- wait until it really listens
+REM No fixed deadline while the engine is alive: after an upgrade, or after it
+REM was not stopped cleanly, it first folds its database log, which on a hard
+REM disk takes minutes.  Giving up at 45 seconds reported a working engine as
+REM failed and left it running with nobody waiting for it.
 echo [3/3] Waiting for the engine to accept connections ...
-set "READY="
-for /L %%i in (1,1,45) do (
-    if not defined READY (
-        "%ROOT%venv\Scripts\python.exe" -c "import socket,sys; s=socket.socket(); s.settimeout(1); sys.exit(0 if s.connect_ex(('127.0.0.1',%PORT%))==0 else 1)" >nul 2>&1
-        if !errorlevel! equ 0 (
-            set "READY=1"
-        ) else (
-            timeout /t 1 /nobreak >nul
-        )
+set /a WAITED=0
+set /a MAX_WAIT=3600
+:wait_loop
+"%ROOT%venv\Scripts\python.exe" -c "import socket,sys; s=socket.socket(); s.settimeout(1); sys.exit(0 if s.connect_ex(('127.0.0.1',%PORT%))==0 else 1)" >nul 2>&1
+if !errorlevel! equ 0 goto engine_up
+set /a WAITED+=1
+set /a TICK=WAITED %% 15
+if !TICK! equ 0 (
+    call :engine_running
+    if errorlevel 1 goto engine_died
+    if !WAITED! equ 15 (
+        echo       The engine is still getting ready. After an upgrade, or when it was
+        echo       not stopped cleanly, this can take several minutes on a hard disk.
+        echo       Leave this window open - the browser opens when it is ready.
     )
+    call :show_progress
 )
+if !WAITED! geq !MAX_WAIT! goto engine_slow
+timeout /t 1 /nobreak >nul
+goto wait_loop
 
-if not defined READY (
-    echo.
-    echo [ERROR] The engine did not start within 45 seconds.
-    echo         Look at backend_log.txt for the reason. Last lines:
-    echo ---------------------------------------------------------------
-    if exist "%ROOT%backend_log.txt" powershell -NoProfile -Command "Get-Content '%ROOT%backend_log.txt' -Tail 20"
-    echo ---------------------------------------------------------------
-    call "%ROOT%stop_app.bat" --quiet
-    echo.
-    pause
-    exit /b 1
-)
+:engine_died
+echo.
+echo [ERROR] The engine stopped before it was ready.
+echo         Look at backend_log.txt for the reason. Last lines:
+echo ---------------------------------------------------------------
+if exist "%ROOT%backend_log.txt" powershell -NoProfile -Command "Get-Content '%ROOT%backend_log.txt' -Tail 20"
+echo ---------------------------------------------------------------
+echo.
+pause
+exit /b 1
 
+:engine_slow
+echo.
+echo [WARN]  The engine is still working after an hour and has not opened its port.
+echo         It has been left running. Open http://127.0.0.1:%PORT%/ later, or run
+echo         stop_app.bat to stop it. Last lines of backend_log.txt:
+echo ---------------------------------------------------------------
+if exist "%ROOT%backend_log.txt" powershell -NoProfile -Command "Get-Content '%ROOT%backend_log.txt' -Tail 20"
+echo ---------------------------------------------------------------
+echo.
+pause
+exit /b 1
+
+:engine_up
 echo       Engine is up.
 
 REM ------------------------------------------------------- live verification
@@ -163,3 +196,16 @@ echo.
 REM The wait loop above guarantees the API answers before this.
 start "" "http://127.0.0.1:%PORT%/"
 endlocal
+exit /b 0
+
+REM ------------------------------------------------------------ helpers
+REM Exit code 0 when a vault engine process for this port exists, 1 otherwise.
+REM Matched on the command line, so it also finds one this window did not start.
+:engine_running
+powershell -NoProfile -Command "$p = Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'python.exe' -and $_.CommandLine -like '*app.main:app*--port %PORT%*' }; if ($p) { exit 0 } else { exit 1 }" >nul 2>&1
+exit /b %errorlevel%
+
+REM One line of what the engine is doing, from the end of its log.
+:show_progress
+powershell -NoProfile -Command "$f = '%ROOT%backend_log.txt'; $l = ''; if (Test-Path -LiteralPath $f) { $l = Get-Content -LiteralPath $f -Tail 1 }; Write-Host ('      still starting (%WAITED% s) ' + $l)"
+exit /b 0
