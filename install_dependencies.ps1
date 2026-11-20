@@ -31,27 +31,48 @@ Write-Host ''
 
 # ------------------------------------------------------------- [1/5] Python
 Write-Step '[1/5] Looking for Python 3.11 or newer ...'
-$python = Get-Command python -ErrorAction SilentlyContinue
-if (-not $python) {
-    Fail @'
-Python was not found on PATH.
-        Install Python 3.12 from https://www.python.org/downloads/windows/
-        and tick "Add python.exe to PATH" during setup.
-'@
+function Find-Python {
+    # A real Python 3.11+ only. Skips the Microsoft Store "python" stub, which
+    # sits on PATH on a fresh Windows but cannot run anything.
+    $cands = @()
+    foreach ($n in 'python', 'py') {
+        $c = Get-Command $n -ErrorAction SilentlyContinue
+        if ($c) { $cands += $c.Source }
+    }
+    foreach ($v in '313', '312', '311') {
+        $cands += Join-Path $env:LOCALAPPDATA "Programs\Python\Python$v\python.exe"
+        $cands += Join-Path $env:ProgramFiles "Python$v\python.exe"
+    }
+    foreach ($c in $cands) {
+        if (-not (Test-Path $c)) { continue }
+        & $c -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)' 2>$null
+        if ($LASTEXITCODE -eq 0) { return $c }
+    }
+    return $null
 }
 
-& python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)'
-if ($LASTEXITCODE -ne 0) {
-    Fail 'The Python on PATH is too old. This app needs 3.11 or newer; 3.12 is what it is developed and tested against.'
+$PythonExe = Find-Python
+if (-not $PythonExe -and (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Write-Note 'Python 3.11+ was not found. Installing Python 3.12 with winget ...'
+    Write-Note '(a Windows prompt may ask for permission - please accept it)'
+    & winget install -e --id Python.Python.3.12 --scope user --silent --accept-package-agreements --accept-source-agreements
+    $PythonExe = Find-Python
 }
-Write-Ok "Found $(& python --version 2>&1)"
+if (-not $PythonExe) {
+    Fail @'
+Python 3.11 or newer was not found.
+        Install Python 3.12 from https://www.python.org/downloads/windows/
+        and tick "Add python.exe to PATH" during setup, then run this again.
+'@
+}
+Write-Ok "Found $(& $PythonExe --version 2>&1)"
 
 # --------------------------------------------------------- [2/5] virtualenv
 Write-Step "[2/5] Preparing the virtual environment in $Root\venv ..."
 if (Test-Path $Py) {
     Write-Note 'Already present - reusing it.'
 } else {
-    & python -m venv (Join-Path $Root 'venv')
+    & $PythonExe -m venv (Join-Path $Root 'venv')
     if ($LASTEXITCODE -ne 0) { Fail 'Could not create the virtual environment.' }
     Write-Ok 'Created.'
 }
@@ -64,7 +85,7 @@ Write-Step "[3/5] Installing the engine's Python packages ..."
 & $Py -m pip install --upgrade pip --disable-pip-version-check -q
 if ($LASTEXITCODE -ne 0) { Write-Note 'pip could not upgrade itself. Continuing with the current version.' }
 
-& $Py -m pip install -r (Join-Path $Root 'backend\requirements.txt') --disable-pip-version-check
+& $Py -m pip install --upgrade -r (Join-Path $Root 'backend\requirements.txt') --disable-pip-version-check
 if ($LASTEXITCODE -ne 0) {
     Fail @'
 Installing the Python packages failed. Scroll up for the reason.

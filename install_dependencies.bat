@@ -7,6 +7,8 @@ set "ROOT=%~dp0"
 cd /d "%ROOT%"
 
 set "PY=%ROOT%venv\Scripts\python.exe"
+set "NOPAUSE="
+if /i "%~1"=="--auto" set "NOPAUSE=1"
 
 echo ===================================================================
 echo     Geekatplay ComfyUI Asset Vault
@@ -16,40 +18,37 @@ echo.
 
 REM ------------------------------------------------------------ [1/5] Python
 echo [1/5] Looking for Python 3.11 or newer ...
-where python >nul 2>&1
-if !errorlevel! neq 0 (
+call :find_python
+if not defined PYEXE (
+    where winget >nul 2>&1
+    if !errorlevel! equ 0 (
+        echo       Python 3.11+ was not found. Installing Python 3.12 with winget ...
+        echo       ^(a Windows prompt may ask for permission - please accept it^)
+        winget install -e --id Python.Python.3.12 --scope user --silent --accept-package-agreements --accept-source-agreements
+        call :find_python
+    )
+)
+if not defined PYEXE (
     echo.
-    echo [ERROR] Python was not found on PATH.
+    echo [ERROR] Python 3.11 or newer was not found.
     echo         Install Python 3.12 from https://www.python.org/downloads/windows/
-    echo         and tick "Add python.exe to PATH" during setup.
+    echo         and tick "Add python.exe to PATH" during setup, then run this again.
     echo.
-    pause
+    if not defined NOPAUSE pause
     exit /b 1
 )
-
-python -c "import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)" >nul 2>&1
-if !errorlevel! neq 0 (
-    echo.
-    echo [ERROR] The Python on PATH is too old. This app needs 3.11 or newer;
-    echo         3.12 is what it is developed and tested against.
-    python --version
-    echo.
-    pause
-    exit /b 1
-)
-for /f "delims=" %%v in ('python --version 2^>^&1') do echo       Found %%v
-
+for /f "delims=" %%v in ('"!PYEXE!" --version 2^>^&1') do echo       Found %%v
 REM ------------------------------------------------------ [2/5] virtualenv
 echo [2/5] Preparing the virtual environment in "%ROOT%venv" ...
 if exist "%PY%" (
     echo       Already present - reusing it.
 ) else (
-    python -m venv "%ROOT%venv"
+    "!PYEXE!" -m venv "%ROOT%venv"
     if !errorlevel! neq 0 (
         echo.
         echo [ERROR] Could not create the virtual environment.
         echo.
-        pause
+        if not defined NOPAUSE pause
         exit /b 1
     )
     echo       Created.
@@ -60,7 +59,7 @@ if not exist "%PY%" (
     echo [ERROR] "%PY%" is missing even though the environment was created.
     echo         Delete the venv folder and run this installer again.
     echo.
-    pause
+    if not defined NOPAUSE pause
     exit /b 1
 )
 
@@ -71,14 +70,14 @@ if !errorlevel! neq 0 (
     echo [WARN]  pip could not upgrade itself. Continuing with the current version.
 )
 
-"%PY%" -m pip install -r "%ROOT%backend\requirements.txt" --disable-pip-version-check
+"%PY%" -m pip install --upgrade -r "%ROOT%backend\requirements.txt" --disable-pip-version-check
 if !errorlevel! neq 0 (
     echo.
     echo [ERROR] Installing the Python packages failed. Scroll up for the reason.
     echo         The usual causes are no internet connection or a proxy that
     echo         blocks pypi.org.
     echo.
-    pause
+    if not defined NOPAUSE pause
     exit /b 1
 )
 
@@ -88,7 +87,7 @@ if !errorlevel! neq 0 (
     echo [ERROR] The packages installed but cannot all be imported.
     echo         Delete the venv folder and run this installer again.
     echo.
-    pause
+    if not defined NOPAUSE pause
     exit /b 1
 )
 echo       Engine packages verified.
@@ -119,7 +118,7 @@ if !errorlevel! neq 0 (
     echo.
     echo [ERROR] npm install failed. Scroll up for the reason.
     echo.
-    pause
+    if not defined NOPAUSE pause
     exit /b 1
 )
 
@@ -142,5 +141,27 @@ echo     Installation finished.
 echo     Launch the app with start_app.bat
 echo ===================================================================
 echo.
-pause
+if not defined NOPAUSE pause
 endlocal
+
+REM Finds a real Python 3.11+ (ignores the Microsoft Store "python" stub).
+:find_python
+set "PYEXE="
+for %%c in (python py) do (
+    if not defined PYEXE (
+        where %%c >nul 2>&1
+        if !errorlevel! equ 0 (
+            %%c -c "import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)" >nul 2>&1
+            if !errorlevel! equ 0 set "PYEXE=%%c"
+        )
+    )
+)
+if not defined PYEXE (
+    for %%d in ("%LOCALAPPDATA%\Programs\Python\Python313" "%LOCALAPPDATA%\Programs\Python\Python312" "%LOCALAPPDATA%\Programs\Python\Python311" "%ProgramFiles%\Python312" "%ProgramFiles%\Python313") do (
+        if not defined PYEXE if exist "%%~d\python.exe" (
+            "%%~d\python.exe" -c "import sys" >nul 2>&1
+            if !errorlevel! equ 0 set "PYEXE=%%~d\python.exe"
+        )
+    )
+)
+exit /b 0

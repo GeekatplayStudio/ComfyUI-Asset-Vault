@@ -15,9 +15,25 @@ echo ===================================================================
 echo.
 
 REM ---------------------------------------------------------------- checks
+REM First run: nothing is installed yet, so install it now.  This makes
+REM double-clicking start_app.bat the only step a new user needs.
+if not exist "venv\Scripts\python.exe" (
+    echo First run detected - installing everything the vault needs.
+    echo This takes a few minutes and only happens once.
+    echo.
+    call "%ROOT%install_dependencies.bat" --auto
+    if errorlevel 1 (
+        echo.
+        echo [ERROR] The automatic install did not finish. Scroll up for the reason.
+        echo.
+        pause
+        exit /b 1
+    )
+    echo.
+)
 if not exist "venv\Scripts\python.exe" (
     echo [ERROR] Python virtual environment not found at "%ROOT%venv".
-    echo         Run install_dependencies.bat first.
+    echo         Run install_dependencies.bat and read what it says.
     echo.
     pause
     exit /b 1

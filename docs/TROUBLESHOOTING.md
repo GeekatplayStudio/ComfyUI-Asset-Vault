@@ -19,7 +19,9 @@ Organised by symptom. Two things solve most problems:
 | `No module named 'app'` | uvicorn was started without `--app-dir backend`. The correct command is `venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8127 --app-dir backend`. There is no `--cwd` option in uvicorn — that was the old, broken invocation. |
 | `No module named 'fastapi'` (or pydantic, PIL, …) | The environment is incomplete. Re-run `install_dependencies.bat`; it verifies every package imports before it reports success. |
 | `[Errno 10048] … only one usage of each socket address` | Something already holds 8127 — see the next section. |
-| `Python virtual environment not found` from the launcher itself | `venv\` is missing. Run `install_dependencies.bat`. |
+| `The automatic install did not finish` on the first run | The launcher installs everything itself the first time; the real reason is printed just above that line (usually no internet, or no Python — the installer tries `winget` for that). Fix it, then run `start_app.bat` again. |
+| `Python virtual environment not found` from the launcher itself | `venv\` is missing even after the automatic install. Run `install_dependencies.bat` on its own and read what it says. |
+| `Python 3.11 or newer was not found`, though Python is installed | Windows may be pointing `python` at the Microsoft Store placeholder. Install Python 3.12 from python.org (tick **Add python.exe to PATH**), or turn off the *App execution aliases* for `python.exe` in Settings → Apps → Advanced app settings. |
 | `Frontend dependencies not installed` | `frontend\node_modules` is missing. Same fix. |
 
 To watch it start with nothing hidden, run the engine in the foreground:

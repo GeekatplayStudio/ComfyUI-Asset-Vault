@@ -4,6 +4,38 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 ---
 
+## 2.4.1 — 2026-11-20
+
+A dependency-security refresh and a one-step install.
+
+### Security — dependencies
+
+- **Pillow floor raised to 13.0.0.** Pillow 12.3.0 carries about forty published advisories that
+  13.0.0 fixes, and every one sits behind `Image.open` on files the vault did not write. The
+  `test_pillow_floor_excludes_known_cves` gate now enforces 13.0.
+- The venv was brought to the newest releases that satisfy the requirements, including the
+  indirect `certifi` and `filelock` fixes. `pip-audit` of the venv before the refresh listed
+  56 advisories (3 packages); after it, none.
+- Left alone on purpose: **React 19** (a major migration of its own) and **`lucide-react` 1.x**
+  (drops the brand icons the left rail uses). `lucide-react` stays on 0.577.
+
+### Changed — installation is one step
+
+- **`start_app.bat` / `start_app.ps1` / `start_app.sh` install on first run.** With no `venv`
+  yet they run the installer themselves and then start the app: double-click, done.
+- **Python is installed for you on Windows.** If no Python 3.11+ is found, the installers run
+  `winget install Python.Python.3.12` (per-user, silent) and carry on. They also ignore the
+  Microsoft Store "python" placeholder that a fresh Windows leaves on PATH, which used to be
+  reported as "Python too old".
+- **Re-running the installer upgrades packages.** It now passes `--upgrade`, so the INSTALL
+  guide's "re-run the installer to update" is true.
+- `install_dependencies.bat --auto` skips its closing pause, for use from the launcher.
+- Windows `.bat` files are normalised to CRLF, as `.gitattributes` has always required; LF-only
+  batch files can break `call :label`.
+- `frontend/package-lock.json` records the Node `engines` requirement.
+
+---
+
 ## 2.4.0 — 2026-11-19
 
 ### Added — System Advisor

@@ -549,7 +549,7 @@ def test_pyyaml_floor_is_at_or_above_6_0_1(repo_root):
 # again and a fresh install may land on a Pillow with 17 known CVEs.
 def test_pillow_floor_excludes_known_cves(repo_root):
     floor = _requirements(repo_root)["pillow"]
-    assert _version(floor)[:2] >= (12, 3), f"pillow floor is {floor}"
+    assert _version(floor)[:2] >= (13, 0), f"pillow floor is {floor}"
 
 
 # S-09 fixed: python-multipart was removed as unused.  A failure here means it

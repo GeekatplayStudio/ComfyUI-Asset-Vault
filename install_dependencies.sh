@@ -65,7 +65,7 @@ if ! "$PY" -m pip install --upgrade pip --disable-pip-version-check -q; then
     echo "[WARN]  pip could not upgrade itself. Continuing with the current version."
 fi
 
-if ! "$PY" -m pip install -r "$ROOT/backend/requirements.txt" --disable-pip-version-check; then
+if ! "$PY" -m pip install --upgrade -r "$ROOT/backend/requirements.txt" --disable-pip-version-check; then
     echo
     echo "[ERROR] Installing the Python packages failed. Scroll up for the reason."
     echo "        The usual causes are no internet connection or a proxy that"

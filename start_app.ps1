@@ -50,10 +50,20 @@ Write-Head '==================================================================='
 Write-Host ''
 
 # ------------------------------------------------------------------- checks
+# First run: nothing is installed yet, so install it now. This makes starting
+# the app the only step a new user needs.
+if (-not (Test-Path $Py)) {
+    Write-Host 'First run detected - installing everything the vault needs.'
+    Write-Host 'This takes a few minutes and only happens once.'
+    Write-Host ''
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root 'install_dependencies.ps1')
+    if ($LASTEXITCODE -ne 0) { Fail 'The automatic install did not finish. Scroll up for the reason.' }
+    Write-Host ''
+}
 if (-not (Test-Path $Py)) {
     Fail @"
 Python virtual environment not found at $Root\venv.
-        Run install_dependencies.bat first.
+        Run install_dependencies.ps1 and read what it says.
 "@
 }
 

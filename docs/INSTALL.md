@@ -27,8 +27,11 @@ move, or a delete, which lands in `.vault-trash` inside that root).
 
 If Python or Node is missing:
 
-* Python — <https://www.python.org/downloads/windows/>, tick **Add python.exe to PATH**.
-* Node.js — <https://nodejs.org>, the LTS installer adds itself to PATH.
+* Python — on Windows 10/11 the installer installs **Python 3.12 for you** through `winget`
+  (built into Windows) and carries on; accept the Windows prompt if one appears. Without
+  `winget`, install it from <https://www.python.org/downloads/windows/> and tick
+  **Add python.exe to PATH**.
+* Node.js — only for a source checkout. <https://nodejs.org>, the LTS installer adds itself to PATH.
 
 Both need an internet connection **once**, to download packages. After that the app runs fully
 offline.
@@ -37,7 +40,11 @@ offline.
 
 ## 2. Install
 
-Double-click, or from a command prompt in the project folder:
+**The short version: double-click `start_app.bat`.** On a first run it notices nothing is
+installed yet, runs the installer below by itself, and then starts the app. There is nothing else
+to do. (`./start_app.sh` does the same on Linux and macOS.)
+
+To install without starting, double-click, or from a command prompt in the project folder:
 
 ```bat
 install_dependencies.bat
@@ -51,9 +58,11 @@ powershell -ExecutionPolicy Bypass -File .\install_dependencies.ps1
 
 The installer:
 
-1. checks that the Python on PATH is 3.11 or newer,
+1. finds a working Python 3.11 or newer — the Microsoft Store "python" placeholder that a fresh
+   Windows puts on PATH is ignored — and installs Python 3.12 with `winget` if there is none,
 2. creates `venv\` if it is not already there,
-3. installs `backend\requirements.txt` into it and then **verifies every package imports**,
+3. installs and **upgrades** `backend\requirements.txt` into it and then **verifies every package
+   imports**,
 4. runs `npm install` in `frontend\`,
 5. runs `npm run build`, which produces `frontend\dist` so the engine can serve the interface by
    itself later.
@@ -81,7 +90,11 @@ Engine: `fastapi`, `uvicorn[standard]`, `pydantic`, `httpx`, `pillow`, `numpy`, 
 There is deliberately **no torch** — the optional semantic search runs on CPU through ONNX
 Runtime.
 
-Interface: React 18, Vite 8, `lucide-react`. Nothing else.
+Interface: React 18, Vite 8, `lucide-react`, `three` (3D previews). Nothing else.
+
+Versions at 2.4.1: Pillow 13, FastAPI 0.165, Starlette 1.10, Pydantic 2.14, uvicorn 0.54,
+onnxruntime 1.32. React 19 and `lucide-react` 1.x are deliberately **not** adopted yet: React 19 is
+a major migration, and `lucide-react` 1.x drops the brand icons the left rail uses.
 
 ---
 
@@ -99,9 +112,10 @@ powershell -ExecutionPolicy Bypass -File .\start_app.ps1
 
 What the launcher does, in order:
 
-0. applies any staged self-update via `apply_update.py` before starting the engine,
-1. refuses to continue if **both** `venv\` and a usable interface (`frontend\node_modules`
-   or a pre-built `frontend\dist`) are missing,
+0. on a first run (no `venv\` yet) runs the installer automatically, then applies any staged
+   self-update via `apply_update.py` before starting the engine,
+1. refuses to continue if there is no usable interface (`frontend\node_modules` or a pre-built
+   `frontend\dist`) even after that,
 2. refuses to continue if something is already listening on **8127**,
 3. starts the engine — `uvicorn app.main:app --host 127.0.0.1 --port 8127 --app-dir backend` —
    with all output going to `backend_log.txt`,
@@ -244,8 +258,9 @@ or POST JSON-RPC to `http://127.0.0.1:8127/api/v1/mcp`.
 
 ## 7. Updating the app
 
-Replace the source, then re-run `install_dependencies.bat` — it reuses the existing `venv`, brings
-packages up to date and rebuilds the interface. The database migrates itself on the next start;
+Replace the source, then re-run `install_dependencies.bat` — it reuses the existing `venv`, upgrades
+the packages to the newest versions that satisfy `backend\requirements.txt` and rebuilds the
+interface. (The in-app updater, Settings → Updates, does the file replacement for you.) The database migrates itself on the next start;
 your ratings, tags, notes and albums are preserved.
 
 `backend\data\vault.db` is the only file worth backing up.

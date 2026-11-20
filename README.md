@@ -310,17 +310,19 @@ opaque `uid`.
 
 ## Quick start
 
-Windows:
+Windows — **one step: double-click `start_app.bat`.**
 
 ```bat
-install_dependencies.bat
 start_app.bat
 ```
+
+On the first run it installs everything it needs (including Python 3.12, through `winget`, if
+you have none) and then starts the app. Every run after that just starts it. To install without
+starting, run `install_dependencies.bat`.
 
 Linux / macOS (experimental — see [Requirements](#requirements)):
 
 ```bash
-./install_dependencies.sh
 ./start_app.sh
 ```
 
@@ -356,7 +358,7 @@ Something looks wrong → **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**
 | | |
 |---|---|
 | OS | Windows 10 / 11 is the tested platform. Linux and macOS run **experimentally**: the engine, indexing, search and file operations are platform-neutral, and POSIX launchers ship (`start_app.sh` and friends) — but the ComfyUI start/update integration still expects a Windows portable layout, and the platform-specific test suites have not yet been run there. |
-| Python | 3.11 or newer (3.12 recommended) |
+| Python | 3.11 or newer (3.12 recommended). On Windows the installer fetches 3.12 for you via `winget` if it is missing. |
 | Node.js | 20.19 or newer (or 22.12+) — **only when building the interface from source.** Release archives ship it pre-built; running the app never requires Node. |
 | ComfyUI | Any recent install — portable, `git`-checkout, or the **Desktop app's data folder** (indexes fully; version/launch/update need a source install). The vault indexes it; it doesn't need ComfyUI running. |
 | Disk | The vault database and thumbnail cache are typically well under 100 MB even for a large library |

@@ -905,6 +905,9 @@ Unchanged: `react@^18.2`, `react-dom@^18.2`, `lucide-react@^0.294`. Dev: `vite@^
 uses), `three@^0.187`. Dev: `vite@^8`, `@vitejs/plugin-react@^6`, `vitest@^5`, `jsdom@^31`.
 `package.json` pins `engines.node` to `^20.19.0 || >=22.12.0`.
 
+*As of 2.4.1:* backend floor `pillow>=13.0.0`. React 19 and `lucide-react` 1.x are deliberately not
+adopted (see CHANGELOG 2.4.1).
+
 ---
 
 ## 12. Keep / rewrite ledger

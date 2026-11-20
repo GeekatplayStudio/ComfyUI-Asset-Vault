@@ -25,9 +25,22 @@ echo "==================================================================="
 echo
 
 # ------------------------------------------------------------------- checks
+# First run: nothing is installed yet, so install it now. This makes starting
+# the app the only step a new user needs.
+if [ ! -x "$PY" ]; then
+    echo "First run detected - installing everything the vault needs."
+    echo "This takes a few minutes and only happens once."
+    echo
+    if ! bash "$ROOT/install_dependencies.sh"; then
+        echo
+        echo "[ERROR] The automatic install did not finish. Scroll up for the reason."
+        exit 1
+    fi
+    echo
+fi
 if [ ! -x "$PY" ]; then
     echo "[ERROR] Python virtual environment not found at $ROOT/venv."
-    echo "        Run ./install_dependencies.sh first."
+    echo "        Run ./install_dependencies.sh and read what it says."
     exit 1
 fi
 

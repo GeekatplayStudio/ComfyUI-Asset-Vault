@@ -238,6 +238,12 @@ pillow>=12.3.0          # SECURITY_REVIEW S-09: 17 CVEs reachable through Image.
 `python-multipart` was **removed, not pinned**. Verified unused before removal: `UploadFile`, `File(`, `Form(` and `request.form()` have no call site anywhere under `app/` — the only two `grep` hits for "multipart" are a comment in `mcp/http.py` about which content types a browser can send, and an unrelated `zipfile.ZipFile` line. Its transitive install stays in the venv (0.0.32) because `uvicorn[standard]`/FastAPI extras pull it, but nothing declares it.
 
 *Proved by execution*: `pip install --dry-run -r requirements.txt` resolves with no conflict and nothing to install against the existing venv (fastapi 0.141.1, starlette 1.6.0, pydantic 2.13.4, pillow 12.3.0), and `test_pillow_floor_excludes_known_cves` / `test_python_multipart_is_not_pinned_at_a_vulnerable_floor` are now hard gates rather than `xfail`.
+**Refreshed 2026-11-20 (2.4.1).** `pip-audit` against the installed venv found 56 advisories in
+three packages: `pillow` 12.3.0 (about forty, fixed in 13.0.0), `filelock` (12, indirect, via
+`huggingface_hub`) and `certifi` (1, indirect). The floor is now `pillow>=13.0.0`, the venv was
+upgraded, and the gate asserts `>= 13.0`. The two indirect packages are not declared — installing
+with `--upgrade` (which the installers now do) takes the fixed releases.
+
 `PyYAML`, `onnxruntime`, `tokenizers`, `uvicorn`, `httpx` and `numpy` need no change. **All three D9 dependencies are justified:** `PyYAML` for `extra_model_paths.yaml` (C2/D4, `safe_load` only), `onnxruntime` + `tokenizers` for the CPU-only local embedder that exists specifically to avoid a torch dependency (C2) — and keeping torch out of the tree is itself the single largest reduction in this app's attack surface.
 
 ### S-10 — `POST /system/roots` accepts any directory (Low, `API layer`)
