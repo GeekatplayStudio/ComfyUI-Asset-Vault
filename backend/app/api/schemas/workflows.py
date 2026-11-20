@@ -28,6 +28,12 @@ class WorkflowItem(Lenient):
     description: str | None = None
     description_source: str | None = None
     capability_tags: list[str] = []
+    #: What it does (schema v11): task keys, main job first.
+    tasks: list[str] = []
+    primary_task: str | None = None
+    primary_task_label: str | None = None
+    #: 'local' or 'api' (a paid partner-API node does the work).
+    runs_on: str | None = None
     base_model: str | None = None
     modality: str | None = None
     counts: WorkflowCounts | None = None
@@ -52,6 +58,25 @@ class WorkflowItem(Lenient):
     template: dict[str, Any] | None = None
     #: Your workflow is a saved copy of this official template (same graph id).
     based_on_template: dict[str, Any] | None = None
+
+
+class TaskCount(Lenient):
+    key: str
+    label: str
+    count: int
+    #: How many of ``count`` run on a paid partner API.
+    api: int = 0
+
+
+class RunsOnCount(Lenient):
+    key: str
+    count: int
+
+
+class WorkflowTaskCounts(Lenient):
+    tasks: list[TaskCount]
+    runs_on: list[RunsOnCount]
+    total: int
 
 
 class WorkflowList(Lenient):

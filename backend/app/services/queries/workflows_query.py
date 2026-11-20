@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 from ...core import config_service
 from ...core import db as dbmod
-from ...parsers import workflow_origin
+from ...parsers import workflow_origin, workflow_tasks
 from . import (
     ListResult,
     Where,
@@ -25,12 +25,21 @@ from . import (
     thumb_url,
 )
 
+#: The task list's own order as a sort key (schema v11): "Text to image" first,
+#: "Utilities" last, unclassified rows after everything.  Built from the fixed
+#: vocabulary only - no caller value reaches this text.
+TASK_ORDER_SQL = ("CASE primary_task " + " ".join(
+    f"WHEN '{key}' THEN {i}" for i, key in enumerate(workflow_tasks.TASK_KEYS))
+    + f" ELSE {len(workflow_tasks.TASK_KEYS)} END")
+
 SORTS = {
     "name": "name COLLATE NOCASE", "created": "created_at", "modified": "mtime_ns", "size": "size",
     "nodes": "node_count", "missing": "missing_node_count", "relevance": "id",
+    "task": TASK_ORDER_SQL,
 }
 GROUPS = {"folder": "folder", "base_model": "base_model_family",
-          "runnable": "is_runnable", "origin": "origin"}
+          "runnable": "is_runnable", "origin": "origin", "task": "primary_task"}
+RUNS_ON = workflow_tasks.RUNS_ON
 
 TEMPLATE = "official_template"
 ORIGINS = ("user", "bundled", TEMPLATE)
@@ -67,6 +76,10 @@ class WorkflowFilters:
     ready: bool | None = None
     #: Only workflows rendered at least one indexed output (schema v10).
     has_outputs: bool | None = None
+    #: What it does (schema v11): any of these task keys.
+    task: list[str] = field(default_factory=list)
+    #: 'local' and/or 'api' (a paid partner-API node does the work).
+    runs_on: list[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict | None) -> WorkflowFilters:
@@ -126,7 +139,21 @@ def _where(f: WorkflowFilters) -> Where:
     if f.has_outputs:
         w.add("id IN (SELECT workflow_id FROM outputs WHERE workflow_id IS NOT NULL "
               "AND missing_since IS NULL)")
+    _task_clause(w, f.task)
+    w.any_of("runs_on", [str(r) for r in (f.runs_on or []) if str(r) in RUNS_ON])
     return w
+
+
+def _task_clause(w: Where, wanted: list[str] | None) -> None:
+    """Any of the given tasks.  Only known keys are bound; nothing is spliced
+    into the SQL but a run of ``?`` marks."""
+    tasks = [str(t) for t in (wanted or []) if str(t) in workflow_tasks.TASK_KEYS]
+    if tasks:
+        marks = ",".join("?" * len(tasks))
+        w.add("id IN (SELECT workflow_id FROM workflow_tasks "  # noqa: S608 - marks only
+              f"WHERE task IN ({marks}))", *tasks)
+    elif wanted:
+        w.add("0")  # only unknown tasks were asked for: nothing matches
 
 
 def _origin_of(row: sqlite3.Row) -> str:
@@ -266,6 +293,12 @@ def _item(row: sqlite3.Row, output_count: int = 0, extra: dict | None = None) ->
         "title": row["title"], "description": row["description"],
         "description_source": row["description_source"],
         "capability_tags": json_list(row["capability_tags_json"]),
+        # Schema v11 - what it does, main job first, and where it runs.
+        "tasks": json_list(_row_get(row, "tasks_json")),
+        "primary_task": _row_get(row, "primary_task"),
+        "primary_task_label": (workflow_tasks.label(_row_get(row, "primary_task"))
+                               if _row_get(row, "primary_task") else None),
+        "runs_on": _row_get(row, "runs_on"),
         "base_model": row["base_model_family"], "modality": row["modality"],
         "counts": {
             "nodes": int(row["node_count"] or 0), "links": int(row["link_count"] or 0),
@@ -309,6 +342,10 @@ def list_workflows(filters: WorkflowFilters | dict | None = None, sort: str = "-
         order = (order_by_search(ids, "id") or "mtime_ns DESC") + ", id ASC"
     else:
         order = parse_sort(sort, SORTS, "-modified")
+    if group == "task":
+        # Rows arrive task by task, so each group fills in as one run while
+        # paging instead of trickling across every page.
+        order = f"{TASK_ORDER_SQL}, {order}"
     rows = dbmod.rows(
         conn, f"SELECT * FROM workflows WHERE {where_sql} ORDER BY {order} "  # noqa: S608
               "LIMIT ? OFFSET ?", (*args, limit, offset),
@@ -322,6 +359,17 @@ def list_workflows(filters: WorkflowFilters | dict | None = None, sort: str = "-
             buckets[key] = buckets.get(key, 0) + 1
         groups = [{"key": k, "label": k, "count": v, "offset": 0}
                   for k, v in sorted(buckets.items())]
+    elif group == "task":
+        counts = {str(r["k"] or ""): int(r["n"]) for r in dbmod.rows(
+            conn, f"SELECT primary_task AS k, COUNT(*) n FROM workflows "  # noqa: S608
+                  f"WHERE {where_sql} GROUP BY k", args)}
+        groups, offset_acc = [], 0
+        for key in (*workflow_tasks.TASK_KEYS, ""):
+            if counts.get(key):
+                groups.append({"key": key,
+                               "label": workflow_tasks.label(key) if key else "Not classified",
+                               "count": counts[key], "offset": offset_acc})
+                offset_acc += counts[key]
     elif group and group in GROUPS:
         col = GROUPS[group]
         groups = [
@@ -589,6 +637,47 @@ def _registry_hint(node_id: str, comfy_root) -> dict | None:
     from ...parsers import node_registry
 
     return node_registry.get_registry(comfy_root).package_for_node(node_id)
+
+
+def task_counts(filters: WorkflowFilters | dict | None = None,
+                conn: sqlite3.Connection | None = None) -> dict:
+    """How many workflows do each task, under every *other* filter in force.
+
+    The task filter itself is left out, so picking "Upscale" does not make every
+    other chip read zero - the counts answer "what else could I switch to".
+    ``runs_on`` is counted the same way, ignoring its own filter.
+    """
+    conn = conn or dbmod.get_ro()
+    f = filters if isinstance(filters, WorkflowFilters) else WorkflowFilters.from_dict(filters)
+    base = WorkflowFilters(**{**f.__dict__, "task": []})
+    w = _where(base)
+    ids, _meta, _m = search_uids(f.q, f.smart, ["workflow"], conn)
+    if not apply_id_filter(w, "id", ids):
+        return {"tasks": [{"key": k, "label": label, "count": 0, "api": 0}
+                          for k, label in workflow_tasks.TASKS],
+                "runs_on": [{"key": k, "count": 0} for k in RUNS_ON], "total": 0}
+    where_sql, args = w.sql(), w.args()
+    per_task = {str(r["task"]): (int(r["n"]), int(r["api"] or 0)) for r in dbmod.rows(
+        conn, "SELECT t.task, COUNT(*) n, "  # noqa: S608 - where_sql is built by Where
+              "SUM(CASE WHEN w.runs_on = 'api' THEN 1 ELSE 0 END) api "
+              "FROM workflow_tasks t JOIN workflows w ON w.id = t.workflow_id "
+              f"WHERE w.id IN (SELECT id FROM workflows WHERE {where_sql}) "
+              "GROUP BY t.task", args)}
+    total = int(dbmod.scalar(
+        conn, f"SELECT COUNT(*) FROM workflows WHERE {where_sql}", args) or 0)  # noqa: S608
+    rw = _where(WorkflowFilters(**{**base.__dict__, "runs_on": []}))
+    apply_id_filter(rw, "id", ids)
+    _task_clause(rw, f.task)
+    runs = {str(r["k"]): int(r["n"]) for r in dbmod.rows(
+        conn, f"SELECT runs_on AS k, COUNT(*) n FROM workflows "  # noqa: S608
+              f"WHERE {rw.sql()} GROUP BY k", rw.args())}
+    return {
+        "tasks": [{"key": k, "label": label, "count": per_task.get(k, (0, 0))[0],
+                   "api": per_task.get(k, (0, 0))[1]}
+                  for k, label in workflow_tasks.TASKS],
+        "runs_on": [{"key": k, "count": runs.get(k, 0)} for k in RUNS_ON],
+        "total": total,
+    }
 
 
 def workflow_facets(filters: WorkflowFilters | dict | None = None,

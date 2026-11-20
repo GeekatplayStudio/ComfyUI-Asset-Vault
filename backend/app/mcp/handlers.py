@@ -776,6 +776,8 @@ def _workflow_row(item: dict) -> dict:
         "origin": str(item.get("origin") or "user"),
         "read_only": bool(item.get("read_only")),
         "output_count": int(item.get("counts_outputs") or 0),
+        "tasks": [str(t) for t in (item.get("tasks") or [])],
+        "runs_on": item.get("runs_on"),
     }
 
 
@@ -793,6 +795,10 @@ def list_workflows(args: dict, ctx: Ctx) -> tuple[str, dict]:
         filters["origin"] = [str(o) for o in args["origin"]]
     if args.get("ready") is not None:
         filters["ready"] = bool(args["ready"])
+    if args.get("task"):
+        filters["task"] = [str(t) for t in args["task"]]
+    if args.get("runs_on"):
+        filters["runs_on"] = [str(args["runs_on"])]
     if args.get("uses_node_class"):
         filters["node_class"] = str(args["uses_node_class"])
     if args.get("uses_model_uid"):

@@ -289,8 +289,8 @@ Output per class: `uid`, `node_id`, `display_name`, `class_name`, `category`, `d
 Input `{"node_id": string, "package_uid"?: Uid}`. Returns the full class record plus `workflows_using[]` and `similar_classes[]` (same category). Ambiguous `node_id` across packages → all matches with `isError:false` and a `disambiguation` array.
 
 ### 5.7 `list_workflows`
-Input: `name_contains`, `folder`, `base_model`, `runnable` (bool), `origin` (array of `user` / `bundled` / `official_template`), `ready` (bool), `uses_node_class`, `uses_model_uid`, `capability_tag`, `sort`, `limit`, `offset`.
-Output per workflow: `uid`, `name`, `rel_path`, `folder`, `format`, `title`, `description`, `capability_tags[]`, `base_model`, `modality`, `node_count`, `missing_node_count`, `missing_model_count`, `is_runnable`, `prompt_summary`, `modified_at`, `size_bytes`, `origin`, `read_only`, `output_count`.
+Input: `name_contains`, `folder`, `base_model`, `runnable` (bool), `origin` (array of `user` / `bundled` / `official_template`), `ready` (bool), `task` (array of task keys), `runs_on` (`local` / `api`), `uses_node_class`, `uses_model_uid`, `capability_tag`, `sort`, `limit`, `offset`.
+Output per workflow: `uid`, `name`, `rel_path`, `folder`, `format`, `title`, `description`, `capability_tags[]`, `base_model`, `modality`, `node_count`, `missing_node_count`, `missing_model_count`, `is_runnable`, `prompt_summary`, `modified_at`, `size_bytes`, `origin`, `read_only`, `output_count`, `tasks[]`, `runs_on`.
 
 *(2.5)* Without `origin` the tool lists the owner's workflows and the bundled examples, as before.
 `origin: ["official_template"]` lists ComfyUI's own templates, which are indexed read-only —
@@ -298,6 +298,14 @@ Output per workflow: `uid`, `name`, `rel_path`, `folder`, `format`, `title`, `de
 missing node class **and** no missing model, so "which templates can I run right now?" is one call:
 `{"origin":["official_template"],"ready":true}`. `output_count` is the number of indexed outputs
 traced back to the row by graph id.
+
+*(2.6)* `task` (an array of task keys: `text_to_image`, `image_edit`, `upscale`,
+`remove_background`, `face`, `controlnet`, `text_to_video`, `image_to_video`, `video_edit`,
+`lip_sync`, `three_d`, `audio`, `llm`, `design`, `utility`) filters by what a workflow does.
+`runs_on` (`local` | `api`) leaves out paid partner-API workflows, or keeps only them. Each row
+gains `tasks[]` (main job first) and `runs_on`. "Which templates can upscale with my local
+models right now?" is one call:
+`{"origin":["official_template"],"task":["upscale"],"runs_on":"local","ready":true}`.
 
 ### 5.8 `inspect_workflow`
 The headline tool. Input `{"uid"?: Uid, "name"?: string, "include_graph"?: bool (default false), "max_nodes"?: int (default 200)}`.

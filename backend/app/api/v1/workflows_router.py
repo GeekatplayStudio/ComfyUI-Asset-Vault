@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 
+from ...parsers import workflow_tasks
 from ...services.queries import workflows_query
 from ..deps import Page, apply_fields, check_group, check_sort, csv_param, page_params
 from ..middleware import ApiError
@@ -17,6 +18,7 @@ from ..schemas.workflows import (
     WorkflowDependencies,
     WorkflowDetail,
     WorkflowList,
+    WorkflowTaskCounts,
 )
 
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
@@ -51,18 +53,32 @@ def _filters(
         None, description="true: no node class AND no model is missing."),
     has_outputs: bool | None = Query(
         None, description="true: at least one indexed output traces back to it."),
+    task: list[str] | None = Query(
+        None, description="What it does - any of these task keys "
+                          "(see GET /workflows/tasks)."),
+    runs_on: list[str] | None = Query(
+        None, description="local, api. api: a paid partner-API node does the work."),
 ) -> dict[str, Any]:
     for value in origin or []:
         if value not in workflows_query.ORIGINS:
             raise ApiError("VALIDATION_ERROR", f"Unknown origin '{value}'.",
                            details={"allowed": list(workflows_query.ORIGINS)})
+    for value in task or []:
+        if value not in workflow_tasks.TASK_KEYS:
+            raise ApiError("VALIDATION_ERROR", f"Unknown task '{value}'.",
+                           details={"allowed": list(workflow_tasks.TASK_KEYS)})
+    for value in runs_on or []:
+        if value not in workflow_tasks.RUNS_ON:
+            raise ApiError("VALIDATION_ERROR", f"Unknown runs_on '{value}'.",
+                           details={"allowed": list(workflow_tasks.RUNS_ON)})
     raw = {"q": q, "smart": smart, "folder": folder, "base_model": base_model,
            "runnable": runnable, "missing_only": missing_only, "node_class": node_class,
            "model_id": model_id, "root_id": root_id, "album_id": album_id, "tag": tag,
            "size_min": size_min, "size_max": size_max, "date_from": date_from,
            "date_to": date_to, "include_missing": include_missing,
            "missing_files_only": missing_files_only, "untagged": untagged,
-           "origin": origin, "ready": ready, "has_outputs": has_outputs}
+           "origin": origin, "ready": ready, "has_outputs": has_outputs,
+           "task": task, "runs_on": runs_on}
     return {k: v for k, v in raw.items() if v is not None}
 
 
@@ -79,6 +95,14 @@ def list_workflows(page: Page = Depends(page_params),
                                           limit=page.limit, offset=page.offset).as_dict()
     data["items"] = apply_fields(data["items"], csv_param("fields", fields))
     return data
+
+
+@router.get("/tasks", response_model=WorkflowTaskCounts, responses=BASE_ERRORS,
+            summary="What the workflows can do: counts per task and per runs_on")
+def workflow_tasks_counts(filters: dict = Depends(_filters)) -> dict:
+    """Same filters as the list.  The ``task`` filter is ignored for the task
+    counts (and ``runs_on`` for its own), so they say what else is available."""
+    return workflows_query.task_counts(filters)
 
 
 @router.get("/{workflow_id}",

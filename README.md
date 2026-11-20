@@ -129,6 +129,13 @@ actually installed and reports precisely what's missing — with near-match sugg
 was renamed or moved, and an install hint (resolved from the ComfyUI-Manager registry) for a
 missing node package.
 
+**Browse by what a workflow does.** Every workflow and template is sorted into Text to image,
+Image edit, Upscale, Remove background, Face & character, ControlNet & pose, Text to video,
+Image to video, Video edit, Lip sync, 3D, Audio & speech, Text & LLM, Vector & design or
+Utilities, and marked **Local models** or **Paid API**. Pick a task from the filter bar, group the
+list by it, or sort by it. Templates use ComfyUI's own tags. Your workflows are read from their
+nodes, including nodes inside subgraphs.
+
 **ComfyUI's own templates are linked too.** The ~700 official templates that ship inside ComfyUI's
 Python (`comfyui_workflow_templates*`) are indexed read-only, alongside your workflows rather than
 as a separate list:

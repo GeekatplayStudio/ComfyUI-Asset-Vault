@@ -31,7 +31,8 @@ SORT_FIELDS: dict[str, tuple[str, ...]] = {
                "params", "rating", "hash_state", "relevance"),
     "node_packages": ("name", "author", "classes", "created", "updated", "size", "relevance"),
     "node_classes": ("name", "display_name", "category", "package", "relevance"),
-    "workflows": ("name", "created", "modified", "size", "nodes", "missing", "relevance"),
+    "workflows": ("name", "created", "modified", "size", "nodes", "missing", "task",
+                  "relevance"),
     "outputs": ("created", "modified", "name", "size", "rating", "width", "height",
                 "duration", "relevance"),
 }
@@ -41,7 +42,7 @@ GROUP_VALUES: dict[str, tuple[str, ...]] = {
                "hash_state", "integrity", "first_letter", "date"),
     "node_packages": ("none", "author", "official", "enabled", "update_state"),
     "node_classes": ("none", "category", "package"),
-    "workflows": ("none", "folder", "base_model", "runnable", "date", "origin"),
+    "workflows": ("none", "folder", "base_model", "runnable", "date", "origin", "task"),
     "outputs": ("none", "folder", "date", "model", "media_kind", "album", "first_letter"),
 }
 

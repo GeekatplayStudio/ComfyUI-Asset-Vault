@@ -187,6 +187,36 @@ your own work. **Ready to run** narrows any of them to the ones with nothing mis
 node class *and* every model on disk); **Outputs → Has outputs** to the ones that actually made
 something.
 
+### Browse by what it does
+
+Every workflow, whether it is a template, a bundled example or your own, is sorted into what it
+does. The first filter group, **What it does**, lists the tasks with a count each:
+
+*Text to image · Image edit · Upscale · Remove background · Face & character · ControlNet &
+pose · Text to video · Image to video · Video edit · Lip sync & talking · 3D · Audio & speech ·
+Text & LLM · Vector & design · Utilities*
+
+* **Pick one or several.** Picking two shows workflows that do either. The counts on the other
+  chips do not drop to zero when you pick one, so you can always see what else is there. They
+  do follow your other filters, so with **ComfyUI templates** on they count templates.
+* **Runs on: Local models / Paid API.** *Paid API* means a partner-API node (Kling, Veo, Ideogram,
+  OpenAI, Gemini …) does the work on someone else's servers, usually for credits. *Local models*
+  leaves those out.
+* **Group by → What it does** splits the list into one section per task, in the order above.
+  **Sort → What it does** orders it the same way without the section headers.
+* **On the card**, the main job is the first badge ("Upscale"), and **API** marks a paid one. The
+  details panel lists everything the workflow does, main job highlighted. Click any of them to
+  see every other workflow that does the same.
+
+How it is decided: a template uses ComfyUI's own tags ("Image Upscale", "Remove Background" …).
+Your workflows are read from their nodes, including those inside subgraphs. For example, a
+BiRefNet or RMBG node means *Remove background*, a video loader means *Video edit*, and
+Hunyuan3D, Tripo or Meshy nodes mean *3D*. When a workflow does several things, its main job
+wins: a text-to-image graph with a hires-fix pass is still *Text to image*, while "load, upscale
+with a model, refine" is *Upscale*. A word in the file name (`upscale`, `rembg`, `i2v`, `inpaint`)
+can pick the main job, but only among the tasks the graph actually shows. A workflow that
+generates nothing is listed under *Utilities*.
+
 ### Official ComfyUI templates
 
 ComfyUI ships its templates inside the Python that runs it — the `comfyui_workflow_templates*`

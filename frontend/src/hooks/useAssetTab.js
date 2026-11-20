@@ -20,7 +20,7 @@ export function toArray(value) {
 }
 
 export default function useAssetTab(options) {
-  const { tab, scope, loader, onStatus, onOpen, registerApi, cacheKey } = options
+  const { tab, scope, loader, onStatus, onOpen, registerApi, cacheKey, filterLabels } = options
   const { state } = useVault()
   const { view, patch, setFilter, clearFilters } = useTabView(tab)
   const scrollRef = useRef(null)
@@ -150,17 +150,21 @@ export default function useAssetTab(options) {
         })
         continue
       }
+      /* A tab may name a field and its values ("What it does: Upscale"
+         rather than "Task: upscale"); anything it does not name reads as before. */
+      const named = (filterLabels && filterLabels[field]) || null
       for (const v of toArray(value)) {
         out.push({
           field,
           value: v,
-          label: humanise(field) + ': ' + v,
+          label: ((named && named.title) || humanise(field)) + ': ' +
+            ((named && named.values && named.values[v]) || v),
           remove: toArray(value).filter((x) => x !== v)
         })
       }
     }
     return out
-  }, [view.filters])
+  }, [view.filters, filterLabels])
 
   /** Turn a value list into toolbar chips bound to one repeatable filter. */
   const buildFacet = useCallback((field, label, values, limit) => ({

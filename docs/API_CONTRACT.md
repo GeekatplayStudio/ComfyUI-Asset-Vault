@@ -599,6 +599,42 @@ and *(2.5)*:
 (`{uid,name,title}` when the workflow is a saved copy of an official template, by graph id).
 `counts_outputs` is the number of outputs linked to the row; for a template it counts every output
 carrying its graph id, renders of saved copies included.
+
+**What it does** *(2.6, schema v11)*. Every workflow, including templates, bundled examples and
+your own, carries `tasks` (task keys, main job first), `primary_task`, `primary_task_label` and
+`runs_on` (`local` | `api`; `api` means a paid partner-API node does the work).
+
+| Filter | Meaning |
+|---|---|
+| `task` (repeatable) | Any of these task keys. An unknown key is `422`. |
+| `runs_on` (repeatable) | `local`, `api`. An unknown value is `422`. |
+
+`sort=task` orders by the task list below. `group=task` groups by `primary_task`, lists the groups
+in that same order with readable labels (`"Upscale"`), and orders the rows task by task so each
+group arrives as one run while paging.
+
+Task keys, in order (frozen; labels may be reworded): `text_to_image` Text to image ·
+`image_edit` Image edit · `upscale` Upscale · `remove_background` Remove background · `face`
+Face & character · `controlnet` ControlNet & pose · `text_to_video` Text to video ·
+`image_to_video` Image to video · `video_edit` Video edit · `lip_sync` Lip sync & talking ·
+`three_d` 3D · `audio` Audio & speech · `llm` Text & LLM · `design` Vector & design ·
+`utility` Utilities.
+
+For a template the tasks come from ComfyUI's own `index.json` tags, with its category as the
+fallback. For everything else they come from the node classes, including those inside
+subgraphs. The file name only picks the main job among the tasks the graph shows (DATA_MODEL §23).
+
+### `GET /api/v1/workflows/tasks`
+The same filters as the list → `200`:
+```json
+{ "tasks":[ {"key":"text_to_image","label":"Text to image","count":117,"api":72}, … ],
+  "runs_on":[ {"key":"local","count":269}, {"key":"api","count":420} ],
+  "total":689 }
+```
+Every task is listed, including zeros, in the order above. The `task` filter is ignored for the
+task counts, and `runs_on` for its own counts. So with "Upscale" picked, the other chips still
+show what you could switch to. `api` is how many of `count` run on a partner API.
+
 ```json
 { "items":[
    { "uid":"workflow:12","id":12,"name":"wan22_animate_mix_character_replacement",

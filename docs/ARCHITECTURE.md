@@ -243,6 +243,19 @@ and `resolve_file` serves one only when its path is exactly a file of the locate
 Counts stay honest: `models.template_count` is separate from `workflow_count`, and
 `v_vault_stats.workflows` / `workflows_broken` exclude templates.
 
+### 3.10 What each workflow does *(2.6, schema v11)*
+
+`parsers/workflow_tasks.py` is a pure classifier. It maps one workflow to a fixed list of tasks
+(main job first) and to `runs_on` (`local` | `api`). For a template the evidence is ComfyUI's own
+`index.json` tags, with the category as fallback. For everything else it is the node classes,
+including those inside subgraph definitions (`WorkflowResult.all_classes`). The workflows phase
+calls it on every row it writes and stores the result in `workflows.tasks_json` /
+`primary_task` / `runs_on` and the `workflow_tasks` table. `m011` runs the same classifier once
+over the existing index, so an upgrade needs no rescan. The query layer turns it into the `task`
+and `runs_on` filters, `sort=task`, `group=task` (rows ordered task by task so a group fills as one
+run) and `GET /workflows/tasks`. That endpoint returns counts that leave out their own filter, so
+the chips always show what else is available. Detail in DATA_MODEL §23.
+
 ### 3.8 Auto-reindex
 
 * **On startup:** if `auto_reindex` is on and the vault is non-empty, run an incremental scan 2 s after the server is listening (never blocking lifespan startup).

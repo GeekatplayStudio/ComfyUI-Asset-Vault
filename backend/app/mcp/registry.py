@@ -19,6 +19,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..parsers import workflow_tasks
+
 DRAFT = "http://json-schema.org/draft-07/schema#"
 
 UID_PATTERN = "^(model|node_package|node_class|workflow|output):[0-9]+$"
@@ -398,9 +400,11 @@ _WORKFLOW_ROW = item_schema({
     "missing_node_count": INT, "missing_model_count": INT, "is_runnable": BOOL,
     "prompt_summary": NSTR, "modified_at": NINT, "size_bytes": INT,
     "origin": STR, "read_only": BOOL, "output_count": INT,
+    "tasks": STRS, "runs_on": NSTR,
 }, ["uid", "name", "is_runnable"])
 
 _ORIGINS = ["user", "bundled", "official_template"]
+_TASKS = list(workflow_tasks.TASK_KEYS)
 
 LIST_WORKFLOWS = ToolDef(
     name="list_workflows",
@@ -411,7 +415,9 @@ LIST_WORKFLOWS = ToolDef(
         "'which workflows use X'. By default lists the owner's workflows and the "
         "examples bundled with node packages; pass origin ['official_template'] for "
         "ComfyUI's own templates (read-only), and ready=true for those with nothing "
-        "missing."),
+        "missing. task filters by what a workflow does (upscale, remove_background, "
+        "image_to_video, three_d ...); runs_on 'local' excludes paid partner-API "
+        "workflows."),
     input_schema=schema({
         "name_contains": {"type": "string", "maxLength": 512},
         "folder": {"type": "string", "maxLength": 1024},
@@ -419,6 +425,8 @@ LIST_WORKFLOWS = ToolDef(
         "runnable": BOOL,
         "origin": {"type": "array", "items": {"enum": _ORIGINS}, "maxItems": 3},
         "ready": BOOL,
+        "task": {"type": "array", "items": {"enum": _TASKS}, "maxItems": len(_TASKS)},
+        "runs_on": {"enum": ["local", "api"]},
         "uses_node_class": {"type": "string", "maxLength": 200},
         "uses_model_uid": {"type": "string", "pattern": "^model:[0-9]+$"},
         "capability_tag": {"type": "string", "maxLength": 100},

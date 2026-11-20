@@ -14,7 +14,7 @@ from pathlib import Path
 
 from ..core import errors
 from ..core.pathsafe import long_path
-from . import graph_utils, official_templates
+from . import graph_utils, official_templates, workflow_tasks
 
 GRAPH_CAP = 8 * 1024 * 1024
 MAX_FILE = 64 * 1024 * 1024
@@ -77,6 +77,10 @@ class WorkflowResult:
     #: ``properties.models`` declarations: name, folder, and the https URL the
     #: ComfyUI frontend offers for it.  Official templates carry these.
     declared_models: list[dict] = field(default_factory=list)
+    #: Every node class, including those inside subgraph definitions (schema
+    #: v11).  ``node_types`` counts the top level only; a workflow that wraps
+    #: its pipeline in one subgraph is classified from this.
+    all_classes: set[str] = field(default_factory=set)
 
 
 def _read_json(path: str | Path) -> tuple[object | None, str | None, str | None]:
@@ -272,6 +276,8 @@ def analyze(path: str | Path, *, name: str | None = None) -> WorkflowResult:
                      "via_class": m.get("via_class"), "via_input": "properties.models",
                      "dep_kind": "model"})
     res.dependencies = deps
+    res.all_classes = set(res.node_types) | workflow_tasks.graph_classes(
+        ui if isinstance(ui, dict) else data)
     res.capability_tags = _capabilities(res.node_types)
     res.base_model_family = _family_from_refs(deps)
     for tag in res.capability_tags:

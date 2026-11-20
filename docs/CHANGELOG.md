@@ -4,6 +4,48 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 ---
 
+## 2.6.0 — 2026-11-20
+
+### Added: browse workflows and templates by what they do
+
+You can now see at a glance what every workflow is for, whether it is an official template, a
+bundled example or your own, and narrow the list to it.
+
+- **What it does** is a filter group with a count per task: Text to image, Image edit, Upscale,
+  Remove background, Face & character, ControlNet & pose, Text to video, Image to video, Video
+  edit, Lip sync & talking, 3D, Audio & speech, Text & LLM, Vector & design, Utilities. Picking
+  one never zeroes the other chips, and the counts follow your other filters, so with **ComfyUI
+  templates** on they count templates.
+- **Runs on: Local models / Paid API** separates graphs that run on your GPU from ones where a
+  partner-API node (Kling, Veo, Ideogram, OpenAI, Gemini …) does the work for credits.
+- **Group by → What it does** gives one section per task. **Sort → What it does** orders by task
+  without the sections.
+- Cards show the main job as their first badge, plus **API** when it is paid. The details panel
+  lists everything a workflow does; click a task to see every other workflow that does it.
+- MCP `list_workflows` takes `task` and `runs_on`, and returns `tasks[]` and `runs_on` per row.
+
+How it is decided (DATA_MODEL §23):
+- **Templates** use ComfyUI's own `index.json` tags, with the category as the fallback.
+- **Everything else** is read from its node classes, including classes inside subgraphs.
+  Partner-API providers are matched as class-name prefixes, so `IndividualPrompt` and
+  `ImageNoise` are not mistaken for Vidu or Imagen.
+- **When a workflow does several things**, its main job wins: text to image beats upscale,
+  upscale beats image edit.
+- **File-name hints** only choose the main job among the tasks the graph already shows.
+
+The old `capability_tags` stay as they were, but they were too coarse to browse by: `LoadImage`
+alone made 410 of the 689 templates "img2img".
+
+Schema **v11** (`m011_workflow_tasks`): `workflows.tasks_json`, `primary_task`, `runs_on` and a
+`workflow_tasks` table. It is forward-only and backfills every existing row from what the index
+already holds, so the tasks appear on the first start, with no rescan. On the reference vault, 943
+workflows were classified, 420 of the 689 templates as paid API.
+
+New endpoint `GET /api/v1/workflows/tasks` (the counts). New list filters `task` and `runs_on`,
+plus `sort=task` and `group=task`. 39 backend tests and 7 frontend tests.
+
+---
+
 ## 2.5.1 — 2026-11-20
 
 ### Fixed: the workflow details panel crashed for every workflow

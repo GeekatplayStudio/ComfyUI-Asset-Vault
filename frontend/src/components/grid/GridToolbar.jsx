@@ -5,7 +5,7 @@ import Button from '../common/Button.jsx'
 import Select from '../common/Select.jsx'
 import Slider from '../common/Slider.jsx'
 import Chip from '../common/Chip.jsx'
-import { TILE_MIN, TILE_MAX } from '../../state/actions.js'
+import { TILE_MIN, TILE_MAX, GROUP_LABELS } from '../../state/actions.js'
 import { humanise, count as fmtCount } from '../../services/format.js'
 
 /*
@@ -80,7 +80,9 @@ export default function GridToolbar(props) {
             bare
             value={view.group}
             ariaLabel="Grouping"
-            options={groupOptions.map((g) => ({ value: g, label: g === 'none' ? 'None' : humanise(g) }))}
+            options={groupOptions.map((g) => ({
+              value: g, label: g === 'none' ? 'None' : (GROUP_LABELS[g] || humanise(g))
+            }))}
             onChange={(group) => patch({ group })}
           />
         </div>

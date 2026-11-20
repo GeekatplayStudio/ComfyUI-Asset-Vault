@@ -7,7 +7,9 @@ import api, { thumbnailUrl, downloadUrl } from '../../services/api.js'
 import useResource from '../../hooks/useResource.js'
 import Button from '../common/Button.jsx'
 import Badge from '../common/Badge.jsx'
+import Chip from '../common/Chip.jsx'
 import { SkeletonMeta } from '../common/Skeleton.jsx'
+import { TASK_LABELS, RUNS_ON_LABELS } from '../../state/actions.js'
 import EmptyState from '../common/EmptyState.jsx'
 import MetaRow, { Section, DetailsFallback } from './MetaRow.jsx'
 import DependencyList, { isHttps } from './DependencyList.jsx'
@@ -62,7 +64,12 @@ export default function WorkflowDetails({ id, onOpenUid, onLightbox }) {
   const derived = wf.description_source === 'derived' || wf.description_source === 'ollama'
   const isTemplate = wf.origin === 'official_template'
   const t = wf.template || {}
-  const paidApi = isTemplate && t.open_source === false
+  const paidApi = (isTemplate && t.open_source === false) || wf.runs_on === 'api'
+  /* One click from "what this does" to every other workflow that does it. */
+  const showTask = (key) => {
+    dispatch({ type: 'set-filter', tab: 'workflows', field: 'task', value: [key] })
+    dispatch({ type: 'set-tab', tab: 'workflows' })
+  }
   const outputsTotal = wf.counts_outputs || (wf.outputs_recent || []).length
 
   /* Every output carrying this graph's id - for a template that includes the
@@ -220,6 +227,26 @@ export default function WorkflowDetails({ id, onOpenUid, onLightbox }) {
                   <span className="gp-row__cell gp-row__cell--grow gp-u-meta">{c.rel_path}</span>
                 </button>
               ))}
+            </div>
+          </Section>
+        ) : null}
+
+        {wf.tasks && wf.tasks.length ? (
+          <Section title="What it does">
+            <div className="gp-u-row gp-u-gap-3 gp-u-wrap">
+              {wf.tasks.map((key, i) => (
+                <Chip key={key} small selected={i === 0}
+                  label={TASK_LABELS[key] || key}
+                  title={(i === 0 ? 'Main job. ' : '') + 'Show every workflow that does this'}
+                  onClick={() => showTask(key)} />
+              ))}
+              <Badge tone={wf.runs_on === 'api' ? 'info' : 'neutral'}
+                title={wf.runs_on === 'api'
+                  ? 'A paid partner-API node does the work on someone else\'s servers'
+                  : 'Runs on the models on this machine'}
+              >
+                {RUNS_ON_LABELS[wf.runs_on] || 'Local models'}
+              </Badge>
             </div>
           </Section>
         ) : null}

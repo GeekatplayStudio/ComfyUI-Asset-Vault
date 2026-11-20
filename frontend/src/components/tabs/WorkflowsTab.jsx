@@ -10,7 +10,9 @@ import Button from '../common/Button.jsx'
 import FileOpsModal from '../modals/FileOpsModal.jsx'
 import OpenInComfyUIDialog from '../modals/OpenInComfyUIDialog.jsx'
 import { useVault } from '../../state/VaultContext.jsx'
-import { SORTS, GROUPS } from '../../state/actions.js'
+import {
+  SORTS, GROUPS, WORKFLOW_TASKS, TASK_LABELS, RUNS_ON_LABELS
+} from '../../state/actions.js'
 
 /*
  * WorkflowsTab - user workflows, official templates and the example graphs that
@@ -27,6 +29,13 @@ const ORIGIN_LABELS = {
   official_template: 'ComfyUI templates'
 }
 const TEMPLATES = ['official_template']
+/* How the active-filter pills read. A module constant, so the hook's memo
+   never sees a new object per render. */
+const FILTER_LABELS = {
+  task: { title: 'What it does', values: TASK_LABELS },
+  runs_on: { title: 'Runs on', values: RUNS_ON_LABELS },
+  origin: { title: 'Source', values: ORIGIN_LABELS }
+}
 export default function WorkflowsTab({ onStatus, onOpenUid, onLightbox, registerApi }) {
   const { state, dispatch, toast } = useVault()
   const [op, setOp] = useState(null)
@@ -40,7 +49,8 @@ export default function WorkflowsTab({ onStatus, onOpenUid, onLightbox, register
     loader: (query, signal) => api.workflows(query, signal),
     onStatus,
     onOpen: open,
-    registerApi
+    registerApi,
+    filterLabels: FILTER_LABELS
   })
 
   const {
@@ -52,6 +62,13 @@ export default function WorkflowsTab({ onStatus, onOpenUid, onLightbox, register
   const baseFacet = useResource(
     'workflow-base:' + JSON.stringify(view.filters),
     (s) => api.workflows({ ...view.filters, group: 'base_model', limit: 1 }, s),
+    { epoch: state.dataEpoch }
+  )
+  /* What the workflows in view can do. The server leaves the task filter out of
+     the task counts, so picking "Upscale" never turns every other chip to 0. */
+  const tasksRes = useResource(
+    'workflow-tasks:' + JSON.stringify(view.filters),
+    (s) => api.workflowTasks(view.filters, s),
     { epoch: state.dataEpoch }
   )
   const originsRes = useResource('workflow-origins',
@@ -97,7 +114,17 @@ export default function WorkflowsTab({ onStatus, onOpenUid, onLightbox, register
   useEffect(() => { setRequestOp(requestOp) }, [requestOp, setRequestOp])
 
   const facetDefs = useMemo(() => {
+    const counts = tasksRes.data || {}
+    const taskValues = (counts.tasks || WORKFLOW_TASKS).map((t) => ({
+      value: t.key, label: t.label || TASK_LABELS[t.key] || t.key, count: t.count
+    }))
+    const runsValues = ['local', 'api'].map((key) => {
+      const row = (counts.runs_on || []).find((r) => r.key === key)
+      return { value: key, label: RUNS_ON_LABELS[key], count: row ? row.count : undefined }
+    })
     const defs = [
+      buildFacet('task', 'What it does', taskValues, WORKFLOW_TASKS.length),
+      buildFacet('runs_on', 'Runs on', runsValues, 2),
       buildFacet('origin', 'Source', Object.keys(ORIGIN_LABELS).map((key) => ({
         value: key, label: ORIGIN_LABELS[key], count: originCounts[key]
       })), 3),
@@ -118,7 +145,7 @@ export default function WorkflowsTab({ onStatus, onOpenUid, onLightbox, register
       .map((g) => ({ value: g.key, label: g.label || g.key, count: g.count }))
     if (bases.length) defs.push(buildFacet('base_model', 'Base', bases, 8))
     return defs
-  }, [baseFacet.data, buildFacet, buildBoolFacet, originCounts])
+  }, [baseFacet.data, tasksRes.data, buildFacet, buildBoolFacet, originCounts])
 
   const broken = state.stats ? state.stats.workflows_broken : null
   const templateCount = originCounts.official_template ||

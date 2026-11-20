@@ -53,7 +53,8 @@ export const SORTS = {
     { value: '-name', label: 'Name Z-A' },
     { value: '-nodes', label: 'Most nodes' },
     { value: '-missing', label: 'Most missing deps' },
-    { value: '-size', label: 'Largest first' }
+    { value: '-size', label: 'Largest first' },
+    { value: 'task', label: 'What it does' }
   ],
   outputs: [
     { value: '-created', label: 'Newest first' },
@@ -82,9 +83,38 @@ export const GROUPS = {
     'hash_state', 'integrity', 'first_letter', 'date'],
   node_packages: ['none', 'author', 'official', 'enabled', 'update_state'],
   node_classes: ['none', 'category', 'package'],
-  workflows: ['none', 'folder', 'base_model', 'runnable', 'date'],
+  workflows: ['none', 'task', 'folder', 'base_model', 'runnable', 'date'],
   outputs: ['none', 'folder', 'date', 'model', 'media_kind', 'album', 'first_letter']
 }
+
+/** Group options whose humanised key would read badly ("Task"). */
+export const GROUP_LABELS = {
+  task: 'What it does'
+}
+
+/*
+ * What a workflow does (API_CONTRACT 5, schema v11). Keys are frozen API
+ * values; the server sends the same labels, these cover a cold first paint.
+ */
+export const WORKFLOW_TASKS = [
+  { key: 'text_to_image', label: 'Text to image' },
+  { key: 'image_edit', label: 'Image edit' },
+  { key: 'upscale', label: 'Upscale' },
+  { key: 'remove_background', label: 'Remove background' },
+  { key: 'face', label: 'Face & character' },
+  { key: 'controlnet', label: 'ControlNet & pose' },
+  { key: 'text_to_video', label: 'Text to video' },
+  { key: 'image_to_video', label: 'Image to video' },
+  { key: 'video_edit', label: 'Video edit' },
+  { key: 'lip_sync', label: 'Lip sync & talking' },
+  { key: 'three_d', label: '3D' },
+  { key: 'audio', label: 'Audio & speech' },
+  { key: 'llm', label: 'Text & LLM' },
+  { key: 'design', label: 'Vector & design' },
+  { key: 'utility', label: 'Utilities' }
+]
+export const TASK_LABELS = Object.fromEntries(WORKFLOW_TASKS.map((t) => [t.key, t.label]))
+export const RUNS_ON_LABELS = { local: 'Local models', api: 'Paid API' }
 
 /* C10/C11 progressive disclosure: the storage tab is one workspace with five
    layers, navigated from the rail exactly like an album. Summary first. */
@@ -345,6 +375,7 @@ export function makeGroupKey(scope, group) {
   }
   if (scope === 'workflows') {
     switch (group) {
+      case 'task': return (i) => i.primary_task || ''
       case 'folder': return (i) => i.folder || ''
       case 'base_model': return (i) => i.base_model || 'Unknown'
       case 'runnable': return (i) => (i.is_runnable ? 'Runnable' : 'Missing dependencies')

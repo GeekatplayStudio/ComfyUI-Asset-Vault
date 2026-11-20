@@ -157,6 +157,8 @@ export const api = {
 
   /* ---------------------------------------------------------- workflows */
   workflows: (query, signal) => get('/workflows', query, signal),
+  /* Counts per task and per runs_on under the other filters in force (2.6). */
+  workflowTasks: (query, signal) => get('/workflows/tasks', query, signal),
   workflow: (id, signal) => get('/workflows/' + id, null, signal),
   workflowGraph: (id, format, signal) => get('/workflows/' + id + '/graph', { format }, signal),
   workflowDependencies: (id, signal) => get('/workflows/' + id + '/dependencies', null, signal),

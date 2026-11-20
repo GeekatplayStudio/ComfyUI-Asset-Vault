@@ -23,8 +23,9 @@ from ...config import PARSER_VERSION_WORKFLOW
 from ...core import config_service
 from ...core import db as dbmod
 from ...core.fingerprint import file_fingerprint
+from ...core.migrations import m011_workflow_tasks
 from ...core.pathsafe import Root, long_path, path_key, safe_relpath
-from ...parsers import official_templates, workflow_graph, workflow_origin
+from ...parsers import official_templates, workflow_graph, workflow_origin, workflow_tasks
 from ..service import commit_batches, map_parallel
 from ..walker import walk_json
 
@@ -170,6 +171,7 @@ def _upsert(conn: sqlite3.Connection, work: WorkflowWork) -> int | None:
     wf_id = int(row["id"])
     if work.origin == "official_template":
         _upsert_template(conn, wf_id, work, now)
+    _store_tasks(conn, wf_id, work, title)
 
     conn.execute("DELETE FROM workflow_nodes WHERE workflow_id = ?", (wf_id,))
     if r.node_types:
@@ -204,6 +206,21 @@ def _upsert(conn: sqlite3.Connection, work: WorkflowWork) -> int | None:
              b(r.node_types[class_type], kind="int")),
         )
     return wf_id
+
+
+def _store_tasks(conn: sqlite3.Connection, wf_id: int, work: WorkflowWork,
+                 title: str | None) -> None:
+    """What the workflow does and where it runs (schema v11)."""
+    r = work.result
+    tpl = work.template
+    result = workflow_tasks.classify(
+        (r.all_classes or set(r.node_types)) if r else {},
+        names=(work.name, title),
+        is_template=work.origin == "official_template",
+        template_tags=tpl.tags if tpl else None,
+        template_category=tpl.category if tpl else None,
+        open_source=tpl.open_source if tpl else None)
+    m011_workflow_tasks.write(conn, wf_id, result)
 
 
 def _upsert_template(conn: sqlite3.Connection, wf_id: int, work: WorkflowWork,

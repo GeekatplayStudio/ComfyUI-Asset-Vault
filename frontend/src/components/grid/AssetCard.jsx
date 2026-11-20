@@ -253,13 +253,18 @@ export function presentAsset(item, scope) {
         sub: item.base_model && item.base_model !== 'Unknown' ? item.base_model : null
       },
       meta: [
+        item.primary_task_label,
         (item.counts && item.counts.nodes) + ' nodes',
         item.base_model && item.base_model !== 'Unknown' ? item.base_model : null,
         broken ? (missingNodes + missingModels) + ' missing' : 'runnable'
       ].filter(Boolean),
       badges: [
+        taskBadge(item),
         item.base_model && item.base_model !== 'Unknown'
           ? { key: 'base', node: <Badge tone="base" overlay>{item.base_model}</Badge> }
+          : null,
+        item.runs_on === 'api'
+          ? { key: 'api', node: <Badge tone="info" overlay title="A paid partner-API node does the work, not your local models">API</Badge> }
           : null,
         matchBadge(item)
       ].filter(Boolean),
@@ -322,6 +327,22 @@ export function presentAsset(item, scope) {
   }
 }
 
+/* The workflow's main job ("Upscale", "Image to video"), as a card badge. */
+export function taskBadge(item) {
+  if (!item.primary_task_label) return null
+  return {
+    key: 'task',
+    node: (
+      <Badge tone="role" overlay
+        title={'What it does: ' + item.primary_task_label +
+          (item.tasks && item.tasks.length > 1 ? ' (+' + (item.tasks.length - 1) + ' more)' : '')}
+      >
+        {item.primary_task_label}
+      </Badge>
+    )
+  }
+}
+
 /*
  * An official ComfyUI template. A missing model here is not breakage - it is a
  * download the owner has not made yet - so the card reads "needs N models"
@@ -331,7 +352,7 @@ export function presentTemplate(item) {
   const t = item.template || {}
   const missingNodes = (item.counts && item.counts.missing_nodes) || 0
   const missingModels = (item.counts && item.counts.missing_models) || 0
-  const paidApi = t.open_source === false
+  const paidApi = t.open_source === false || item.runs_on === 'api'
   const ready = !missingNodes && !missingModels
   const state = ready
     ? { tone: 'dep-satisfied', text: paidApi ? 'API' : 'ready' }
@@ -352,12 +373,13 @@ export function presentTemplate(item) {
       type: 'template', sub: t.category || null
     },
     meta: [
-      t.category,
+      item.primary_task_label || t.category,
       paidApi ? 'partner API' : (t.required_size ? bytes(t.required_size) + ' of models' : null),
       item.counts_outputs ? item.counts_outputs + ' outputs' : null
     ].filter(Boolean),
     badges: [
       { key: 'tpl', node: <Badge tone="brand" overlay title="Official ComfyUI template - read-only">template</Badge> },
+      taskBadge(item),
       paidApi ? { key: 'api', node: <Badge tone="info" overlay title="Runs on a partner API, not on local models">API</Badge> } : null,
       matchBadge(item)
     ].filter(Boolean),

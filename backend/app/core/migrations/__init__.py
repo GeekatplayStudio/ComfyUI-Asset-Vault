@@ -20,6 +20,7 @@ from . import (
     m008_extra_outputs,
     m009_model_created,
     m010_official_templates,
+    m011_workflow_tasks,
 )
 
 log = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ log = logging.getLogger(__name__)
 MIGRATIONS = (m001_initial, m002_import_legacy, m003_album_identity,
               m004_workflow_origin, m005_enable_jobs, m006_provided_nodes,
               m007_community_stats, m008_extra_outputs, m009_model_created,
-              m010_official_templates)
+              m010_official_templates, m011_workflow_tasks)
 
 
 def current_version(conn: sqlite3.Connection) -> int:

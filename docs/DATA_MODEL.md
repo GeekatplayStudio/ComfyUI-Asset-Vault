@@ -1358,3 +1358,50 @@ that is 4,870 of 2,245,866 rows; the migration itself took 11.8 s on a 2.4 GB da
 
 Rebuilt so `workflows` and `workflows_broken` exclude official templates, with a new `templates`
 column. `workflows_broken` also gains the `missing_since IS NULL` filter it always lacked.
+## 23. What each workflow does (v11)
+
+`PRAGMA user_version = 11`, applied by `m011_workflow_tasks` (2.6.0). Forward-only and
+non-destructive: three columns are appended to `workflows` and one table is created.
+
+### 23.1 Columns
+
+| Column | Type | Meaning |
+|---|---|---|
+| `workflows.tasks_json` | TEXT | JSON list of task keys, main job first. Never empty once classified. |
+| `workflows.primary_task` | TEXT | The first of those. Indexed; used for `group=task` and `sort=task`. |
+| `workflows.runs_on` | TEXT | `local` or `api` (a paid partner-API node does the work). Indexed. |
+
+### 23.2 `workflow_tasks`
+
+`(workflow_id, task)`, primary key on both, `WITHOUT ROWID`, `ON DELETE CASCADE` from
+`workflows`, plus `ix_workflow_tasks_task (task, workflow_id)`. One row per task, so the
+`task` filter and the per-task counts of `GET /workflows/tasks` are index lookups, not JSON scans.
+
+### 23.3 How a workflow is classified (`parsers/workflow_tasks.py`)
+
+Keys, in display and sort order: `text_to_image`, `image_edit`, `upscale`,
+`remove_background`, `face`, `controlnet`, `text_to_video`, `image_to_video`, `video_edit`,
+`lip_sync`, `three_d`, `audio`, `llm`, `design`, `utility`. They are frozen API values.
+
+1. **Official templates.** ComfyUI's own `index.json` tags decide ("Image Upscale", "Remove
+   Background", "Image to Video" ...). The category ("Image Tools", "3D Model" ...) is the
+   fallback. `openSource: false` or an `API` tag means `runs_on = api`.
+2. **Everything else.** The node classes decide, including classes inside subgraph
+   definitions. A workflow that wraps its pipeline in one subgraph shows only `SaveImage` at
+   the top level. Partner-API providers are matched as a class-name **prefix**
+   (`KlingTextToVideoNode`, `IdeogramV3`), so `IndividualPrompt` and `ImageNoise` stay local.
+   `ImageScaleBy` (a resize) and `LatentUpscale` (a hires-fix step) are not upscaling.
+3. **The main job** is the first task found in this order: 3D, lip sync, image to video, text
+   to video, video edit, audio, text to image, upscale, remove background, image edit, face,
+   ControlNet, design, LLM, utility. A text-to-image graph with a hires pass stays text to image.
+   "Load, upscale with a model, refine with img2img" is an upscale workflow.
+4. **File-name hints** (`upscale`, `rembg`, `i2v`, `t2v`, `inpaint` ...) only choose the main
+   job among the tasks the graph shows, or replace a bare `utility`. They never override lip
+   sync or 3D. `..._I2V_InfiniteTalk` is a lip-sync workflow.
+
+The migration backfills every existing row from `workflow_nodes`, the stored `graph_json`
+(skipped above 4 MB) and `workflow_templates`, so tasks show on the first start without a
+scan. The indexer rewrites them whenever it writes a workflow row.
+
+Measured on the reference vault (943 workflows): 689 templates (420 on a partner API), 210
+bundled examples and 44 of the owner's own, classified in under a second.

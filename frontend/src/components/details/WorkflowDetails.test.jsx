@@ -59,4 +59,10 @@ describe('WorkflowDetails', () => {
     expect(screen.getByRole('button', { name: /Open in ComfyUI/ })).toBeInTheDocument()
   })
 
+  it('lists what the workflow does, main job first', async () => {
+    render(<WorkflowDetails id={945} onOpenUid={vi.fn()} onLightbox={vi.fn()} />)
+    const main = await screen.findByRole('button', { name: 'Image to video' })
+    expect(main).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Image edit' })).toBeInTheDocument()
+  })
 })
