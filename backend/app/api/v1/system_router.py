@@ -307,6 +307,7 @@ def system_stats() -> dict:
         "official_node_classes": int(official.page.get("total") or 0),
         "workflows": int(stats.get("workflows") or 0),
         "workflows_broken": int(stats.get("workflows_broken") or 0),
+        "templates": int(stats.get("templates") or 0),
         "outputs": int(stats.get("outputs") or 0),
         "outputs_bytes": int(stats.get("outputs_bytes") or 0),
         "inputs": inputs,

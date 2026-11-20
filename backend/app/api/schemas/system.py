@@ -259,8 +259,11 @@ class VaultStats(Lenient):
     node_packages: int
     node_classes: int
     official_node_classes: int
+    #: Your workflows and bundled examples; official templates are not counted.
     workflows: int
     workflows_broken: int
+    #: Official ComfyUI templates, indexed read-only (schema v10).
+    templates: int = 0
     outputs: int
     outputs_bytes: int
     inputs: int

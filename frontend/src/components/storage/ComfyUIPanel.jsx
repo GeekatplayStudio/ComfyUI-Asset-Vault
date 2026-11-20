@@ -9,6 +9,7 @@ import MetaRow from '../details/MetaRow.jsx'
 import { SkeletonRows } from '../common/Skeleton.jsx'
 import UpdateDialog from './UpdateDialog.jsx'
 import { count as fmtCount, humanise, dateTime } from '../../services/format.js'
+import { useVault } from '../../state/VaultContext.jsx'
 
 /*
  * ComfyUIPanel - which ComfyUI is installed, whether a newer one exists, and
@@ -77,6 +78,7 @@ function LatestState({ latest }) {
 export default function ComfyUIPanel(props) {
   const { info, latest, plan, templates, loading, error, onRefresh, onCheckLatest } = props
   const [updating, setUpdating] = useState(false)
+  const { dispatch } = useVault()
 
   if (error) {
     return (
@@ -276,7 +278,19 @@ export default function ComfyUIPanel(props) {
               </div>
               <div className="gp-callout gp-callout--info">
                 <span className="gp-callout__icon"><FileJson aria-hidden="true" /></span>
-                <div className="gp-callout__body">{templates.note}</div>
+                <div className="gp-callout__body">
+                  {templates.note}
+                  <div className="gp-callout__actions">
+                    <Button size="sm" label="Browse them in Workflows"
+                      title="Official templates, linked to your models and the images made from them"
+                      onClick={() => {
+                        dispatch({ type: 'clear-filters', tab: 'workflows' })
+                        dispatch({ type: 'set-filter', tab: 'workflows', field: 'origin',
+                          value: ['official_template'] })
+                        dispatch({ type: 'set-tab', tab: 'workflows' })
+                      }} />
+                  </div>
+                </div>
               </div>
             </div>
           </>

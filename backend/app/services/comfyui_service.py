@@ -820,9 +820,13 @@ def template_catalogue(install: Install | None = None, *, limit: int = 100,
         result["reason"] = str(exc)[:200]
         return result
 
+    from ..parsers.official_templates import is_index_file
+
     needle = (q or "").strip().lower()
     for entry in entries:
-        if not entry.name.endswith(".json"):
+        # index.json and its translations sit beside the templates; they are the
+        # catalogue's own table of contents, not templates (17 of them at 0.11.x).
+        if not entry.name.endswith(".json") or is_index_file(entry.name):
             continue
         template_id = entry.name[:-5]
         meta = by_id.get(template_id) or {}
@@ -848,12 +852,41 @@ def template_catalogue(install: Install | None = None, *, limit: int = 100,
 
     result["bundles"] = [{"key": k, "count": v} for k, v in sorted(bundles.items())]
     result["total"] = len(items)
-    result["items"] = items[offset:offset + max(1, min(500, int(limit)))]
+    page = items[offset:offset + max(1, min(500, int(limit)))]
+    _attach_indexed(page)
+    result["items"] = page
     result["note"] = (
-        "Shipped with ComfyUI itself and listed read-only. They are not indexed "
-        "as vault assets, so vault file operations can never touch them."
+        "Shipped with ComfyUI itself. Indexed read-only and linked to your models "
+        "and images; vault file operations never touch them."
     )
     return result
+
+
+def _attach_indexed(items: list[dict]) -> None:
+    """Give each catalogue entry the uid and readiness of its indexed row."""
+    if not items:
+        return
+    from ..core.pathsafe import path_key
+
+    keys = {path_key(i["path"]): i for i in items}
+    ph = ",".join("?" * len(keys))
+    try:
+        rows = dbmod.rows(
+            dbmod.get_ro(),
+            f"SELECT id, path_key, title, missing_model_count, missing_node_count "  # noqa: S608
+            f"FROM workflows WHERE origin = 'official_template' AND path_key IN ({ph})",
+            list(keys))
+    except Exception:  # noqa: BLE001 - the catalogue never fails on the index
+        return
+    for r in rows:
+        item = keys.get(r["path_key"])
+        if item is None:
+            continue
+        item["uid"] = f"workflow:{r['id']}"
+        if r["title"]:
+            item["title"] = r["title"]
+        item["missing_models"] = int(r["missing_model_count"] or 0)
+        item["ready"] = not (r["missing_model_count"] or r["missing_node_count"])
 
 
 def _load_manifest(site: Path, install: Install) -> dict:

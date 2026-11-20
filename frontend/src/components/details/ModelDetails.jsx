@@ -13,7 +13,7 @@ import { CommunityStars } from '../grid/AssetCard.jsx'
 import ComponentBreakdown from './ComponentBreakdown.jsx'
 import Annotations from './Annotations.jsx'
 import HashStatus from './HashStatus.jsx'
-import UsageList from './UsageList.jsx'
+import UsageList, { TemplateUsageList } from './UsageList.jsx'
 import {
   bytes, params, dateTime, humanise, count as fmtCount
 } from '../../services/format.js'
@@ -391,10 +391,21 @@ export default function ModelDetails({ id, onOpenUid, onLightbox }) {
           aside={<span className="gp-u-fs-10 gp-u-meta">
             {fmtCount((model.usage && model.usage.workflow_count) || 0)} workflows /
             {' '}{fmtCount((model.usage && model.usage.output_count) || 0)} outputs
+            {model.usage && model.usage.template_count
+              ? ' / ' + fmtCount(model.usage.template_count) + ' templates' : ''}
           </span>}
         >
           <UsageList usage={usage.data} onOpenUid={onOpenUid} compact />
         </Section>
+
+        {usage.data && usage.data.templates && usage.data.templates.length ? (
+          <Section title={'ComfyUI templates using it (' + usage.data.templates.length + ')'}>
+            <p className="gp-u-fs-11 gp-u-muted gp-u-mb-4">
+              Official examples that load this model. Ready ones need nothing else.
+            </p>
+            <TemplateUsageList templates={usage.data.templates} onOpenUid={onOpenUid} />
+          </Section>
+        ) : null}
 
         <Section title="File">
           <div className="gp-meta">

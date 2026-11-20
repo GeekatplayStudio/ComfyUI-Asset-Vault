@@ -376,6 +376,8 @@ A class that has *any* Python strategy behind it stays `python` even when its pa
 ## 6. Workflows
 
 > **Schema v4** adds `origin` and `origin_package` to this table — see §15.1.
+> **Schema v10** adds `graph_uuid`, indexes official templates here as read-only rows with no
+> root, and adds the `workflow_templates` detail table — see §22.
 
 ```sql
 CREATE TABLE workflows (
@@ -1285,3 +1287,74 @@ allowlist lives in `enable/hosts.py`. Editing this file changes *what is asked*,
 
 A refresh re-reads this file when it finishes and updates only `sources`, `last_run`,
 `first_seen` and newly learned repositories, so a pin added or removed while it ran is kept.
+
+---
+
+## 22. Official templates as read-only workflow rows (v10)
+
+`PRAGMA user_version = 10`, applied by `m010_official_templates` (2.5.0). Forward-only and
+non-destructive like v4: columns appended with `ALTER TABLE`, one table created, one view
+rebuilt. No row is deleted and no table holding the owner's ratings, tags or notes is rebuilt.
+
+ComfyUI's official templates (the `comfyui_workflow_templates*` distributions inside the
+interpreter that runs it) become ordinary `workflows` rows with `origin = 'official_template'`.
+They have **no root** (`root_id IS NULL`), so they are never a move target and never appear in a
+per-root count; `rel_path` is `templates/<name>.json` and `folder` is the `index.json` category
+(`Image`, `Video`, `3D Model`, …). `fingerprint` carries the templates package version
+(`…|tpl:0.1.137`), so an update of the package re-reads them even when a file's bytes did not
+change. `preview_path` points at the template's own `<name>-1.webp` in a media distribution.
+
+### 22.1 New columns
+
+| Column | Meaning |
+|---|---|
+| `workflows.graph_uuid` | The frontend's top-level graph `id`. A template keeps it when opened, so a saved copy and every image rendered from either carry the same value. Lower-cased; only id-shaped values (hex and dashes, 8–64 chars) are stored. Partial index `ix_workflows_graph_uuid`. |
+| `outputs.workflow_uuid` | The same id, read from the UI workflow embedded in a PNG (`workflow` tEXt chunk) or a video's sidecar `.json`. Partial index `ix_outputs_workflow_uuid`. |
+| `models.template_count` | Official templates that reference the model — counted apart from `workflow_count` so the Storage "unused models" query (`workflow_count = 0 AND output_count = 0`) still means "used by none of *your* workflows or images". |
+
+`outputs.workflow_id` has existed since v1 but the link phase always reset it to `NULL`: the
+structural `workflow_hash` cannot match an output to a UI graph (converting a UI graph to API form
+does not reproduce the prompt ComfyUI queued). From v10 it is set by `graph_uuid` — the owner's own
+workflow first, then a bundled one, then the template, newest first — with a partial index
+`ix_outputs_workflow_id`.
+
+### 22.2 `workflow_templates`
+
+One row per template workflow (`workflow_id` → `workflows.id`, `ON DELETE CASCADE`): what the
+templates' own `index.json` and `manifest.json` publish.
+
+| Column | Source |
+|---|---|
+| `template_name` | file stem = `index.json` `name` = manifest `id` |
+| `bundle` | manifest `bundle` (`media-image`, `media-api`, …) |
+| `package_version` | version of the distribution holding the JSON |
+| `category`, `category_group` | the `index.json` category `title` and `category` (`Image` / `Foundation`) |
+| `media_type`, `description`, `tags_json`, `model_families_json` | `mediaType`, `description`, `tags`, `models` |
+| `required_size` | `size` — bytes of model data the template needs |
+| `open_source` | `openSource`; `0` marks a paid partner-API template |
+| `tutorial_url`, `min_comfyui`, `released_on`, `usage_rank` | `tutorialUrl`, `minComfyUIVersion`, `date`, `usage` |
+| `model_downloads_json` | every `properties.models` entry in the graph, subgraphs included: `{name, directory, url, via_class}`; `url` is kept only when it is `https` |
+| `thumbnails_json` | absolute paths of `<name>-1.*` and `<name>-2.*` |
+
+The published `description` is also written to `workflows.description` with
+`description_source = 'official'`, unless the owner has written one.
+
+### 22.3 Dependencies from `properties.models`
+
+`PARSER_VERSION_WORKFLOW` is 5. A model a node declares in `properties.models` that the widget
+walk did not find — typically a loader inside a subgraph — is added to `workflow_dependencies`
+with `via_input = 'properties.models'` and `ref_category` = the declared `directory`, matched by
+basename so a declaration never duplicates a reference already found. This applies to every
+workflow, not only templates.
+
+### 22.4 The targeted output re-read
+
+`PARSER_VERSION_OUTPUT` is 5, but only outputs that carry a ComfyUI graph can yield a workflow id.
+The migration stamps every other row (`metadata_format` not `comfy_prompt` / `comfy_workflow`) as
+already at version 5, so the next scan re-reads only those that can. On the reference library
+that is 4,870 of 2,245,866 rows; the migration itself took 11.8 s on a 2.4 GB database.
+
+### 22.5 `v_vault_stats`
+
+Rebuilt so `workflows` and `workflows_broken` exclude official templates, with a new `templates`
+column. `workflows_broken` also gains the `missing_since IS NULL` filter it always lacked.

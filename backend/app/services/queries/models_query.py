@@ -364,6 +364,7 @@ def get_model(model_id: int, conn: sqlite3.Connection | None = None) -> dict | N
         "recommended_settings": json_obj(full["recommended_settings_json"]),
         "download": {"url": full["download_url"], "source": "civitai" if full["download_url"] else None},
         "usage": {"workflow_count": int(full["workflow_count"] or 0),
+                  "template_count": int(full["template_count"] or 0),
                   "output_count": int(full["output_count"] or 0),
                   "top_workflows": usage["workflows"][:5]},
         "user_notes": full["user_notes"],
@@ -382,11 +383,14 @@ def model_usage(model_id: int, limit: int = 50, offset: int = 0,
                 conn: sqlite3.Connection | None = None) -> dict:
     conn = conn or dbmod.get_ro()
     limit, offset = clamp_page(limit, offset)
+    # Your workflows and bundled examples.  Official templates are listed apart
+    # below: they say "ComfyUI has an example for this", not "you use this".
     rows = dbmod.rows(
         conn,
         "SELECT w.id, w.name, w.rel_path, d.occurrences, d.via_class, d.via_input, "
         "d.match_method FROM workflow_dependencies d JOIN workflows w "
-        "ON w.id = d.workflow_id WHERE d.model_id = ? ORDER BY w.name LIMIT ? OFFSET ?",
+        "ON w.id = d.workflow_id WHERE d.model_id = ? AND w.origin <> 'official_template' "
+        "ORDER BY w.name LIMIT ? OFFSET ?",
         (int(model_id), limit, offset),
     )
     by_wf: dict[int, dict] = {}
@@ -398,8 +402,26 @@ def model_usage(model_id: int, limit: int = 50, offset: int = 0,
         entry["occurrences"] += int(r["occurrences"] or 1)
         entry["via"].append({"class": r["via_class"], "input": r["via_input"]})
     total_wf = int(dbmod.scalar(
-        conn, "SELECT COUNT(DISTINCT workflow_id) FROM workflow_dependencies "
-              "WHERE model_id = ?", (int(model_id),)) or 0)
+        conn, "SELECT COUNT(DISTINCT d.workflow_id) FROM workflow_dependencies d "
+              "JOIN workflows w ON w.id = d.workflow_id "
+              "WHERE d.model_id = ? AND w.origin <> 'official_template'",
+        (int(model_id),)) or 0)
+    templates = [
+        {"uid": f"workflow:{r['id']}", "name": r["name"],
+         "title": r["title"] or r["name"], "category": r["category"],
+         "ready": not (r["missing_node_count"] or r["missing_model_count"]),
+         "missing_models": int(r["missing_model_count"] or 0),
+         "thumbnail_url": thumb_url(f"workflow:{r['id']}", 160)}
+        for r in dbmod.rows(
+            conn, "SELECT DISTINCT w.id, w.name, w.title, w.missing_node_count, "
+                  "w.missing_model_count, t.category FROM workflow_dependencies d "
+                  "JOIN workflows w ON w.id = d.workflow_id "
+                  "LEFT JOIN workflow_templates t ON t.workflow_id = w.id "
+                  "WHERE d.model_id = ? AND w.origin = 'official_template' "
+                  "AND w.missing_since IS NULL "
+                  "ORDER BY w.missing_model_count, w.title COLLATE NOCASE LIMIT 50",
+            (int(model_id),))
+    ]
 
     out_count = int(dbmod.scalar(
         conn, "SELECT COUNT(*) FROM outputs WHERE model_id = ?", (int(model_id),)) or 0)
@@ -413,6 +435,7 @@ def model_usage(model_id: int, limit: int = 50, offset: int = 0,
     ]
     return {
         "workflows": list(by_wf.values()),
+        "templates": templates,
         "outputs": {"count": out_count, "recent": recent},
         "page": page_dict(limit, offset, total_wf, len(by_wf)),
     }

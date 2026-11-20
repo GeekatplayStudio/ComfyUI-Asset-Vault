@@ -137,7 +137,10 @@ class ModelGroups(Lenient):
 
 
 class ModelUsage(Lenient):
+    #: Your workflows and bundled examples that reference the model.
     workflows: list[dict[str, Any]] = []
+    #: Official ComfyUI templates that reference it (schema v10), best-ready first.
+    templates: list[dict[str, Any]] = []
     outputs: dict[str, Any] = {}
     page: PageInfo
 

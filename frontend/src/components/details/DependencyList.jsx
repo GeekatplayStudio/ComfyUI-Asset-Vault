@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Package, Box, ExternalLink, Search } from 'lucide-react'
+import { Package, Box, ExternalLink, Search, Download } from 'lucide-react'
 import Badge, { DepBadge } from '../common/Badge.jsx'
 import Button from '../common/Button.jsx'
 import EmptyState from '../common/EmptyState.jsx'
@@ -13,6 +13,11 @@ import { humanise } from '../../services/format.js'
  * package to install rather than leaving the user with a bare class name.
  * Fuzzy name matches are inference, so they carry the violet "~" treatment.
  */
+
+/** Only an https link is ever rendered as one. */
+export function isHttps(url) {
+  return typeof url === 'string' && /^https:\/\/[^\s]+$/i.test(url)
+}
 
 function ModelRow({ dep, onOpenUid }) {
   const [open, setOpen] = useState(false)
@@ -42,6 +47,27 @@ function ModelRow({ dep, onOpenUid }) {
         <div className="gp-u-mt-4">
           <Button size="sm" variant="ghost" label="Open model"
             onClick={() => onOpenUid(dep.uid)} />
+        </div>
+      ) : null}
+
+      {dep.status !== 'satisfied' && dep.download && isHttps(dep.download.url) ? (
+        /* Where the graph itself says the file comes from - ComfyUI's own
+           templates declare it. A link the owner follows, never a download
+           the vault starts on its own. */
+        <div className="gp-u-mt-4 gp-u-row gp-u-gap-3 gp-u-wrap">
+          <a className="gp-btn gp-btn--sm" href={dep.download.url}
+            target="_blank" rel="noreferrer noopener"
+            title={dep.download.url}>
+            <Download className="gp-btn__icon" aria-hidden="true" />
+            <span className="gp-btn__label">
+              Get it{dep.download.host ? ' from ' + dep.download.host : ''}
+            </span>
+          </a>
+          {dep.download.directory ? (
+            <span className="gp-u-fs-10 gp-u-meta">
+              save into models/{dep.download.directory}
+            </span>
+          ) : null}
         </div>
       ) : null}
 
@@ -133,7 +159,7 @@ function NodeRow({ dep, onOpenUid }) {
   )
 }
 
-export default function DependencyList({ deps, onOpenUid }) {
+export default function DependencyList({ deps, onOpenUid, subject = 'workflow' }) {
   const [filter, setFilter] = useState('missing')
   if (!deps) return null
 
@@ -181,8 +207,8 @@ export default function DependencyList({ deps, onOpenUid }) {
           icon={Package}
           title={filter === 'missing' ? 'Nothing missing' : 'No dependencies recorded'}
           text={filter === 'missing'
-            ? 'Every model and node this workflow references was found on disk.'
-            : 'This workflow does not reference any model or custom node.'}
+            ? 'Every model and node this ' + subject + ' references was found on disk.'
+            : 'This ' + subject + ' does not reference any model or custom node.'}
         />
       ) : null}
 

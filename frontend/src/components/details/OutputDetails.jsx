@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react'
 import {
-  AlertTriangle, FolderOpen, Download, Maximize2, Star, Copy, Check, FileJson
+  AlertTriangle, FolderOpen, Download, Maximize2, Star, Copy, Check, FileJson, LayoutTemplate
 } from 'lucide-react'
 import api, { thumbnailUrl, downloadUrl } from '../../services/api.js'
 import useResource from '../../hooks/useResource.js'
@@ -249,6 +249,13 @@ export default function OutputDetails({ id, onOpenUid, onLightbox }) {
         <Section title="Source">
           <div className="gp-meta">
             <MetaRow label="model" value={out.model_name} />
+            {/* Both traced from the graph id ComfyUI embeds in the file. They can
+                differ: a saved copy of a template keeps the template's id. */}
+            {out.workflow && (!out.template || out.workflow.uid !== out.template.uid)
+              ? <MetaRow label="workflow" value={out.workflow.title || out.workflow.name} /> : null}
+            {out.template
+              ? <MetaRow label="template" value={out.template.title +
+                (out.template.category ? ' (' + out.template.category + ')' : '')} /> : null}
             <MetaRow label="workflow hash" value={out.workflow_hash} wrap />
             <MetaRow label="metadata" value={out.metadata_format} />
           </div>
@@ -256,8 +263,13 @@ export default function OutputDetails({ id, onOpenUid, onLightbox }) {
             {out.model_uid ? (
               <Button size="sm" label="Open model" onClick={() => onOpenUid(out.model_uid)} />
             ) : null}
-            {out.workflow_uid ? (
+            {out.workflow_uid && (!out.template || out.workflow_uid !== out.template.uid) ? (
               <Button size="sm" label="Open workflow" onClick={() => onOpenUid(out.workflow_uid)} />
+            ) : null}
+            {out.template ? (
+              <Button size="sm" icon={LayoutTemplate} label="Open template"
+                title="The official ComfyUI template this was made from"
+                onClick={() => onOpenUid(out.template.uid)} />
             ) : null}
             {out.graph_available ? (
               <Button size="sm" variant="ghost" icon={FileJson} label="Save as workflow"

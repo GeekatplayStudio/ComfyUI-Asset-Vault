@@ -63,6 +63,12 @@ class OutputDetail(OutputItem):
     loras: list[dict[str, Any]] = []
     all_models: list[dict[str, Any]] = []
     workflow_hash: str | None = None
+    #: The UI graph id embedded in the file (schema v10).
+    workflow_uuid: str | None = None
+    #: The workflow file that rendered it - yours first, then bundled, then the template.
+    workflow: dict[str, Any] | None = None
+    #: The official ComfyUI template it was rendered from, directly or via a saved copy.
+    template: dict[str, Any] | None = None
     abs_path: str | None = None
     color_mode: str | None = None
     has_alpha: bool | None = None

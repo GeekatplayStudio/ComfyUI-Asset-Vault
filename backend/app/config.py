@@ -11,7 +11,7 @@ from pathlib import Path
 
 APP_NAME = "Geekatplay ComfyUI Asset Vault"
 AUTHOR = "Geekatplay Studio - Vladimir Chopine"
-VERSION = "2.4.1"
+VERSION = "2.5.0"
 
 API_PREFIX = "/api/v1"
 DEFAULT_PORT = 8127
@@ -23,13 +23,16 @@ LEGACY_DB_PATH = DATA_DIR / "asset_vault.db"
 THUMB_DIR = DATA_DIR / "thumbs"
 EMBED_MODEL_DIR = DATA_DIR / "models" / "all-MiniLM-L6-v2"
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 # Parser versions.  Bumping one forces a targeted re-parse of that kind only.
 PARSER_VERSION_MODEL = 4
 PARSER_VERSION_NODE = 5
-PARSER_VERSION_WORKFLOW = 4
-PARSER_VERSION_OUTPUT = 4
+#: 5 - graph_uuid and declared ``properties.models`` (schema v10).
+PARSER_VERSION_WORKFLOW = 5
+#: 5 - the embedded UI workflow's id (schema v10).  m010 stamps rows without a
+#: ComfyUI graph as current, so only those with one are re-read.
+PARSER_VERSION_OUTPUT = 5
 
 TRASH_DIRNAME = ".vault-trash"
 #: Where a download that failed verification is parked (C9 / SECURITY_REVIEW R4).

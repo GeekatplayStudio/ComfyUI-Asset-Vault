@@ -1,8 +1,14 @@
 """Phase 5 - workflow ``.json`` files.
 
 Scans BOTH ``<root>\\workflows`` and ``<root>\\user\\default\\workflows``
-(DECISIONS D5), plus every ``custom_nodes/*/[example_]workflows`` tree and any
-user-added directory.  All graph reads go through ``graph_utils`` (B1).
+(DECISIONS D5), plus every ``custom_nodes/*/[example_]workflows`` tree, any
+user-added directory, and - since schema v10 - ComfyUI's official templates
+from the ``comfyui_workflow_templates*`` distributions.  All graph reads go
+through ``graph_utils`` (B1).
+
+Template rows are read-only by construction: they carry no root (so no move
+target and no root-relative path), ``origin = 'official_template'``, and
+``services/file_ops.py`` refuses every mutation on them.
 """
 
 from __future__ import annotations
@@ -17,8 +23,8 @@ from ...config import PARSER_VERSION_WORKFLOW
 from ...core import config_service
 from ...core import db as dbmod
 from ...core.fingerprint import file_fingerprint
-from ...core.pathsafe import Root, path_key, safe_relpath
-from ...parsers import workflow_graph, workflow_origin
+from ...core.pathsafe import Root, long_path, path_key, safe_relpath
+from ...parsers import official_templates, workflow_graph, workflow_origin
 from ..service import commit_batches, map_parallel
 from ..walker import walk_json
 
@@ -32,8 +38,6 @@ SNIFF_BYTES = 64 * 1024
 
 
 def _looks_like_workflow(path: str) -> bool:
-    from ...core.pathsafe import long_path
-
     try:
         with open(long_path(path), "rb") as fh:
             head = fh.read(SNIFF_BYTES)
@@ -48,7 +52,7 @@ class WorkflowWork:
     name: str
     rel_path: str
     folder: str
-    root_id: int
+    root_id: int | None
     size: int
     mtime_ns: int
     fingerprint: str
@@ -56,6 +60,10 @@ class WorkflowWork:
     origin_package: str | None = None
     result: workflow_graph.WorkflowResult | None = None
     deps: list[dict] = field(default_factory=list)
+    #: Set only for official templates.
+    template: official_templates.TemplateMeta | None = None
+    template_version: str | None = None
+    thumbnails: list[str] = field(default_factory=list)
 
 
 def _sources(ctx) -> list[tuple[Path, Root]]:
@@ -101,6 +109,9 @@ def _upsert(conn: sqlite3.Connection, work: WorkflowWork) -> int | None:
     if r is None or not r.ok:
         return None
     s = r.summary
+    tpl = work.template
+    title = (tpl.title if tpl and tpl.title else None) or r.title
+    preview = work.thumbnails[0] if work.thumbnails else None
     values = (
         b(work.root_id, kind="int"), b(work.abs_path), b(path_key(work.abs_path)),
         b(work.rel_path), b(work.folder), b(work.name), "file",
@@ -109,13 +120,14 @@ def _upsert(conn: sqlite3.Connection, work: WorkflowWork) -> int | None:
         b(r.schema_version), b(r.node_count, kind="int"), b(r.link_count, kind="int"),
         b(r.group_count, kind="int"), b(r.has_subgraphs),
         b(r.subgraph_count, kind="int"),
-        b(r.title), b(r.author), b(r.capability_tags, kind="json"),
+        b(title), b(r.author), b(r.capability_tags, kind="json"),
         b(s.positive_prompt if s else None), b(s.negative_prompt if s else None),
         b(workflow_graph.prompt_summary(s)),
         b(r.base_model_family), b(r.modality),
         b(r.graph_json, kind="json"), b(r.graph_truncated),
         b(work.size, kind="int"), b(work.mtime_ns, kind="int"), b(work.fingerprint),
         b(PARSER_VERSION_WORKFLOW, kind="int"), b(r.unresolved_inputs, kind="int"),
+        b(r.graph_uuid), b(preview),
         b(now, kind="int"), b(now, kind="int"),
     )
     conn.execute(
@@ -125,9 +137,14 @@ def _upsert(conn: sqlite3.Connection, work: WorkflowWork) -> int | None:
         "subgraph_count,title,"
         "author,capability_tags_json,positive_prompt,negative_prompt,prompt_summary,"
         "base_model_family,modality,graph_json,graph_truncated,size,mtime_ns,fingerprint,"
-        "parser_version,unresolved_inputs,created_at,updated_at) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+        "parser_version,unresolved_inputs,graph_uuid,preview_path,created_at,updated_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
         "ON CONFLICT(path_key) DO UPDATE SET root_id=excluded.root_id, "
+        "graph_uuid=excluded.graph_uuid, "
+        # A user's own preview (set by the thumbnail picker) is never replaced;
+        # a template's preview always follows the installed package.
+        "preview_path=CASE WHEN excluded.origin='official_template' "
+        "THEN excluded.preview_path ELSE workflows.preview_path END, "
         "abs_path=excluded.abs_path, rel_path=excluded.rel_path, folder=excluded.folder, "
         "name=excluded.name, origin=excluded.origin, "
         "origin_package=excluded.origin_package, format=excluded.format, "
@@ -151,6 +168,8 @@ def _upsert(conn: sqlite3.Connection, work: WorkflowWork) -> int | None:
     if row is None:
         return None
     wf_id = int(row["id"])
+    if work.origin == "official_template":
+        _upsert_template(conn, wf_id, work, now)
 
     conn.execute("DELETE FROM workflow_nodes WHERE workflow_id = ?", (wf_id,))
     if r.node_types:
@@ -187,10 +206,97 @@ def _upsert(conn: sqlite3.Connection, work: WorkflowWork) -> int | None:
     return wf_id
 
 
+def _upsert_template(conn: sqlite3.Connection, wf_id: int, work: WorkflowWork,
+                     now: int) -> None:
+    """What ``index.json`` and the manifest say about one official template."""
+    b = dbmod.bind
+    t = work.template or official_templates.TemplateMeta(name=work.name)
+    r = work.result
+    downloads = [m for m in (r.declared_models if r else []) if m.get("name")]
+    conn.execute(
+        "INSERT INTO workflow_templates(workflow_id,template_name,bundle,package_version,"
+        "category,category_group,media_type,description,tags_json,model_families_json,"
+        "model_downloads_json,required_size,open_source,tutorial_url,min_comfyui,"
+        "released_on,usage_rank,thumbnails_json,updated_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+        "ON CONFLICT(workflow_id) DO UPDATE SET template_name=excluded.template_name, "
+        "bundle=excluded.bundle, package_version=excluded.package_version, "
+        "category=excluded.category, category_group=excluded.category_group, "
+        "media_type=excluded.media_type, description=excluded.description, "
+        "tags_json=excluded.tags_json, model_families_json=excluded.model_families_json, "
+        "model_downloads_json=excluded.model_downloads_json, "
+        "required_size=excluded.required_size, open_source=excluded.open_source, "
+        "tutorial_url=excluded.tutorial_url, min_comfyui=excluded.min_comfyui, "
+        "released_on=excluded.released_on, usage_rank=excluded.usage_rank, "
+        "thumbnails_json=excluded.thumbnails_json, updated_at=excluded.updated_at",
+        (wf_id, b(work.name), b(t.bundle), b(work.template_version), b(t.category),
+         b(t.category_group), b(t.media_type), b(t.description), b(t.tags, kind="json"),
+         b(t.model_families, kind="json"), b(downloads, kind="json"),
+         b(t.required_size, kind="int"),
+         None if t.open_source is None else (1 if t.open_source else 0),
+         b(t.tutorial_url), b(t.min_comfyui), b(t.released_on),
+         b(t.usage_rank, kind="int"), b(work.thumbnails, kind="json"), b(now, kind="int")),
+    )
+    # The published description is a measured fact about the template, not an
+    # inference, so it fills the row's own description slot - unless the owner
+    # has written one.
+    if t.description:
+        conn.execute(
+            "UPDATE workflows SET description = ?, description_source = 'official' "
+            "WHERE id = ? AND (description IS NULL OR description_source IN "
+            "('official','derived'))", (b(t.description), wf_id))
+
+
+def _template_work(ctx, existing: dict[str, tuple[str, int]], seen: set[str],
+                   stats: dict) -> list[WorkflowWork]:
+    """Work items for ComfyUI's official templates (schema v10)."""
+    source = official_templates.locate(config_service.comfyui_root(ctx.cfg), fresh=True)
+    if source is None:
+        stats["templates"] = {"available": False}
+        return []
+    out: list[WorkflowWork] = []
+    found = 0
+    for path in source.template_files():
+        abs_path = str(path)
+        key = path_key(abs_path)
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            st = os.stat(long_path(abs_path))
+        except OSError:
+            continue
+        found += 1
+        # The package version is part of the fingerprint: an update of the
+        # templates distribution can change index.json (titles, tags) without
+        # touching a template file's bytes.
+        fp = (f"{file_fingerprint(abs_path, st.st_size, st.st_mtime_ns)}"
+              f"|tpl:{source.package_version or '?'}")
+        prev = existing.get(key)
+        if not ctx.force and prev and prev[0] == fp and prev[1] == PARSER_VERSION_WORKFLOW:
+            ctx.bump(skipped=1)
+            continue
+        name = path.stem
+        meta = source.meta.get(name)
+        out.append(WorkflowWork(
+            abs_path=abs_path, name=name, rel_path=f"templates/{path.name}",
+            folder=(meta.category if meta and meta.category else "templates"),
+            root_id=None, size=int(st.st_size), mtime_ns=int(st.st_mtime_ns),
+            fingerprint=fp, origin="official_template", origin_package=None,
+            template=meta, template_version=source.package_version,
+            thumbnails=source.thumbnails(name),
+        ))
+    stats["templates"] = {"available": True, "found": found,
+                          "package": source.package, "version": source.package_version}
+    return out
+
+
 def run(ctx) -> dict:
     t0 = time.perf_counter()
     sources = _sources(ctx)
-    if not sources:
+    tpl_stats: dict = {}
+    if not sources and official_templates.locate(
+            config_service.comfyui_root(ctx.cfg)) is None:
         return {"found": 0, "parsed": 0}
 
     conn = dbmod.get_ro()
@@ -229,10 +335,15 @@ def run(ctx) -> dict:
                 origin=origin, origin_package=origin_package,
             ))
 
+    # Official templates last: a user folder that happens to contain a copy of
+    # one keeps its own (user) row, because `seen` already holds its path.
+    work.extend(_template_work(ctx, existing, seen, tpl_stats))
+    found += int((tpl_stats.get("templates") or {}).get("found") or 0)
+
     ctx.items_total += len(work)
     if not work:
         return {"found": found, "parsed": 0, "skipped": found,
-                "ignored_json": not_workflow_files,
+                "ignored_json": not_workflow_files, **tpl_stats,
                 "elapsed_ms": int((time.perf_counter() - t0) * 1000)}
 
     analyzed = map_parallel(ctx, ctx.ex_io, _analyze, work, phase="workflows",
@@ -262,6 +373,6 @@ def run(ctx) -> dict:
     return {
         "found": found, "parsed": len(ready), "not_workflows": not_workflows,
         "ignored_json": not_workflow_files, "skipped": found - len(work),
-        "sources": len(sources),
+        "sources": len(sources), **tpl_stats,
         "elapsed_ms": int((time.perf_counter() - t0) * 1000),
     }

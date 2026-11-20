@@ -13,21 +13,35 @@ import time
 from ...core import db as dbmod
 
 _RESET_COUNTS = (
-    "UPDATE models SET workflow_count = 0, output_count = 0",
+    "UPDATE models SET workflow_count = 0, output_count = 0, template_count = 0",
     "UPDATE node_classes SET workflow_count = 0",
     "UPDATE node_packages SET workflow_count = 0",
 )
 
+# Official templates (schema v10) are linked like any workflow, but they are
+# ComfyUI's examples, not the owner's work.  Counting them as "workflows using
+# this" would empty the Storage "unused models" list of every model a template
+# happens to name, so they get a count of their own (``template_count``).  The
+# clause is written out in each statement rather than spliced in, so every
+# statement here stays a plain literal.
+
 _DERIVED_COUNTS = (
     """UPDATE models SET workflow_count = COALESCE((
            SELECT COUNT(DISTINCT d.workflow_id) FROM workflow_dependencies d
-           WHERE d.model_id = models.id), 0)""",
+           WHERE d.model_id = models.id AND d.workflow_id IN (
+             SELECT id FROM workflows WHERE origin <> 'official_template')), 0)""",
+    """UPDATE models SET template_count = COALESCE((
+           SELECT COUNT(DISTINCT d.workflow_id) FROM workflow_dependencies d
+           WHERE d.model_id = models.id AND d.workflow_id IN (
+             SELECT id FROM workflows WHERE origin = 'official_template'
+             AND missing_since IS NULL)), 0)""",
     """UPDATE models SET output_count = COALESCE((
            SELECT COUNT(DISTINCT om.output_id) FROM output_models om
            WHERE om.model_id = models.id), 0)""",
     """UPDATE node_classes SET workflow_count = COALESCE((
            SELECT COUNT(DISTINCT d.workflow_id) FROM workflow_dependencies d
-           WHERE d.node_class_id = node_classes.id), 0)""",
+           WHERE d.node_class_id = node_classes.id AND d.workflow_id IN (
+             SELECT id FROM workflows WHERE origin <> 'official_template')), 0)""",
     """UPDATE node_packages SET workflow_count = COALESCE((
            SELECT COUNT(DISTINCT nc.workflow_count > 0) FROM node_classes nc
            WHERE nc.package_id = node_packages.id AND nc.workflow_count > 0), 0)""",
@@ -170,11 +184,24 @@ def _link_outputs(conn: sqlite3.Connection) -> dict:
         "WHERE om.output_id = outputs.id AND om.model_id IS NOT NULL "
         "ORDER BY CASE WHEN om.role='lora' THEN 1 ELSE 0 END, om.ref_name LIMIT 1)"
     )
-    # Outputs -> workflows via the structural graph hash.
+    # Outputs -> workflows via the UI graph's id (schema v10).  The structural
+    # hash cannot do this: a UI graph converted to API form does not reproduce
+    # the prompt ComfyUI actually queued, so it matched nothing.  The id does -
+    # ComfyUI keeps it from the moment a graph is saved or a template opened.
+    # Several rows can share one id (a saved copy of a template has the
+    # template's id); the owner's own file wins, then a bundled one, then the
+    # template itself.  Both statements touch only rows a partial index names.
     conn.execute(
-        "UPDATE outputs SET workflow_id = NULL WHERE workflow_id IS NOT NULL"
-    )
-    return {"output_model_links": matched}
+        "UPDATE outputs SET workflow_id = NULL "
+        "WHERE workflow_id IS NOT NULL AND workflow_uuid IS NULL")
+    conn.execute(
+        "UPDATE outputs SET workflow_id = (SELECT w.id FROM workflows w "
+        "WHERE w.graph_uuid = outputs.workflow_uuid AND w.missing_since IS NULL "
+        "ORDER BY CASE w.origin WHEN 'user' THEN 0 WHEN 'bundled' THEN 1 ELSE 2 END, "
+        "w.mtime_ns DESC, w.id LIMIT 1) WHERE workflow_uuid IS NOT NULL")
+    traced = int(conn.execute(
+        "SELECT COUNT(*) FROM outputs WHERE workflow_id IS NOT NULL").fetchone()[0])
+    return {"output_model_links": matched, "output_workflow_links": traced}
 
 
 def run(ctx) -> dict:
@@ -195,7 +222,8 @@ def run(ctx) -> dict:
                 "UPDATE node_packages SET workflow_count = COALESCE((SELECT COUNT(*) "
                 "FROM (SELECT DISTINCT d.workflow_id FROM workflow_dependencies d "
                 "JOIN node_classes nc ON nc.id = d.node_class_id "
-                "WHERE nc.package_id = node_packages.id)), 0)"
+                "WHERE nc.package_id = node_packages.id AND d.workflow_id IN ("
+                "SELECT id FROM workflows WHERE origin <> 'official_template'))), 0)"
             )
             conn.commit()
         except BaseException:

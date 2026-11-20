@@ -229,6 +229,10 @@ export function presentAsset(item, scope) {
     }
   }
 
+  if (scope === 'workflows' && item.origin === 'official_template') {
+    return presentTemplate(item)
+  }
+
   if (scope === 'workflows') {
     const missingNodes = (item.counts && item.counts.missing_nodes) || 0
     const missingModels = (item.counts && item.counts.missing_models) || 0
@@ -315,6 +319,56 @@ export function presentAsset(item, scope) {
       { key: 'size', num: true, node: bytes(item.size) }
     ],
     favorite: item.favorite
+  }
+}
+
+/*
+ * An official ComfyUI template. A missing model here is not breakage - it is a
+ * download the owner has not made yet - so the card reads "needs N models"
+ * in a calm tone instead of the red "missing" a broken workflow of theirs gets.
+ */
+export function presentTemplate(item) {
+  const t = item.template || {}
+  const missingNodes = (item.counts && item.counts.missing_nodes) || 0
+  const missingModels = (item.counts && item.counts.missing_models) || 0
+  const api = t.open_source === false
+  const ready = !missingNodes && !missingModels
+  const state = ready
+    ? { tone: 'dep-satisfied', text: api ? 'API' : 'ready' }
+    : missingNodes
+      ? { tone: 'warn', text: missingNodes + ' node' + (missingNodes === 1 ? '' : 's') + ' missing' }
+      : { tone: 'warn', text: 'needs ' + missingModels + ' model' + (missingModels === 1 ? '' : 's') }
+  return {
+    uid: item.uid,
+    title: item.title || item.name,
+    subtitle: t.category || 'ComfyUI template',
+    icon: Workflow,
+    wide: true,
+    inferred: false,
+    missing: Boolean(item.missing),
+    error: false,
+    face: {
+      Icon: Workflow, cls: 'default', bar: ready ? 'ok' : 'neutral',
+      type: 'template', sub: t.category || null
+    },
+    meta: [
+      t.category,
+      api ? 'partner API' : (t.required_size ? bytes(t.required_size) + ' of models' : null),
+      item.counts_outputs ? item.counts_outputs + ' outputs' : null
+    ].filter(Boolean),
+    badges: [
+      { key: 'tpl', node: <Badge tone="brand" overlay title="Official ComfyUI template - read-only">template</Badge> },
+      api ? { key: 'api', node: <Badge tone="info" overlay title="Runs on a partner API, not on local models">API</Badge> } : null,
+      matchBadge(item)
+    ].filter(Boolean),
+    corner: [{ key: 'state', node: <Badge tone={state.tone} overlay>{state.text}</Badge> }],
+    rowCells: [
+      { key: 'base', node: <Badge tone="brand">template</Badge> },
+      { key: 'nodes', num: true, node: (item.counts && item.counts.nodes) || 0 },
+      { key: 'folder', grow: true, node: t.category || '' },
+      { key: 'state', node: <Badge tone={state.tone}>{state.text}</Badge> }
+    ],
+    favorite: false
   }
 }
 

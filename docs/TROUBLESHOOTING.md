@@ -391,6 +391,18 @@ The reports are available at `GET /api/v1/workflows/{id}/dependencies` and
 
 ---
 
+## ComfyUI templates do not show up, or show no images
+
+| Symptom | Cause and fix |
+|---|---|
+| No **ComfyUI templates** button in the Workflows tab | Either no scan has run since upgrading to 2.5 — run one — or the templates are not installed where the vault looks. It looks for `python_embeded`, `venv` or `.venv` beside or inside the ComfyUI folder, then `Lib\site-packages\comfyui_workflow_templates_json\templates`. A ComfyUI that runs on a system-wide Python has no interpreter of its own to look in; Storage → ComfyUI says *no bundled interpreter found for this install*. |
+| Templates are listed but some have no preview | The preview is the template's own `<name>-1.webp` from the `comfyui_workflow_templates_media_*` packages. A ComfyUI update that skipped a media package leaves a few without one (7 of 689 on the reference install). |
+| A template says **needs N models** | Not an error: those are models you have not downloaded. Each one in its dependency report links to where ComfyUI downloads it and names the folder it goes in. If you *do* have the file under a different name, the report's close matches will show it. |
+| An image does not say which template or workflow made it | Linking uses the graph id ComfyUI embeds in a PNG (or a video's sidecar `.json`). Files saved without metadata, re-encoded, or produced by a node that writes its own format carry none. Images from before the 2.5 upgrade are re-read once, on the first scan after it. |
+| Rename / move / delete refuses a template | By design. Templates are ComfyUI's own installed files; the vault only reads them. Open one in ComfyUI and save a copy to make it yours. |
+
+---
+
 ## The UI stutters briefly during a full reindex
 
 **A known, open issue. It is documented here rather than hidden.**

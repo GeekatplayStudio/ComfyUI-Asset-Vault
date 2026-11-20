@@ -159,9 +159,9 @@ A row is **fresh** iff `stored.fingerprint == computed.fingerprint` **and** `sto
 | 2 | `diff` | main | 1 | Set-difference against `asset_files`-equivalent columns. Produces `to_parse`, `to_touch`, `to_prune`. |
 | 3 | `models` | `EX_IO` | 8 | Header parse + arch detect. |
 | 4 | `nodes` | `EX_AST` | 4 | Official core + custom packages. |
-| 5 | `workflows` | `EX_IO` | 4 | JSON + embedded-graph media. |
-| 6 | `outputs` | `EX_IMG` | 6 | Dimensions + embedded generation metadata. |
-| 7 | `links` | `T_WRITER` | 1 | Resolve `workflow_dependencies`, `output_models`, node-class → package. Pure SQL. |
+| 5 | `workflows` | `EX_IO` | 4 | JSON + embedded-graph media. *(2.5)* Also ComfyUI's official templates, read-only (§3.9). |
+| 6 | `outputs` | `EX_IMG` | 6 | Dimensions + embedded generation metadata, including the UI graph's id (`workflow_uuid`). |
+| 7 | `links` | `T_WRITER` | 1 | Resolve `workflow_dependencies`, `output_models`, node-class → package, and *(2.5)* output → workflow by graph id. Pure SQL. |
 | 8 | `index` | `T_WRITER` + `EX_EMBED` | 1 + 1 | FTS5 upserts (sync) + embedding enqueue (async). |
 | 9 | `prune` | `T_WRITER` | 1 | Soft-delete rows whose files vanished (`missing_since`), hard-delete after 30 days. |
 
@@ -216,6 +216,32 @@ def bind(v, *, kind: str = "text"):
 
 * `IndexerService.cancel(job_id)` sets a `threading.Event`. Every worker checks it between items; every phase checks it between batches. Cancellation is observed within one batch (~0.3 s).
 * Committed batches survive. `scan_jobs.phase_cursor` (JSON) records the last completed phase and the offset within it. A restart after a crash finds `status='running'` with a stale `heartbeat_at`, marks it `interrupted`, and the next scan resumes from `phase_cursor` — but because phase 2 (`diff`) is fingerprint-driven and idempotent, resumption is naturally correct even without the cursor. The cursor is a fast path, not a correctness requirement.
+
+### 3.9 Official templates *(2.5, schema v10)*
+
+ComfyUI ships its templates as Python distributions inside the interpreter that runs it.
+`parsers/official_templates.py` locates them from the configured install — `python_embeded`,
+`venv` or `.venv` beside or inside it, then `Lib/site-packages` — and reads, never imports:
+
+* `comfyui_workflow_templates_json/templates/*.json` (older installs: a single
+  `comfyui_workflow_templates`), skipping `index.json` and its translations;
+* `index.json` for title, description, category, tags, model families, size, local vs. API;
+* `comfyui_workflow_templates_core/manifest.json` for the bundle;
+* `comfyui_workflow_templates_media_*/templates/<name>-1.*` for the preview.
+
+The workflows phase indexes each template as an ordinary row with `origin = 'official_template'`
+and **no root**, so the existing dependency ladder resolves its models and the links phase can
+attach outputs to it. Linking runs on the graph id, not the structural hash: the frontend stamps
+every graph with a UUID, keeps it when a template is opened, and embeds the graph in each PNG it
+saves — measured on the reference install, 448 of 2,590 sampled renders matched a template by id,
+while the structural hash matched none. The owner's own file wins a shared id, then a bundled
+example, then the template.
+
+Templates are read-only by three independent facts: the row has no root (so no move target and no
+root-relative path), `file_ops` refuses rename / move / delete on `origin = 'official_template'`,
+and `resolve_file` serves one only when its path is exactly a file of the located template folder.
+Counts stay honest: `models.template_count` is separate from `workflow_count`, and
+`v_vault_stats.workflows` / `workflows_broken` exclude templates.
 
 ### 3.8 Auto-reindex
 

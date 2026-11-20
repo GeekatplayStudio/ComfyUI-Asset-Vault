@@ -17,9 +17,9 @@ Three origins, and only three:
 
 ``official_template``
     Shipped by ComfyUI itself in the ``comfyui_workflow_templates*`` distributions.
-    These are catalogued read-only (see ``services/comfyui_service.py``); they are
-    deliberately not indexed as vault rows, so this value does not normally appear
-    on a ``workflows`` row.
+    Since schema v10 these are indexed as **read-only** workflow rows (no root;
+    rename, move and delete refuse them) so their models and the images rendered
+    from them can be linked.  Their details live in ``workflow_templates``.
 """
 
 from __future__ import annotations
@@ -50,6 +50,8 @@ def classify(rel_path: str, abs_path: str | None = None) -> tuple[str, str | Non
     parts = _segments(rel_path)
     if len(parts) < 2 and abs_path:
         parts = _segments(abs_path)
+    if is_official_template_path(abs_path or rel_path):
+        return "official_template", None
 
     for i, part in enumerate(parts[:-1]):
         if part.lower() == CUSTOM_NODES and i + 1 < len(parts) - 1:
@@ -57,6 +59,21 @@ def classify(rel_path: str, abs_path: str | None = None) -> tuple[str, str | Non
             if package:
                 return "bundled", package
     return "user", None
+
+
+TEMPLATE_DIST_PREFIX = "comfyui_workflow_templates"
+
+
+def is_official_template_path(path: str | None) -> bool:
+    """``.../comfyui_workflow_templates*/templates/<name>.json`` - by shape only.
+
+    The read-only guarantee does not rest on this: file operations also check
+    the row's origin and that the path is inside the located template folder.
+    """
+    parts = [p.lower() for p in _segments(path or "")]
+    return (len(parts) >= 3 and parts[-2] == "templates"
+            and parts[-3].startswith(TEMPLATE_DIST_PREFIX)
+            and parts[-1].endswith(".json"))
 
 
 def label(origin: str, package: str | None) -> str:

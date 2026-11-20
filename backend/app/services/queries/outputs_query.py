@@ -44,6 +44,9 @@ class OutputFilters:
     media_kind: list[str] = field(default_factory=list)
     model_id: int | None = None
     workflow_id: int | None = None
+    #: A workflow id; matches every output carrying that workflow's graph id -
+    #: for a template that includes images rendered from saved copies of it.
+    from_workflow_graph: int | None = None
     album_id: int | None = None
     root_id: list[int] = field(default_factory=list)
     tag: list[str] = field(default_factory=list)
@@ -92,6 +95,9 @@ def _where(f: OutputFilters) -> Where:
     w.any_of("media_kind", f.media_kind)
     w.eq("model_id", f.model_id)
     w.eq("workflow_id", f.workflow_id)
+    if f.from_workflow_graph is not None:
+        w.add("workflow_uuid = (SELECT graph_uuid FROM workflows WHERE id = ? "
+              "AND graph_uuid IS NOT NULL)", int(f.from_workflow_graph))
     w.eq("album_id", f.album_id)
     w.any_of("root_id", f.root_id)
     w.bool_eq("favorite", f.favorite)
@@ -239,6 +245,7 @@ def get_output(output_id: int, conn: sqlite3.Connection | None = None) -> dict |
                         "uid": f"model:{r['model_id']}" if r["model_id"] else None}
                        for r in models],
         "workflow_hash": row["workflow_hash"],
+        **_source_workflow(conn, row),
         "abs_path": row["abs_path"],
         "color_mode": row["color_mode"], "has_alpha": row["has_alpha"],
         "frame_count": row["frame_count"],
@@ -257,6 +264,37 @@ def get_output(output_id: int, conn: sqlite3.Connection | None = None) -> dict |
                     "can_extract_workflow": bool(row["prompt_graph_json"])},
     })
     return item
+
+
+def _source_workflow(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
+    """Which workflow file - and which official template - rendered this output.
+
+    Both come from the graph id embedded in the image (schema v10).  The two can
+    differ: a saved copy of a template keeps the template's id, so an image
+    rendered from the copy names the copy as its workflow *and* the template it
+    was based on.
+    """
+    try:
+        wf_id, wf_uuid = row["workflow_id"], row["workflow_uuid"]
+    except (IndexError, KeyError):
+        return {"workflow": None, "template": None, "workflow_uuid": None}
+    workflow = template = None
+    if wf_id:
+        w = dbmod.one(conn, "SELECT id, name, title, origin FROM workflows WHERE id = ?",
+                      (int(wf_id),))
+        if w is not None:
+            workflow = {"uid": f"workflow:{w['id']}", "name": w["name"],
+                        "title": w["title"], "origin": w["origin"]}
+    if wf_uuid:
+        t = dbmod.one(
+            conn, "SELECT w.id, w.name, w.title, t.category FROM workflows w "
+                  "LEFT JOIN workflow_templates t ON t.workflow_id = w.id "
+                  "WHERE w.graph_uuid = ? AND w.origin = 'official_template' "
+                  "AND w.missing_since IS NULL LIMIT 1", (str(wf_uuid),))
+        if t is not None:
+            template = {"uid": f"workflow:{t['id']}", "name": t["name"],
+                        "title": t["title"] or t["name"], "category": t["category"]}
+    return {"workflow": workflow, "template": template, "workflow_uuid": wf_uuid}
 
 
 def output_graph(output_id: int, conn: sqlite3.Connection | None = None) -> dict | None:

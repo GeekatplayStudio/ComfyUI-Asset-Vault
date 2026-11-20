@@ -66,6 +66,9 @@ class OutputMeta:
     metadata_format: str | None = None
     summary: graph_utils.GraphSummary | None = None
     prompt_graph_json: str | None = None
+    #: The embedded UI workflow's top-level ``id`` (schema v10) - how an image
+    #: traces back to the workflow or official template that rendered it.
+    workflow_uuid: str | None = None
     error_code: str | None = None
     error_message: str | None = None
     raw_info: dict = field(default_factory=dict)
@@ -182,6 +185,7 @@ def read_image(path: str | Path, meta: OutputMeta) -> None:
         meta.metadata_format = "comfy_prompt" if prompt else "comfy_workflow"
         meta.summary = graph_utils.summarize_graph(prompt, workflow)
         meta.prompt_graph_json = _graph_json(prompt or workflow)
+        meta.workflow_uuid = _workflow_uuid(workflow)
         return
     params = info.get("parameters") or info.get("Parameters")
     if isinstance(params, str) and "Steps:" in params:
@@ -235,7 +239,24 @@ def _read_sidecar_graph(path: str | Path, meta: OutputMeta) -> None:
             meta.metadata_format = "comfy_prompt"
             meta.summary = s
             meta.prompt_graph_json = text
+            meta.workflow_uuid = _workflow_uuid(text)
         return
+
+
+def _workflow_uuid(workflow: object) -> str | None:
+    """The UI graph's ``id``.  Never raises; a graph past the cap is not parsed."""
+    from .official_templates import graph_uuid
+
+    if isinstance(workflow, (bytes, bytearray)):
+        workflow = workflow.decode("utf-8", "replace")
+    if isinstance(workflow, str):
+        if len(workflow) > GRAPH_CAP * 8:
+            return None
+        try:
+            workflow = json.loads(workflow)
+        except ValueError:
+            return None
+    return graph_uuid(workflow)
 
 
 def read_audio(path: str | Path, meta: OutputMeta) -> None:

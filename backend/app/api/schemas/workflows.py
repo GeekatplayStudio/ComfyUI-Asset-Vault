@@ -42,6 +42,16 @@ class WorkflowItem(Lenient):
     thumbnail_url: str | None = None
     counts_outputs: int | None = None
     missing: bool | None = None
+    #: 'user', 'bundled' or 'official_template' (C8.4; templates since schema v10).
+    origin: str | None = None
+    origin_package: str | None = None
+    origin_label: str | None = None
+    #: True for official templates: the vault never renames, moves or deletes them.
+    read_only: bool | None = None
+    #: Official templates only - what ComfyUI's index.json says about it.
+    template: dict[str, Any] | None = None
+    #: Your workflow is a saved copy of this official template (same graph id).
+    based_on_template: dict[str, Any] | None = None
 
 
 class WorkflowList(Lenient):
@@ -61,7 +71,13 @@ class WorkflowDetail(WorkflowItem):
     abs_path: str | None = None
     schema_version: str | None = None
     author: str | None = None
+    #: The frontend's top-level graph id; shared by a template, its saved
+    #: copies and every image rendered from them.
+    graph_uuid: str | None = None
+    #: Images traced back here, newest first.
     outputs_recent: list[dict[str, Any]] = []
+    #: Official templates only - your saved copies of it.
+    copies: list[dict[str, Any]] = []
     actions: dict[str, Any] | None = None
 
 

@@ -4,6 +4,70 @@ Geekatplay ComfyUI Asset Vault · **Geekatplay Studio — Vladimir Chopine**
 
 ---
 
+## 2.5.0 — 2026-11-20
+
+### Added — official ComfyUI templates, linked to your models and images
+
+The ~700 templates that ship inside ComfyUI's own Python (`comfyui_workflow_templates*`) were
+listed by filename only. They are now indexed **read-only** next to your workflows, so they link
+to everything else. USER_GUIDE §5 · DATA_MODEL §22 · ARCHITECTURE §3.9 · SECURITY_REVIEW §8.4.
+
+- **Templates → models.** Every model a template loads — including loaders inside subgraphs —
+  resolves against your library through the same matching ladder as your own workflows. A
+  template reads **ready** or **needs N models**; a missing model links to where ComfyUI
+  downloads it (*Get it from huggingface.co*) and names the `models/` folder it belongs in. Only
+  `https` links are kept, and the vault never downloads on its own. On the reference install:
+  744 of 1,042 template model references already resolve; 119 of 272 local templates are ready.
+- **Images → workflows and templates.** ComfyUI stamps every graph with an id, keeps it when a
+  template is opened, and embeds the graph in every PNG. Outputs now link back to the workflow
+  file that rendered them (yours first, then bundled, then the template) and to the template they
+  came from, even through a saved copy. This also fills **Open workflow** on outputs and **Outputs
+  from this workflow** on workflows, which were never populated before. On the reference install
+  771 outputs link to a workflow and 719 trace to a template.
+- **Your copies.** A workflow saved from a template says *Based on the ComfyUI template …*; the
+  template lists your copies.
+- **Models → templates.** A model's panel lists the templates that use it, ready ones first.
+- **Template details** from ComfyUI's `index.json`: title, description, category, tags, model
+  families, model size, local or partner **API**, minimum ComfyUI version, tutorial link, and the
+  template's own preview image as its thumbnail.
+- **Workflows tab:** a **ComfyUI templates** button, and Source (*Mine / Bundled with nodes /
+  ComfyUI templates*), **Ready to run** and **Has outputs** filters. The default list is unchanged:
+  your workflows and bundled examples.
+- **API:** `GET /workflows` gains `origin`, `ready`, `has_outputs` and `group=origin`; items gain
+  `read_only`, `template`, `based_on_template`; detail gains `graph_uuid`, `copies` and a filled
+  `outputs_recent`; dependency entries gain `download`. `GET /outputs` gains
+  `from_workflow_graph`; output detail gains `workflow`, `template`, `workflow_uuid`.
+  `GET /models/{id}/usage` gains `templates`; stats gain `templates`. **MCP** `list_workflows`
+  gains `origin` and `ready` inputs and `origin`, `read_only`, `output_count` outputs;
+  `vault_stats` gains `counts.templates`.
+
+### Changed
+
+- **Counts stay honest.** Template references are counted in a new `models.template_count`, not
+  in `workflow_count`, so **Storage → unused models** still means unused by *your* work. The
+  status-bar workflow count and **Needs attention** exclude templates; node packages' "used by"
+  counts exclude them too.
+- `workflows_broken` no longer counts workflows whose file has gone missing.
+- Any workflow's `properties.models` declarations now count as dependencies when the widget walk
+  misses them (loaders inside subgraphs), and supply the download link for a missing model.
+
+### Fixed
+
+- The template catalogue (Storage → ComfyUI, `GET /comfyui/templates`) listed `index.json` and
+  its 16 translations as if they were templates.
+
+### Upgrade notes
+
+- Schema **v10** (`m010_official_templates`): additive only — three columns, one table, one view
+  rebuilt. Measured at 11.8 s on a 2.4 GB vault.
+- The first scan after upgrading re-reads all workflows (cheap) and **only the outputs that carry
+  a ComfyUI graph** — 4,870 of 2.2 million on the reference library; every other output is
+  stamped current by the migration.
+- Templates appear after that first scan. Run one from the status bar, or wait for the automatic
+  scan at startup.
+
+---
+
 ## 2.4.1 — 2026-11-20
 
 A dependency-security refresh and a one-step install.

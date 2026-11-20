@@ -180,6 +180,48 @@ packages' `workflows/` and `example_workflows/` folders, plus graphs embedded in
 Each row is labelled by **origin** — yours, an official ComfyUI template, or bundled with a named
 package.
 
+The **Source** filter picks between them: *Mine*, *Bundled with nodes*, *ComfyUI templates*. With
+none picked the list shows your own workflows and the bundled examples — the official templates
+are one click away, behind the **ComfyUI templates** button, so close to 700 of them never bury
+your own work. **Ready to run** narrows any of them to the ones with nothing missing at all (every
+node class *and* every model on disk); **Outputs → Has outputs** to the ones that actually made
+something.
+
+### Official ComfyUI templates
+
+ComfyUI ships its templates inside the Python that runs it — the `comfyui_workflow_templates*`
+packages (on a portable build, under `python_embeded\Lib\site-packages`). Since 2.5 the vault
+indexes them like any workflow, so they are **linked to your models and to your images**:
+
+* **What a template needs, against what you have.** Its dependency report resolves every model it
+  loads — including loaders inside subgraphs — against your library. A card reads **ready** when
+  nothing is missing and **needs N models** when it is not: for a template that is a download you
+  have not made, not breakage, so it is never shown as a broken workflow. On the reference install
+  the vault already held every model for 119 of the 272 local templates.
+* **Where to get what is missing.** ComfyUI's templates declare, for each model, the folder it
+  belongs in and the address the ComfyUI frontend offers for it. The report shows both — **Get it
+  from huggingface.co**, *save into models/diffusion_models* — as a link you follow; nothing is
+  downloaded on its own. Only `https` addresses are ever shown.
+* **The images made from it.** ComfyUI stamps every graph with an id and keeps it when a template
+  is opened, and it embeds that graph in every PNG it saves. So an image traces back to the
+  template it came from — even when you rendered it from a saved copy. The template's panel shows
+  them; **Show them all in Outputs** opens the full set. On the reference install 17% of the
+  ComfyUI renders sampled came from an official template.
+* **Your copies.** A workflow you saved from a template says **Based on the ComfyUI template …**
+  and links to it; the template lists your copies.
+* **Which templates use a model.** A model's panel lists the templates that load it, ready ones
+  first. These are counted apart from your workflows, so **Storage → unused models** still means
+  "used by none of *your* workflows or images".
+* **What it is.** Title, description, category, tags, the model families it uses, how much model
+  data it needs, whether it runs on local models or a **partner API** (marked *API*), the oldest
+  ComfyUI it supports, and its tutorial link — all as ComfyUI's own `index.json` publishes them.
+* **Open in ComfyUI** opens a template by name (`?template=<name>&source=default`).
+
+Templates are **read-only**. They are ComfyUI's own installed files, so the vault never renames,
+moves or deletes them — the actions are refused, and the panel says why. **Download JSON** still
+works. To change one, open it in ComfyUI and save a copy; the copy is yours like any other
+workflow. When ComfyUI updates its template packages, the next scan picks the changes up.
+
 ### Why a workflow says it will not run
 
 Select a workflow and open its dependency report. The header states the totals — on one real
@@ -260,7 +302,11 @@ Click any output for the **lightbox**: full-resolution image, `←`/`→` to mov
 * the negative prompt,
 * seed, steps, CFG, sampler, scheduler,
 * the model that produced it, with **Open model** to jump straight to it in the Models tab,
-* **Open workflow** when the graph is recoverable from the file.
+* **Open workflow** — the workflow file that rendered it, traced from the graph id ComfyUI embeds
+  in every PNG it saves. Your own file wins when several share that id, then a bundled example,
+  then the template itself,
+* **Open template** when it was made from an official ComfyUI template, directly or through a
+  copy you saved.
 
 **Reveal** opens the containing folder. Where an output carries a full embedded graph you can
 extract it into a standalone workflow.

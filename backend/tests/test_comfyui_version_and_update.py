@@ -200,7 +200,9 @@ def test_official_templates_are_catalogued_read_only(portable):
     assert catalogue["total"] == 2
     assert {i["id"] for i in catalogue["items"]} == {"alpha_flow", "beta_flow"}
     assert all(i["origin"] == "official_template" for i in catalogue["items"])
-    assert "not indexed" in (catalogue["note"] or "")
+    # Indexed since 2.5, but still never touched by file operations (SECURITY_REVIEW 8.4).
+    note = catalogue["note"] or ""
+    assert "read-only" in note and "never touch" in note
 
 
 def test_template_catalogue_says_why_when_unavailable(tmp_path):

@@ -44,13 +44,25 @@ def _filters(
     missing_files_only: bool | None = Query(
         None, description="Return only workflows whose indexed file is missing."),
     untagged: bool | None = Query(None, description="Return only workflows with no tags."),
+    origin: list[str] | None = Query(
+        None, description="user, bundled, official_template. Omitted: yours and "
+                          "bundled - official templates appear only when named."),
+    ready: bool | None = Query(
+        None, description="true: no node class AND no model is missing."),
+    has_outputs: bool | None = Query(
+        None, description="true: at least one indexed output traces back to it."),
 ) -> dict[str, Any]:
+    for value in origin or []:
+        if value not in workflows_query.ORIGINS:
+            raise ApiError("VALIDATION_ERROR", f"Unknown origin '{value}'.",
+                           details={"allowed": list(workflows_query.ORIGINS)})
     raw = {"q": q, "smart": smart, "folder": folder, "base_model": base_model,
            "runnable": runnable, "missing_only": missing_only, "node_class": node_class,
            "model_id": model_id, "root_id": root_id, "album_id": album_id, "tag": tag,
            "size_min": size_min, "size_max": size_max, "date_from": date_from,
            "date_to": date_to, "include_missing": include_missing,
-           "missing_files_only": missing_files_only, "untagged": untagged}
+           "missing_files_only": missing_files_only, "untagged": untagged,
+           "origin": origin, "ready": ready, "has_outputs": has_outputs}
     return {k: v for k, v in raw.items() if v is not None}
 
 

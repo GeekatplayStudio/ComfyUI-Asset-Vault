@@ -51,6 +51,9 @@ def _filters(
     media_kind: list[str] | None = Query(None),
     model_id: int | None = Query(None),
     workflow_id: int | None = Query(None),
+    from_workflow_graph: int | None = Query(
+        None, description="A workflow id: every output carrying its graph id. For an "
+                          "official template this includes renders of saved copies."),
     album_id: int | None = Query(None),
     root_id: list[int] | None = Query(None),
     tag: list[str] | None = Query(None),
@@ -78,7 +81,8 @@ def _filters(
 ) -> dict[str, Any]:
     check_enum("media_kind", media_kind, MEDIA_KINDS)
     raw = {"q": q, "smart": smart, "folder": folder, "media_kind": media_kind,
-           "model_id": model_id, "workflow_id": workflow_id, "album_id": album_id,
+           "model_id": model_id, "workflow_id": workflow_id,
+           "from_workflow_graph": from_workflow_graph, "album_id": album_id,
            "root_id": root_id, "tag": tag, "favorite": favorite,
            "min_rating": min_rating, "has_metadata": has_metadata, "sampler": sampler,
            "seed": seed, "steps_min": steps_min, "steps_max": steps_max,

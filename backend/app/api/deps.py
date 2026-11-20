@@ -41,7 +41,7 @@ GROUP_VALUES: dict[str, tuple[str, ...]] = {
                "hash_state", "integrity", "first_letter", "date"),
     "node_packages": ("none", "author", "official", "enabled", "update_state"),
     "node_classes": ("none", "category", "package"),
-    "workflows": ("none", "folder", "base_model", "runnable", "date"),
+    "workflows": ("none", "folder", "base_model", "runnable", "date", "origin"),
     "outputs": ("none", "folder", "date", "model", "media_kind", "album", "first_letter"),
 }
 

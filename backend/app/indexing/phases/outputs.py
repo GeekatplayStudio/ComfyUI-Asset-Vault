@@ -75,6 +75,7 @@ def _upsert(conn: sqlite3.Connection, work: OutputWork) -> int | None:
         b(s.unresolved_count if s else 0, kind="int"),
         b(s.provenance if s else None, kind="json"),
         b(m.prompt_graph_json, kind="json"),
+        b(m.workflow_uuid),
         b(now, kind="int"), b(now, kind="int"),
     )
     conn.execute(
@@ -83,8 +84,8 @@ def _upsert(conn: sqlite3.Connection, work: OutputWork) -> int | None:
         "mtime_ns,created_at_file,fingerprint,parser_version,has_metadata,metadata_format,"
         "positive_prompt,negative_prompt,seed,steps,cfg,denoise,sampler,scheduler,"
         "model_name,workflow_hash,node_count,unresolved_inputs,provenance_json,"
-        "prompt_graph_json,created_at,updated_at) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+        "prompt_graph_json,workflow_uuid,created_at,updated_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
         "ON CONFLICT(path_key) DO UPDATE SET root_id=excluded.root_id, "
         "abs_path=excluded.abs_path, rel_path=excluded.rel_path, folder=excluded.folder, "
         "filename=excluded.filename, ext=excluded.ext, media_kind=excluded.media_kind, "
@@ -100,7 +101,8 @@ def _upsert(conn: sqlite3.Connection, work: OutputWork) -> int | None:
         "model_name=excluded.model_name, workflow_hash=excluded.workflow_hash, "
         "node_count=excluded.node_count, unresolved_inputs=excluded.unresolved_inputs, "
         "provenance_json=excluded.provenance_json, "
-        "prompt_graph_json=excluded.prompt_graph_json, updated_at=excluded.updated_at, "
+        "prompt_graph_json=excluded.prompt_graph_json, "
+        "workflow_uuid=excluded.workflow_uuid, updated_at=excluded.updated_at, "
         "missing_since=NULL",
         values,
     )

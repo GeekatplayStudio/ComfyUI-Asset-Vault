@@ -239,7 +239,7 @@ Body:
 ```json
 { "models":231,"model_files":231,"models_bytes":1649267441664,"models_hashed":0,
   "node_packages":36,"node_classes":1581,"official_node_classes":638,
-  "workflows":48,"workflows_broken":6,
+  "workflows":48,"workflows_broken":6,"templates":689,
   "outputs":3569,"outputs_bytes":18327364821,
   "inputs":223,"embedded":0,"integrity_issues":1,
   "by_category":[{"category":"diffusion_models","count":61,"bytes":812345678901},
@@ -247,6 +247,10 @@ Body:
   "by_base_model":[{"base_model":"FLUX.1","count":34},{"base_model":"WAN","count":22}],
   "last_scan":{"job_id":17,"finished_at":1766000000000,"duration_ms":18420,"errors":3} }
 ```
+*(2.5)* `workflows` and `workflows_broken` count your workflows and bundled examples only — an
+official template missing a model you never downloaded is not something that needs attention.
+`templates` counts the indexed official templates. `workflows_broken` also no longer counts rows
+whose file has gone missing.
 
 ### `GET /api/v1/system/health`
 `200` — the Health drawer.
@@ -466,10 +470,17 @@ The `actions` block is authoritative — the UI **enables buttons from it** rath
 { "workflows":[{"uid":"workflow:12","name":"flux_basic","rel_path":"flux_basic.json",
                 "occurrences":2,"via":[{"class":"CheckpointLoaderSimple","input":"ckpt_name"}],
                 "match_method":"exact_relpath"}],
+  "templates":[{"uid":"workflow:264","name":"image_flux2_text_to_image_9b",
+                "title":"FLUX.2 [klein] 9B: Text to Image","category":"Image",
+                "ready":true,"missing_models":0,
+                "thumbnail_url":"/api/v1/files/thumbnail?uid=workflow:264&size=160"}],
   "outputs":{"count":128,"recent":[{"uid":"output:930","filename":"Anima_00021_.png",
              "created_at":1765000000000,"thumbnail_url":"/api/v1/files/thumbnail?uid=output:930&size=160"}]},
   "page":{…} }
 ```
+*(2.5)* `workflows` lists your workflows and bundled examples; official ComfyUI templates that
+load the model are in `templates` (up to 50, nothing-missing first) and are not counted in
+`page.total`. The model detail's `usage` gains `template_count` beside `workflow_count`.
 
 ### `POST /api/v1/models/{id}/refresh-metadata`
 Body `{"force":false}`. Requires `hash_state='done'` and `online_enabled`.
@@ -569,7 +580,22 @@ items. `?refresh=true` refreshes metadata only.
 
 ### `GET /api/v1/workflows`
 Filters: `q`, `folder`, `base_model`, `runnable`, `missing_only` (dependencies),
-`missing_files_only` (the workflow file), `untagged`, `node_class`, `model_id`, `root_id`, date/size.
+`missing_files_only` (the workflow file), `untagged`, `node_class`, `model_id`, `root_id`, date/size,
+and *(2.5)*:
+
+| Filter | Meaning |
+|---|---|
+| `origin` (repeatable) | `user`, `bundled`, `official_template`. **Omitted: `user` + `bundled`** — official templates are listed only when named, so existing clients see exactly what they saw before 2.5. An unknown value is `422`. |
+| `ready` | `true`: no node class and no model is missing. Stricter than `runnable`, which only looks at node classes. |
+| `has_outputs` | `true`: at least one indexed output is linked to the workflow. |
+
+`group=origin` is accepted. Every item also carries `origin`, `origin_package`, `origin_label`,
+`read_only` (`true` for official templates), `template` (official templates only:
+`name`, `category`, `category_group`, `media_type`, `tags`, `model_families`, `required_size`,
+`open_source` — `false` marks a partner-API template — and `bundle`) and `based_on_template`
+(`{uid,name,title}` when the workflow is a saved copy of an official template, by graph id).
+`counts_outputs` is the number of outputs linked to the row; for a template it counts every output
+carrying its graph id, renders of saved copies included.
 ```json
 { "items":[
    { "uid":"workflow:12","id":12,"name":"wan22_animate_mix_character_replacement",
@@ -590,6 +616,13 @@ Filters: `q`, `folder`, `base_model`, `runnable`, `missing_only` (dependencies),
 
 ### `GET /api/v1/workflows/{id}`
 Adds `node_breakdown` (class → count, resolved, package), `positive_prompt`, `negative_prompt`, `unresolved_inputs`, `graph_available`, `graph_truncated`, `outputs_recent`, `actions`.
+
+*(2.5)* `graph_uuid` is the frontend's top-level graph id. `outputs_recent` is filled — up to 12
+outputs traced here, newest first (for a template: by graph id, so renders of saved copies count).
+For an official template: `template` gains `description`, `tutorial_url`, `min_comfyui`,
+`released_on`, `usage_rank`, `package_version`, `thumbnail_count`; `copies` lists your saved copies
+(`{uid,name,rel_path}`); and `actions` is
+`{"can_rename":false,"can_move":false,"can_delete":false,"can_describe":false,"read_only_reason":"…"}`.
 
 ### `GET /api/v1/workflows/{id}/graph`
 `200` the raw graph JSON (`ui`, `api`, or both). `?format=ui|api|raw` (default `raw`). `413 PAYLOAD_TOO_LARGE` above 32 MB with a `download_url` instead.
@@ -619,12 +652,25 @@ Adds `node_breakdown` (class → count, resolved, package), `positive_prompt`, `
 
 `registry_hint` comes from the ComfyUI-Manager `extension-node-map.json` (5,590 repos) — it tells the user *which package to install*, which is the whole point of the missing-node report.
 
+*(2.5)* A model entry carries `download: {"url","directory","host"}` when the graph declares the
+file in a node's `properties.models` — ComfyUI's official templates do for every loader. `url` is
+always `https` (anything else is dropped at index time, so it is `null`); `directory` is the
+`models/` sub-folder it belongs in. It is a link for the owner to follow, never a download the
+vault starts. Declared models a widget walk cannot reach (a loader inside a subgraph) are
+dependencies too, with `via[0].input = "properties.models"`.
+
 ---
 
 ## 6. Outputs
 
 ### `GET /api/v1/outputs`
-Filters: `q`, `folder`, `media_kind`, `model_id`, `workflow_id`, `album_id`, `favorite`, `min_rating`, `tag`, `missing_files_only`, `untagged`, date/size, `has_metadata`, plus generation-metadata filters `sampler`, `seed`, `steps_min`/`steps_max`, `cfg_min`/`cfg_max`, `width_min`/`width_max`, `height_min`/`height_max`.
+Filters: `q`, `folder`, `media_kind`, `model_id`, `workflow_id`, `from_workflow_graph`, `album_id`, `favorite`, `min_rating`, `tag`, `missing_files_only`, `untagged`, date/size, `has_metadata`, plus generation-metadata filters `sampler`, `seed`, `steps_min`/`steps_max`, `cfg_min`/`cfg_max`, `width_min`/`width_max`, `height_min`/`height_max`.
+
+`workflow_id` matches the one workflow row an output is linked to. *(2.5)* `from_workflow_graph`
+takes a workflow id and matches every output carrying that workflow's graph id — for an official
+template that includes images rendered from saved copies of it. `workflow_uid` is now populated:
+it is set from the UI-graph id ComfyUI embeds in a PNG (or a sidecar `.json`), preferring your own
+workflow, then a bundled one, then the template.
 ```json
 { "items":[
    { "uid":"output:930","id":930,"filename":"Anima_00021_.png","ext":".png",
@@ -646,6 +692,10 @@ Filters: `q`, `folder`, `media_kind`, `model_id`, `workflow_id`, `album_id`, `fa
 
 ### `GET /api/v1/outputs/{id}`
 Adds `negative_prompt`, `denoise`, `provenance`, `node_count`, `loras[]` (name + strength), `all_models[]`, `workflow_hash`, `siblings` (same `workflow_hash`), `exif`, `actions`.
+
+*(2.5)* Also `workflow_uuid` (the embedded graph id), `workflow` (`{uid,name,title,origin}` — the
+linked workflow file) and `template` (`{uid,name,title,category}` — the official template it was
+made from, directly or via a saved copy). The two differ exactly when you rendered from a copy.
 
 `provenance` makes the B1 fix visible to the user:
 ```json
@@ -1697,17 +1747,24 @@ The official ComfyUI templates shipped with this install. Query: `bundle` · `q`
 {"available":true,"reason":null,"package_version":"0.1.49",
  "path":"C:\\ComfyUI\\python_embeded\\Lib\\site-packages\\comfyui_workflow_templates_json\\templates",
  "bundles":[{"key":"media-image","count":187},{"key":"media-api","count":93}],
- "items":[{"id":"3d_hunyuan3d_image_to_model","title":"3d hunyuan3d image to model",
+ "items":[{"id":"3d_hunyuan3d_image_to_model","title":"Hunyuan3D: Image to Model",
            "bundle":"media-image","filename":"....json","size":12530,"path":"...",
            "origin":"official_template","origin_label":"official template",
-           "template_version":null}],
- "total":518,
- "note":"Shipped with ComfyUI itself and listed read-only. They are not indexed as vault assets, so vault file operations can never touch them."}
+           "template_version":null,
+           "uid":"workflow:271","ready":false,"missing_models":2}],
+ "total":690,
+ "note":"Shipped with ComfyUI itself. Indexed read-only and linked to your models and images; vault file operations never touch them."}
 ```
 
-**Why catalogued and not indexed:** these files live inside the Python distribution that runs
-ComfyUI. Indexing them as vault rows would make ComfyUI's own installed files reachable by vault
-rename, move and delete. The vault must never be able to damage the installation it describes.
+**Indexed read-only (since 2.5).** Until 2.4 these were only catalogued, because indexing them as
+ordinary rows would have made ComfyUI's own installed files reachable by rename, move and delete.
+From schema v10 each template *is* a `workflows` row (`origin:"official_template"`, no root), so its
+models resolve and the images made from it link back — and it stays out of reach: rename, move
+and delete refuse it with `VALIDATION_ERROR` and `details.reason:"official_template_read_only"`,
+and the raw/download endpoints serve it only when the path is exactly a template file of the
+located template folder (SECURITY_REVIEW §8.4). Items now carry the indexed row's `uid`, the
+`index.json` `title`, `ready` and `missing_models` once a scan has run. `index.json` and its
+translations (`index.fr.json`, `index.mcp.json`, …) are no longer listed as templates.
 `available:false` always carries a `reason`.
 
 ### `GET /api/v1/comfyui/workflow-origins`
@@ -1725,6 +1782,9 @@ rename, move and delete. The vault must never be able to damage the installation
  ],
  "official_templates": { /* the catalogue, items capped */ }}
 ```
+*(2.5)* Once a scan has indexed the templates they arrive as an ordinary group
+(`{"origin":"official_template","count":689,"runnable":…,"broken":…}`, included in `total`); the
+`catalogued_only` entry above is returned only until then.
 
 ### `GET /api/v1/comfyui/path-policy`
 

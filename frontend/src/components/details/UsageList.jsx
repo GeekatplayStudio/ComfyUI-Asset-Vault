@@ -1,8 +1,45 @@
-import React from 'react'
-import { Workflow, Image as ImageIcon } from 'lucide-react'
+import React, { useState } from 'react'
+import { Workflow, Image as ImageIcon, LayoutTemplate } from 'lucide-react'
 import { thumbnailUrl } from '../../services/api.js'
 import { count as fmtCount } from '../../services/format.js'
 import EmptyState from '../common/EmptyState.jsx'
+import Badge from '../common/Badge.jsx'
+
+/*
+ * TemplateUsageList - ComfyUI's official templates that load a model, ready
+ * ones first (the server orders them). "needs N" counts the OTHER models the
+ * template still wants, which is what decides whether it runs today.
+ */
+export function TemplateUsageList({ templates, onOpenUid, initial = 6 }) {
+  const [all, setAll] = useState(false)
+  if (!templates || !templates.length) return null
+  const shown = all ? templates : templates.slice(0, initial)
+  return (
+    <div className="gp-list">
+      {shown.map((t) => (
+        <button key={t.uid} type="button" className="gp-row gp-focus-inset"
+          onClick={() => onOpenUid(t.uid)} title={t.name}>
+          <LayoutTemplate className="gp-row__thumb gp-u-p-0" aria-hidden="true" />
+          <span className="gp-row__name">{t.title || t.name}</span>
+          <span className="gp-row__cell gp-row__cell--grow gp-u-meta">{t.category || ''}</span>
+          <span className="gp-row__cell">
+            {t.ready
+              ? <Badge tone="dep-satisfied">ready</Badge>
+              : <Badge tone="warn">needs {t.missing_models || '?'}</Badge>}
+          </span>
+        </button>
+      ))}
+      {templates.length > initial ? (
+        <button type="button" className="gp-btn gp-btn--ghost gp-btn--sm gp-u-mt-4"
+          onClick={() => setAll((v) => !v)}>
+          <span className="gp-btn__label">
+            {all ? 'Show fewer' : 'Show all ' + templates.length}
+          </span>
+        </button>
+      ) : null}
+    </div>
+  )
+}
 
 /*
  * UsageList - "used in N workflows" with working links, plus the recent outputs

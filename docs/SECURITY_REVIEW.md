@@ -714,6 +714,46 @@ Three limits, stated rather than left to be inferred:
 
 ---
 
+## 8.4 Official templates indexed read-only — 2026-11-20 (2.5.0)
+
+Until 2.4 the official templates were catalogued and deliberately **not** indexed, on the stated
+ground that a vault row is reachable by rename, move and delete, and the vault must never be able
+to damage the installation it describes. 2.5.0 indexes them so their models and the images made
+from them can be linked. The ground still holds; what changed is that the guarantee no longer
+depends on the files being absent from the index. It now rests on three independent facts, any one
+of which is enough:
+
+1. **No root.** A template row has `root_id IS NULL`. Every mutating path validates against the
+   configured roots (`resolve_within_roots`), and the template folder — inside the interpreter's
+   `site-packages` — is never one, so even a code path that forgot the origin check would get
+   `PATH_NOT_ALLOWED`.
+2. **Refused by origin.** `file_ops.rename`, `move` and `delete` (trash and permanent) call
+   `_refuse_read_only` before touching the disk and fail with
+   `details.reason = "official_template_read_only"`. The UI never offers the action; MCP's
+   destructive tools go through the same functions.
+3. **Read access is exact.** The raw / download / text-preview / reveal endpoints serve a template
+   only when the row's origin is `official_template` **and** its stored path is exactly a `*.json`
+   (not an `index*.json`) directly inside the template folder `official_templates.locate()` finds
+   for the configured install. A row edited to point anywhere else is refused
+   (`test_a_template_row_cannot_be_pointed_at_another_file`).
+
+**Inputs the indexer now reads from ComfyUI's distributions:** `index.json` (≤ 16 MB, parsed as
+JSON, every field type-checked and length-capped), `manifest.json` (same), the template graphs
+(through the existing bounded workflow parser), and the media folders (listed, never decoded at
+index time; a preview is decoded later by the thumbnail service under the S-05 pixel budget). The
+packages are never imported and nothing in them is executed.
+
+**URLs.** Templates declare a download URL per model. Only `https://` URLs are stored; anything
+else is dropped at index time and the UI renders a link only for `https` again (`isHttps`). The
+vault never fetches them on its own — they are links the owner follows. The Enable flow (C9) keeps
+its own host allowlist and is unchanged.
+
+**Graph ids** (`workflows.graph_uuid`, `outputs.workflow_uuid`) are accepted only when id-shaped
+(hex and dashes, 8–64 characters) and are bound as parameters wherever they are compared.
+
+`tests/integration/test_official_templates.py` (11) and `tests/test_official_templates_unit.py`
+(15) pin all of the above.
+
 ## 9. Sign-off
 
 **Signed off for the findings raised in this review.** Both Highs, all seven Mediums, the dependency floors and both QA defects are fixed and gated. Every test that was written as an `xfail` reproduction is now a hard regression gate carrying a comment that says what a failure there would mean — there is no `xfail` left in the suite.

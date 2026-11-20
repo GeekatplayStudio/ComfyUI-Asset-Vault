@@ -242,10 +242,12 @@ def workflow_origins(
                  if include_templates
                  else {"available": False, "reason": "not_requested", "items": [],
                        "total": 0, "bundles": []})
-    if include_templates and catalogue.get("available"):
-        # Listed alongside the indexed groups so the owner sees their official
-        # templates in one place, but counted separately: these are catalogued
-        # read-only from the ComfyUI distribution, not vault rows.
+    indexed_templates = any(g["origin"] == "official_template" for g in groups)
+    if include_templates and catalogue.get("available") and not indexed_templates:
+        # Since schema v10 templates are indexed (read-only) and arrive in
+        # `groups` themselves.  Until the first scan on v10 has run they exist
+        # only in the catalogue, so they are listed from there - flagged as
+        # such, because nothing links to them yet.
         groups.append({
             "origin": "official_template",
             "label": "official template",

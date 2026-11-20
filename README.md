@@ -129,6 +129,23 @@ actually installed and reports precisely what's missing — with near-match sugg
 was renamed or moved, and an install hint (resolved from the ComfyUI-Manager registry) for a
 missing node package.
 
+**ComfyUI's own templates are linked too.** The ~700 official templates that ship inside ComfyUI's
+Python (`comfyui_workflow_templates*`) are indexed read-only, alongside your workflows rather than
+as a separate list:
+
+- each template's models are resolved against your library — it reads **ready** or **needs N
+  models**, and every missing one links to where ComfyUI downloads it and names the `models/`
+  folder it goes in;
+- every image you rendered from a template traces back to it, even through a copy you saved — by
+  the graph id ComfyUI embeds in each PNG;
+- a model shows which templates use it, and your saved copies say which template they came from;
+- title, description, category, tags, model size and local-vs-API come from ComfyUI's own
+  `index.json`.
+
+They stay out of reach of rename, move and delete: they are ComfyUI's installed files, and the
+vault only reads them. One click on **ComfyUI templates** in the Workflows tab shows them; on the
+reference install, 119 of 272 local templates were already runnable with the models on disk.
+
 ![A workflow with unresolved dependencies: missing node classes, missing models, and an install hint](docs/screenshots/04-workflows.png)
 
 **Enable** turns that report into an action, deliberately structured so nothing happens without
@@ -572,9 +589,11 @@ Tracked honestly rather than hidden — current security status in
   applies rather than handing over a link that does nothing.
 - Video-thumbnail frame extraction currently requires a user-installed `ffmpeg` on `PATH`; without
   it, videos show a placeholder plus their metadata.
-- Official ComfyUI example templates (the ones bundled with ComfyUI itself) are catalogued
-  read-only rather than fully indexed, to avoid exposing ComfyUI's own installed files to the
-  vault's delete tooling.
+- Official ComfyUI templates are indexed **read-only**: they can be browsed, opened in ComfyUI and
+  downloaded, but never renamed, moved or deleted. To change one, save a copy from ComfyUI.
+- An image links back to its workflow or template only when ComfyUI embedded the UI graph in it
+  (PNG, or a sidecar `.json` for video). Files saved without metadata, or by tools that strip it,
+  cannot be traced.
 
 ---
 

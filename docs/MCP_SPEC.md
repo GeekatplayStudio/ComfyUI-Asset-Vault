@@ -289,8 +289,15 @@ Output per class: `uid`, `node_id`, `display_name`, `class_name`, `category`, `d
 Input `{"node_id": string, "package_uid"?: Uid}`. Returns the full class record plus `workflows_using[]` and `similar_classes[]` (same category). Ambiguous `node_id` across packages → all matches with `isError:false` and a `disambiguation` array.
 
 ### 5.7 `list_workflows`
-Input: `name_contains`, `folder`, `base_model`, `runnable` (bool), `uses_node_class`, `uses_model_uid`, `capability_tag`, `sort`, `limit`, `offset`.
-Output per workflow: `uid`, `name`, `rel_path`, `folder`, `format`, `title`, `description`, `capability_tags[]`, `base_model`, `modality`, `node_count`, `missing_node_count`, `missing_model_count`, `is_runnable`, `prompt_summary`, `modified_at`, `size_bytes`.
+Input: `name_contains`, `folder`, `base_model`, `runnable` (bool), `origin` (array of `user` / `bundled` / `official_template`), `ready` (bool), `uses_node_class`, `uses_model_uid`, `capability_tag`, `sort`, `limit`, `offset`.
+Output per workflow: `uid`, `name`, `rel_path`, `folder`, `format`, `title`, `description`, `capability_tags[]`, `base_model`, `modality`, `node_count`, `missing_node_count`, `missing_model_count`, `is_runnable`, `prompt_summary`, `modified_at`, `size_bytes`, `origin`, `read_only`, `output_count`.
+
+*(2.5)* Without `origin` the tool lists the owner's workflows and the bundled examples, as before.
+`origin: ["official_template"]` lists ComfyUI's own templates, which are indexed read-only —
+`read_only: true`, and no destructive tool will act on them. `ready: true` keeps only rows with no
+missing node class **and** no missing model, so "which templates can I run right now?" is one call:
+`{"origin":["official_template"],"ready":true}`. `output_count` is the number of indexed outputs
+traced back to the row by graph id.
 
 ### 5.8 `inspect_workflow`
 The headline tool. Input `{"uid"?: Uid, "name"?: string, "include_graph"?: bool (default false), "max_nodes"?: int (default 200)}`.
@@ -330,7 +337,7 @@ Output per item: `uid`, `filename`, `rel_path`, `media_kind`, `width`, `height`,
 
 ### 5.11 `vault_stats`
 No required input; optional `{"breakdown": ["category","base_model","modality","hash_state","media_kind"]}`.
-Output: the whole `v_vault_stats` view plus requested breakdowns, `roots[]`, `last_scan{}`, `capabilities{semantic_search, civitai, ollama, hashing_available}`, and `disk{models_bytes, outputs_bytes, thumb_cache_bytes}`.
+Output: the whole `v_vault_stats` view plus requested breakdowns, `roots[]`, `last_scan{}`, `capabilities{semantic_search, civitai, ollama, hashing_available}`, and `disk{models_bytes, outputs_bytes, thumb_cache_bytes}`. *(2.5)* `counts.templates` is the number of indexed official templates; `counts.workflows` and `counts.workflows_broken` exclude them.
 **This is the recommended first call** — the `instructions` string says so.
 
 ### 5.12 `get_index_status`

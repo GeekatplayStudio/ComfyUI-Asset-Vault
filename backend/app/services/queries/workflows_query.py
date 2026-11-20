@@ -30,7 +30,12 @@ SORTS = {
     "nodes": "node_count", "missing": "missing_node_count", "relevance": "id",
 }
 GROUPS = {"folder": "folder", "base_model": "base_model_family",
-          "runnable": "is_runnable"}
+          "runnable": "is_runnable", "origin": "origin"}
+
+TEMPLATE = "official_template"
+ORIGINS = ("user", "bundled", TEMPLATE)
+#: How many images traced to a workflow the detail view shows.
+RECENT_OUTPUTS = 12
 
 
 @dataclass
@@ -53,6 +58,15 @@ class WorkflowFilters:
     include_missing: bool = False
     missing_files_only: bool | None = None
     untagged: bool | None = None
+    #: 'user', 'bundled', 'official_template'.  Empty means "yours and bundled":
+    #: ComfyUI's 690-odd templates would otherwise bury the owner's own work, so
+    #: they appear only when asked for by name.
+    origin: list[str] = field(default_factory=list)
+    #: Nothing missing at all - every node class AND every model is on disk.
+    #: Stricter than ``runnable``, which only looks at node classes.
+    ready: bool | None = None
+    #: Only workflows rendered at least one indexed output (schema v10).
+    has_outputs: bool | None = None
 
     @classmethod
     def from_dict(cls, data: dict | None) -> WorkflowFilters:
@@ -98,6 +112,20 @@ def _where(f: WorkflowFilters) -> Where:
               "ON t.id = at.tag_id WHERE t.name_key = ?)", str(tag).lower())
     if f.untagged:
         w.add("NOT EXISTS (SELECT 1 FROM asset_tags WHERE uid = ('workflow:' || id))")
+    origins = [str(o) for o in (f.origin or []) if str(o) in ORIGINS]
+    if origins:
+        w.any_of("origin", origins)
+    elif not f.origin:
+        w.add("origin <> ?", TEMPLATE)
+    else:
+        w.add("0")  # only unknown origins were asked for: nothing matches
+    if f.ready is True:
+        w.add("missing_node_count = 0 AND missing_model_count = 0")
+    elif f.ready is False:
+        w.add("(missing_node_count > 0 OR missing_model_count > 0)")
+    if f.has_outputs:
+        w.add("id IN (SELECT workflow_id FROM outputs WHERE workflow_id IS NOT NULL "
+              "AND missing_since IS NULL)")
     return w
 
 
@@ -148,8 +176,84 @@ def origin_groups(conn: sqlite3.Connection | None = None) -> list[dict]:
     return out
 
 
-def _item(row: sqlite3.Row, output_count: int = 0) -> dict:
+def _row_get(row: sqlite3.Row, key: str):
+    try:
+        return row[key]
+    except (IndexError, KeyError):
+        return None
+
+
+def _template_summary(t: sqlite3.Row | None) -> dict | None:
+    if t is None:
+        return None
+    return {
+        "name": t["template_name"],
+        "category": t["category"], "category_group": t["category_group"],
+        "media_type": t["media_type"],
+        "tags": json_list(t["tags_json"]),
+        "model_families": json_list(t["model_families_json"]),
+        "required_size": t["required_size"],
+        # None when index.json says nothing; False marks a paid partner-API
+        # template that runs on someone else's servers, not on local models.
+        "open_source": None if t["open_source"] is None else bool(t["open_source"]),
+        "bundle": t["bundle"],
+    }
+
+
+def _extras(conn: sqlite3.Connection, rows: list[sqlite3.Row]) -> dict[int, dict]:
+    """Template summary, "based on template" and output counts for a page of rows.
+
+    Three queries for the whole page, never one per row.
+    """
+    out: dict[int, dict] = {int(r["id"]): {} for r in rows}
+    if not rows:
+        return out
+    ids = list(out)
+    ph = ",".join("?" * len(ids))
+    tpl_ids = [int(r["id"]) for r in rows if _origin_of(r) == TEMPLATE]
+    if tpl_ids:
+        marks = ",".join("?" * len(tpl_ids))
+        for t in dbmod.rows(conn, f"SELECT * FROM workflow_templates "  # noqa: S608
+                                  f"WHERE workflow_id IN ({marks})", tpl_ids):
+            out[int(t["workflow_id"])]["template"] = _template_summary(t)
+    uuids = {str(_row_get(r, "graph_uuid")): int(r["id"]) for r in rows
+             if _row_get(r, "graph_uuid") and _origin_of(r) != TEMPLATE}
+    if uuids:
+        marks = ",".join("?" * len(uuids))
+        for t in dbmod.rows(
+                conn, "SELECT w.id, w.graph_uuid, w.title, w.name FROM workflows w "  # noqa: S608
+                      f"WHERE w.origin = ? AND w.missing_since IS NULL "
+                      f"AND w.graph_uuid IN ({marks})", (TEMPLATE, *uuids)):
+            wid = uuids.get(str(t["graph_uuid"]))
+            if wid is not None:
+                out[wid]["based_on_template"] = {
+                    "uid": f"workflow:{t['id']}", "name": t["name"],
+                    "title": t["title"] or t["name"]}
+    for r in dbmod.rows(
+            conn, f"SELECT workflow_id, COUNT(*) n FROM outputs "  # noqa: S608
+                  f"WHERE workflow_id IN ({ph}) AND missing_since IS NULL "
+                  f"GROUP BY workflow_id", ids):
+        out[int(r["workflow_id"])]["counts_outputs"] = int(r["n"] or 0)
+    # A template is credited with every image carrying its id - including the
+    # ones rendered from a saved copy, which the link phase gives to the copy.
+    tpl_uuids = {str(_row_get(r, "graph_uuid")): int(r["id"]) for r in rows
+                 if _row_get(r, "graph_uuid") and _origin_of(r) == TEMPLATE}
+    if tpl_uuids:
+        marks = ",".join("?" * len(tpl_uuids))
+        for r in dbmod.rows(
+                conn, f"SELECT workflow_uuid, COUNT(*) n FROM outputs "  # noqa: S608
+                      f"WHERE workflow_uuid IN ({marks}) AND missing_since IS NULL "
+                      f"GROUP BY workflow_uuid", list(tpl_uuids)):
+            wid = tpl_uuids.get(str(r["workflow_uuid"]))
+            if wid is not None:
+                out[wid]["counts_outputs"] = int(r["n"] or 0)
+    return out
+
+
+def _item(row: sqlite3.Row, output_count: int = 0, extra: dict | None = None) -> dict:
     uid = f"workflow:{row['id']}"
+    extra = extra or {}
+    origin = _origin_of(row)
     return {
         "uid": uid, "id": int(row["id"]), "name": row["name"],
         "rel_path": row["rel_path"], "folder": row["folder"] or "",
@@ -176,8 +280,12 @@ def _item(row: sqlite3.Row, output_count: int = 0) -> dict:
         "size": int(row["size"] or 0),
         "modified_at": int(row["mtime_ns"] or 0) // 1_000_000,
         "thumbnail_url": thumb_url(uid),
-        "counts_outputs": output_count,
+        "counts_outputs": int(extra.get("counts_outputs", output_count) or 0),
         "missing": row["missing_since"] is not None,
+        # ComfyUI's own files: the vault never renames, moves or deletes them.
+        "read_only": origin == TEMPLATE,
+        "template": extra.get("template"),
+        "based_on_template": extra.get("based_on_template"),
     }
 
 
@@ -223,7 +331,9 @@ def list_workflows(filters: WorkflowFilters | dict | None = None, sort: str = "-
                 conn, f"SELECT {col} AS k, COUNT(*) n FROM workflows "  # noqa: S608
                       f"WHERE {where_sql} GROUP BY k ORDER BY n DESC", args)
         ]
-    return ListResult(items=attach_matches([_item(r) for r in rows], matches),
+    extras = _extras(conn, rows)
+    return ListResult(items=attach_matches([_item(r, extra=extras.get(int(r["id"])))
+                                            for r in rows], matches),
                       page=page_dict(limit, offset, total, len(rows)),
                       groups=groups,
                       meta=meta_dict(t0, sort=f"{sort},id", **search_meta))
@@ -234,7 +344,9 @@ def get_workflow(workflow_id: int, conn: sqlite3.Connection | None = None) -> di
     row = dbmod.one(conn, "SELECT * FROM workflows WHERE id = ?", (int(workflow_id),))
     if row is None:
         return None
-    item = _item(row)
+    item = _item(row, extra=_extras(conn, [row]).get(int(workflow_id)))
+    is_template = item["origin"] == TEMPLATE
+    graph_uuid = _row_get(row, "graph_uuid")
     breakdown = [
         {"class_type": r["class_type"], "count": int(r["count"] or 1),
          "resolved": bool(r["resolved"]),
@@ -259,11 +371,60 @@ def get_workflow(workflow_id: int, conn: sqlite3.Connection | None = None) -> di
         "abs_path": row["abs_path"],
         "schema_version": row["schema_version"],
         "author": row["author"],
-        "outputs_recent": [],
-        "actions": {"can_rename": True, "can_move": True, "can_delete": True,
-                    "can_describe": True},
+        "graph_uuid": graph_uuid,
+        "outputs_recent": _recent_outputs(conn, int(workflow_id), graph_uuid, is_template),
+        "actions": {"can_rename": not is_template, "can_move": not is_template,
+                    "can_delete": not is_template, "can_describe": not is_template,
+                    "read_only_reason": (
+                        "An official ComfyUI template. It lives inside ComfyUI's own "
+                        "install, so the vault only reads it - save a copy from ComfyUI "
+                        "to make one of your own." if is_template else None)},
     })
+    if is_template:
+        t = dbmod.one(conn, "SELECT * FROM workflow_templates WHERE workflow_id = ?",
+                      (int(workflow_id),))
+        if t is not None:
+            item["template"] = {
+                **(_template_summary(t) or {}),
+                "description": t["description"],
+                "tutorial_url": t["tutorial_url"],
+                "min_comfyui": t["min_comfyui"],
+                "released_on": t["released_on"],
+                "usage_rank": t["usage_rank"],
+                "package_version": t["package_version"],
+                "thumbnail_count": len(json_list(t["thumbnails_json"])),
+            }
+        item["copies"] = [
+            {"uid": f"workflow:{r['id']}", "name": r["name"], "rel_path": r["rel_path"]}
+            for r in dbmod.rows(
+                conn, "SELECT id, name, rel_path FROM workflows WHERE graph_uuid = ? "
+                      "AND origin <> ? AND missing_since IS NULL ORDER BY name LIMIT 50",
+                (graph_uuid, TEMPLATE))
+        ] if graph_uuid else []
     return item
+
+
+def _recent_outputs(conn: sqlite3.Connection, workflow_id: int, graph_uuid: str | None,
+                    is_template: bool) -> list[dict]:
+    """Images rendered from this workflow, newest first.
+
+    A template counts every image carrying its graph id, including those
+    rendered from a saved copy of it; a file of your own counts the images the
+    link phase attributed to it.
+    """
+    if is_template and graph_uuid:
+        where, args = "workflow_uuid = ?", (graph_uuid,)
+    else:
+        where, args = "workflow_id = ?", (int(workflow_id),)
+    return [
+        {"uid": f"output:{r['id']}", "filename": r["filename"],
+         "created_at": int(r["created_at_file"] or 0),
+         "thumbnail_url": thumb_url(f"output:{r['id']}", 160)}
+        for r in dbmod.rows(
+            conn, f"SELECT id, filename, created_at_file FROM outputs WHERE {where} "  # noqa: S608
+                  "AND missing_since IS NULL ORDER BY created_at_file DESC LIMIT ?",
+            (*args, RECENT_OUTPUTS))
+    ]
 
 
 def workflow_graph(workflow_id: int, fmt: str = "raw",
@@ -313,6 +474,7 @@ def workflow_dependencies(workflow_id: int,
     inputs: list[dict] = []
     summary = {"total": 0, "satisfied": 0, "missing": 0, "ambiguous": 0}
     comfy_root = config_service.get_config().comfyui_path
+    declared = _declared_downloads(conn, int(workflow_id))
 
     for r in rows:
         summary["total"] += 1
@@ -329,6 +491,11 @@ def workflow_dependencies(workflow_id: int,
             }
             if status == "missing":
                 entry["suggestions"] = _suggest_models(conn, str(r["ref_name"]))
+            src = declared.get(_basename(r["ref_name"]))
+            if src:
+                # Where the graph itself says the file comes from and which
+                # models/ folder it belongs in.  A link, never a download.
+                entry["download"] = src
             models.append(entry)
         elif r["dep_kind"] == "node":
             entry = {
@@ -359,6 +526,45 @@ def workflow_dependencies(workflow_id: int,
             inputs.append({"ref_name": r["ref_name"], "status": status})
     return {"summary": summary, "models": models, "nodes": nodes,
             "embeddings": embeddings, "input_files": inputs}
+
+
+def _basename(name: object) -> str:
+    return str(name or "").replace("\\", "/").rsplit("/", 1)[-1].lower()
+
+
+def _declared_downloads(conn: sqlite3.Connection, workflow_id: int) -> dict[str, dict]:
+    """basename -> {url, directory, host} from the graph's ``properties.models``.
+
+    Templates have them pre-extracted; any other workflow is read from its
+    stored graph, which is only done for the one workflow being viewed.
+    """
+    import json
+    from urllib.parse import urlparse
+
+    from ...parsers import official_templates
+
+    entries: list = []
+    t = dbmod.one(conn, "SELECT model_downloads_json FROM workflow_templates "
+                        "WHERE workflow_id = ?", (int(workflow_id),))
+    if t is not None:
+        entries = json_list(t["model_downloads_json"])
+    else:
+        row = dbmod.one(conn, "SELECT graph_json FROM workflows WHERE id = ?",
+                        (int(workflow_id),))
+        if row is not None and row["graph_json"]:
+            try:
+                entries = official_templates.declared_models(json.loads(row["graph_json"]))
+            except ValueError:
+                entries = []
+    out: dict[str, dict] = {}
+    for m in entries:
+        if not isinstance(m, dict) or not m.get("name"):
+            continue
+        url = m.get("url")
+        host = urlparse(url).hostname if isinstance(url, str) and url else None
+        out.setdefault(_basename(m["name"]), {
+            "url": url, "directory": m.get("directory"), "host": host})
+    return out
 
 
 def _suggest_models(conn: sqlite3.Connection, ref_name: str, limit: int = 3) -> list[dict]:
@@ -393,7 +599,7 @@ def workflow_facets(filters: WorkflowFilters | dict | None = None,
     out: dict = {}
     for name, col in (("base_model", "base_model_family"), ("modality", "modality"),
                       ("runnable", "is_runnable"), ("folder", "folder"),
-                      ("format", "format")):
+                      ("format", "format"), ("origin", "origin")):
         out[name] = [
             {"value": r["v"], "count": int(r["n"])} for r in dbmod.rows(
                 conn, f"SELECT {col} AS v, COUNT(*) n FROM workflows "  # noqa: S608

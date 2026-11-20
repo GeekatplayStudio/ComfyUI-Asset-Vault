@@ -14,7 +14,7 @@ from pathlib import Path
 
 from ..core import errors
 from ..core.pathsafe import long_path
-from . import graph_utils
+from . import graph_utils, official_templates
 
 GRAPH_CAP = 8 * 1024 * 1024
 MAX_FILE = 64 * 1024 * 1024
@@ -71,6 +71,12 @@ class WorkflowResult:
     graph_truncated: bool = False
     dependencies: list[dict] = field(default_factory=list)
     unresolved_inputs: int = 0
+    #: The frontend's top-level graph ``id`` (schema v10).  Shared by a template,
+    #: a saved copy of it, and every image rendered from either.
+    graph_uuid: str | None = None
+    #: ``properties.models`` declarations: name, folder, and the https URL the
+    #: ComfyUI frontend offers for it.  Official templates carry these.
+    declared_models: list[dict] = field(default_factory=list)
 
 
 def _read_json(path: str | Path) -> tuple[object | None, str | None, str | None]:
@@ -250,6 +256,21 @@ def analyze(path: str | Path, *, name: str | None = None) -> WorkflowResult:
     res.unresolved_inputs = res.summary.unresolved_count
     deps = [{**e, "dep_kind": "model"} for e in res.summary.models]
     deps += [{**e, "dep_kind": "model"} for e in res.summary.loras]
+    res.graph_uuid = official_templates.graph_uuid(ui if isinstance(ui, dict) else data)
+    res.declared_models = official_templates.declared_models(ui if isinstance(ui, dict) else data)
+    # A declared model the widget walk did not reach - typically a loader inside
+    # a subgraph - is still a dependency.  Matched by basename so a declaration
+    # never duplicates a reference the walk already found.
+    known = {str(d.get("ref_name") or "").replace("\\", "/").rsplit("/", 1)[-1].lower()
+             for d in deps}
+    for m in res.declared_models:
+        base = m["name"].replace("\\", "/").rsplit("/", 1)[-1].lower()
+        if base in known:
+            continue
+        known.add(base)
+        deps.append({"ref_name": m["name"], "category": m.get("directory"),
+                     "via_class": m.get("via_class"), "via_input": "properties.models",
+                     "dep_kind": "model"})
     res.dependencies = deps
     res.capability_tags = _capabilities(res.node_types)
     res.base_model_family = _family_from_refs(deps)

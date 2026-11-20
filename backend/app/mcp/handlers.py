@@ -773,6 +773,9 @@ def _workflow_row(item: dict) -> dict:
         "prompt_summary": item.get("prompt_summary"),
         "modified_at": item.get("modified_at"),
         "size_bytes": int(item.get("size") or 0),
+        "origin": str(item.get("origin") or "user"),
+        "read_only": bool(item.get("read_only")),
+        "output_count": int(item.get("counts_outputs") or 0),
     }
 
 
@@ -786,6 +789,10 @@ def list_workflows(args: dict, ctx: Ctx) -> tuple[str, dict]:
         filters["base_model"] = list(args["base_model"])
     if args.get("runnable") is not None:
         filters["runnable"] = bool(args["runnable"])
+    if args.get("origin"):
+        filters["origin"] = [str(o) for o in args["origin"]]
+    if args.get("ready") is not None:
+        filters["ready"] = bool(args["ready"])
     if args.get("uses_node_class"):
         filters["node_class"] = str(args["uses_node_class"])
     if args.get("uses_model_uid"):
@@ -1181,6 +1188,7 @@ def vault_stats(args: dict, ctx: Ctx) -> tuple[str, dict]:
             "node_classes": int(stats.get("node_classes") or 0),
             "workflows": int(stats.get("workflows") or 0),
             "workflows_broken": int(stats.get("workflows_broken") or 0),
+            "templates": int(stats.get("templates") or 0),
             "outputs": int(stats.get("outputs") or 0),
             "embedded": int(stats.get("embedded") or 0),
             "integrity_issues": int(stats.get("integrity_issues") or 0),
@@ -1208,6 +1216,7 @@ def vault_stats(args: dict, ctx: Ctx) -> tuple[str, dict]:
         f"{c['models_hashed']} hashed)",
         f"  node pkgs    {c['node_packages']:>6}  with {c['node_classes']} node classes",
         f"  workflows    {c['workflows']:>6}  ({c['workflows_broken']} with missing deps)",
+        f"  templates    {c['templates']:>6}  (official ComfyUI templates, read-only)",
         f"  outputs      {c['outputs']:>6}  ({human_bytes(d['outputs_bytes'])})",
         f"  integrity    {c['integrity_issues']} issue(s), {c['missing']} missing file(s), "
         f"{c['scan_errors']} scan error(s)",

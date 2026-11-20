@@ -80,6 +80,28 @@ NODE_PACKAGE_RENAME_REASON = (
 )
 DIRECTORY_KINDS = frozenset({"node_package"})
 
+# Official templates (schema v10) are ComfyUI's own installed files.  The vault
+# describes the installation; it must never be able to damage it.
+TEMPLATE_READ_ONLY_REASON = (
+    "This is an official ComfyUI template. It is part of ComfyUI's own install, "
+    "so the vault only reads it and never renames, moves or deletes it. Open it "
+    "in ComfyUI and save a copy to make one of your own."
+)
+
+
+def _is_template_row(info: dict) -> bool:
+    return info["kind"] == "workflow" and \
+        str(info["row"].get("origin") or "") == "official_template"
+
+
+def _refuse_read_only(info: dict) -> None:
+    if _is_template_row(info):
+        raise ValidationError(
+            TEMPLATE_READ_ONLY_REASON,
+            details={"uid": info["uid"], "reason": "official_template_read_only",
+                     "allowed": []},
+        )
+
 
 @dataclass
 class OpResult:
@@ -284,6 +306,7 @@ def rename(uid: str, new_name: str, *, keep_extension: bool = True,
            rename_sidecars: bool = True, **_kw) -> OpResult:
     try:
         info = _resolve(uid)
+        _refuse_read_only(info)
         _refuse_directory_move(info["kind"])
         old = info["abs_path"]
         _validate_path(old)
@@ -350,6 +373,7 @@ def move(uids: list[str], target_root_id: int, target_folder: str, *,
     for uid in uids:
         try:
             info = _resolve(uid, conn)
+            _refuse_read_only(info)
             _refuse_directory_move(info["kind"])
             old = info["abs_path"]
             _validate_path(old)
@@ -405,6 +429,7 @@ def delete(uids: list[str], mode: str = "trash", confirm: bool = False,
     for uid in uids:
         try:
             info = _resolve(uid, conn)
+            _refuse_read_only(info)
             old = info["abs_path"]
             _, root = _validate_path(old)
             is_dir = os.path.isdir(long_path(old))
@@ -976,8 +1001,16 @@ def create_folder(root_id: int, folder: str) -> dict:
 
 
 def resolve_file(uid: str, conn: sqlite3.Connection | None = None) -> dict:
-    """Path resolution for the raw/download endpoints - always root-validated."""
+    """Path resolution for the raw/download endpoints - always root-validated.
+
+    The one exception is an official template, which lives outside every root.
+    It is served read-only, and only when the row says it is a template AND the
+    path is exactly a template file of the install's located template folder -
+    a row cannot be talked into serving anything else.
+    """
     info = _resolve(uid, conn)
+    if _is_template_row(info):
+        return _resolve_template_file(uid, info)
     path, root = _validate_path(info["abs_path"])
     if not os.path.isfile(long_path(str(path))):
         raise NotFoundError(f"The file for {uid} is no longer on disk.",
@@ -988,6 +1021,27 @@ def resolve_file(uid: str, conn: sqlite3.Connection | None = None) -> dict:
         "filename": row.get("filename") or os.path.basename(str(path)),
         "size": row.get("size"), "mime": row.get("mime"),
         "fingerprint": row.get("fingerprint"),
+    }
+
+
+def _resolve_template_file(uid: str, info: dict) -> dict:
+    from ..parsers import official_templates
+
+    source = official_templates.locate(config_service.get_config().comfyui_path)
+    path = normalize(info["abs_path"])
+    if source is None or not source.contains(path):
+        raise PathNotAllowed(
+            "This template is not inside the installed ComfyUI templates folder.",
+            details={"uid": uid, "reason": "not_a_located_template"})
+    if not os.path.isfile(long_path(str(path))):
+        raise NotFoundError(f"The file for {uid} is no longer on disk.",
+                            details={"path": str(path)})
+    row = info["row"]
+    return {
+        "uid": uid, "kind": "workflow", "path": str(path), "root_id": None,
+        "filename": os.path.basename(str(path)), "size": row.get("size"),
+        "mime": "application/json", "fingerprint": row.get("fingerprint"),
+        "read_only": True,
     }
 
 

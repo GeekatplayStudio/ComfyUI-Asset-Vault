@@ -397,7 +397,10 @@ _WORKFLOW_ROW = item_schema({
     "base_model": NSTR, "modality": NSTR, "node_count": INT,
     "missing_node_count": INT, "missing_model_count": INT, "is_runnable": BOOL,
     "prompt_summary": NSTR, "modified_at": NINT, "size_bytes": INT,
+    "origin": STR, "read_only": BOOL, "output_count": INT,
 }, ["uid", "name", "is_runnable"])
+
+_ORIGINS = ["user", "bundled", "official_template"]
 
 LIST_WORKFLOWS = ToolDef(
     name="list_workflows",
@@ -405,12 +408,17 @@ LIST_WORKFLOWS = ToolDef(
     description=(
         "List indexed workflow files with their capability tags, node counts and "
         "runnability. Filter by the node class or model a workflow uses to answer "
-        "'which workflows use X'."),
+        "'which workflows use X'. By default lists the owner's workflows and the "
+        "examples bundled with node packages; pass origin ['official_template'] for "
+        "ComfyUI's own templates (read-only), and ready=true for those with nothing "
+        "missing."),
     input_schema=schema({
         "name_contains": {"type": "string", "maxLength": 512},
         "folder": {"type": "string", "maxLength": 1024},
         "base_model": {"type": "array", "items": STR},
         "runnable": BOOL,
+        "origin": {"type": "array", "items": {"enum": _ORIGINS}, "maxItems": 3},
+        "ready": BOOL,
         "uses_node_class": {"type": "string", "maxLength": 200},
         "uses_model_uid": {"type": "string", "pattern": "^model:[0-9]+$"},
         "capability_tag": {"type": "string", "maxLength": 100},
@@ -606,7 +614,7 @@ VAULT_STATS = ToolDef(
         "counts": item_schema({
             "models": INT, "model_files": INT, "models_hashed": INT,
             "node_packages": INT, "node_classes": INT, "workflows": INT,
-            "workflows_broken": INT, "outputs": INT, "embedded": INT,
+            "workflows_broken": INT, "templates": INT, "outputs": INT, "embedded": INT,
             "integrity_issues": INT, "missing": INT, "scan_errors": INT,
         }),
         "disk": item_schema({"models_bytes": INT, "outputs_bytes": INT,
