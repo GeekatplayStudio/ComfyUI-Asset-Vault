@@ -28,6 +28,7 @@ import pytest
 
 from app.core.errors import (
     ConflictError,
+    FeatureUnavailable,
     InsufficientSpace,
     UpstreamUnavailable,
     ValidationError,
@@ -144,6 +145,15 @@ def allow_fixture_host(monkeypatch):
     monkeypatch.setattr(hosts, "MODEL_HOSTS_EXACT", frozenset({"localhost"}))
     monkeypatch.setattr(hosts, "MODEL_HOSTS_SUFFIX", ())
     monkeypatch.setattr(hosts, "_SCHEME", "http")
+    return True
+
+
+@pytest.fixture
+def online(sec_vault):
+    """Enable fetches run only while outbound lookups are switched on."""
+    from app.core import config_service
+
+    config_service.set_config({"online_enabled": True})
     return True
 
 
@@ -869,7 +879,7 @@ def test_r9_an_empty_selection_downloads_nothing(a_plan):
 
 
 def test_r9_the_api_refuses_a_stale_plan_and_issues_no_request(
-        client, sec_vault, fixture_server, indexed_client):
+        client, sec_vault, fixture_server, indexed_client, online):
     workflows = client.get("/api/v1/workflows?limit=1").json()["items"]
     if not workflows:
         pytest.skip("no workflow indexed in the synthetic vault")
@@ -1162,7 +1172,7 @@ def _item(root: Path, name: str, *, url: str, size: int, sha: str | None,
 
 
 def test_the_whole_path_places_a_verified_file(sec_vault, fixture_server,
-                                               allow_fixture_host, enable_service):
+                                               allow_fixture_host, online, enable_service):
     root = Path(str(sec_vault.comfyui_path))
     item = _item(root, "fetched.safetensors",
                  url=f"{fixture_server.base}/f/good.safetensors",
@@ -1184,7 +1194,7 @@ def test_the_whole_path_places_a_verified_file(sec_vault, fixture_server,
 
 
 def test_the_whole_path_quarantines_a_bad_file_and_records_a_scan_error(
-        sec_vault, fixture_server, allow_fixture_host, enable_service):
+        sec_vault, fixture_server, allow_fixture_host, online, enable_service):
     from app.core import db as dbmod
 
     root = Path(str(sec_vault.comfyui_path))
@@ -1216,7 +1226,7 @@ def test_the_whole_path_quarantines_a_bad_file_and_records_a_scan_error(
 
 
 def test_the_whole_path_refuses_a_batch_that_will_not_fit(
-        sec_vault, fixture_server, allow_fixture_host, enable_service, monkeypatch):
+        sec_vault, fixture_server, allow_fixture_host, online, enable_service, monkeypatch):
     from app.core import db as dbmod
 
     root = Path(str(sec_vault.comfyui_path))
@@ -1236,7 +1246,7 @@ def test_the_whole_path_refuses_a_batch_that_will_not_fit(
 
 
 def test_the_whole_path_refuses_a_redirect_off_the_allowlist(
-        sec_vault, fixture_server, allow_fixture_host, enable_service):
+        sec_vault, fixture_server, allow_fixture_host, online, enable_service):
     root = Path(str(sec_vault.comfyui_path))
     fixture_server.redirect_to = (
         f"http://127.0.0.1:{fixture_server.server_address[1]}/leak/x.safetensors")
@@ -1256,7 +1266,7 @@ def test_the_whole_path_refuses_a_redirect_off_the_allowlist(
 
 
 def test_a_cancelled_batch_stops_and_keeps_only_the_part_file(
-        sec_vault, fixture_server, allow_fixture_host, enable_service):
+        sec_vault, fixture_server, allow_fixture_host, online, enable_service):
     root = Path(str(sec_vault.comfyui_path))
     fixture_server.chunk_size = 4096
     fixture_server.delay = 0.02
@@ -1273,3 +1283,37 @@ def test_a_cancelled_batch_stops_and_keeps_only_the_part_file(
     assert "done" not in status["states"]
     assert not (root / "models" / "loras" / "slow.safetensors").exists()
     assert len(_part_files(root)) == 1
+
+
+def test_fetch_refuses_while_outbound_lookups_are_off(
+        sec_vault, fixture_server, allow_fixture_host, enable_service):
+    root = Path(str(sec_vault.comfyui_path))
+    item = _item(root, "offline.safetensors",
+                 url=f"{fixture_server.base}/f/good.safetensors",
+                 size=len(PAYLOAD), sha=PAYLOAD_SHA)
+    issued = plan.issue(6, [item])
+    with pytest.raises(FeatureUnavailable) as exc:
+        enable_service.fetch(6, plan_token=issued.token,
+                             item_ids=[item.item_id], confirm=True)
+    assert exc.value.details["reason"] == "online_disabled"
+    assert fixture_server.seen == []
+
+
+def test_a_queued_batch_is_not_fetched_once_lookups_are_off(
+        sec_vault, fixture_server, allow_fixture_host, online, enable_service,
+        monkeypatch):
+    """The startup resume path queues work without going through fetch()."""
+    from app.core import config_service
+
+    root = Path(str(sec_vault.comfyui_path))
+    item = _item(root, "resumed.safetensors",
+                 url=f"{fixture_server.base}/f/good.safetensors",
+                 size=len(PAYLOAD), sha=PAYLOAD_SHA)
+    issued = plan.issue(7, [item])
+    monkeypatch.setattr(enable_service, "_ensure_worker", lambda: None)
+    started = enable_service.fetch(7, plan_token=issued.token,
+                                   item_ids=[item.item_id], confirm=True)
+    config_service.set_config({"online_enabled": False})
+    enable_service._run()
+    assert fixture_server.seen == []
+    assert enable_service.status(batch_id=started["batch_id"])["states"] == {"queued": 1}
