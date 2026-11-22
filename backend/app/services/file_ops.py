@@ -163,11 +163,18 @@ def _validate_path(path: str | Path):
     return resolve_within_roots(path, _roots())
 
 
-def _sidecars(path: str) -> list[str]:
+#: A bare ``<stem>.png`` is a model's preview image, but next to an output or a
+#: workflow it is an asset of its own (``foo.mp4`` + ``foo.png`` are two outputs).
+MODEL_ONLY_SIDECARS = frozenset({".png", ".jpg", ".webp"})
+
+
+def _sidecars(path: str, kind: str) -> list[str]:
     directory = os.path.dirname(path)
     stem = os.path.splitext(os.path.basename(path))[0]
     out = []
     for suffix in SIDECAR_SUFFIXES:
+        if kind != "model" and suffix in MODEL_ONLY_SIDECARS:
+            continue
         cand = os.path.join(directory, stem + suffix)
         try:
             if os.path.isfile(long_path(cand)) and cand != path:
@@ -323,14 +330,16 @@ def rename(uid: str, new_name: str, *, keep_extension: bool = True,
             raise ConflictError("A file with that name already exists.",
                                 details={"path": target})
         _validate_path(os.path.dirname(target))
-        sidecars = _sidecars(old) if rename_sidecars else []
+        sidecars = _sidecars(old, info["kind"]) if rename_sidecars else []
         os.replace(long_path(old), long_path(target))
         stem = os.path.splitext(name)[0]
         for sc in sidecars:
             sc_suffix = os.path.basename(sc)[len(os.path.splitext(os.path.basename(old))[0]):]
+            sc_target = os.path.join(os.path.dirname(old), stem + sc_suffix)
+            if os.path.exists(long_path(sc_target)):
+                continue  # never overwrite another file with a sidecar
             try:
-                os.replace(long_path(sc),
-                           long_path(os.path.join(os.path.dirname(old), stem + sc_suffix)))
+                os.replace(long_path(sc), long_path(sc_target))
             except OSError:
                 continue
         _relocate_row(info["kind"], info["id"], old, target)
@@ -390,12 +399,14 @@ def move(uids: list[str], target_root_id: int, target_folder: str, *,
                 else:
                     raise ConflictError("A file with that name already exists.",
                                         details={"path": target})
-            sidecars = _sidecars(old)
+            sidecars = _sidecars(old, info["kind"])
             shutil.move(long_path(old), long_path(target))
             for sc in sidecars:
+                sc_target = str(dest_dir / os.path.basename(sc))
+                if os.path.exists(long_path(sc_target)):
+                    continue  # never overwrite another file with a sidecar
                 try:
-                    shutil.move(long_path(sc),
-                                long_path(str(dest_dir / os.path.basename(sc))))
+                    shutil.move(long_path(sc), long_path(sc_target))
                 except OSError:
                     continue
             _relocate_row(info["kind"], info["id"], old, target, int(root["id"]))
@@ -433,7 +444,7 @@ def delete(uids: list[str], mode: str = "trash", confirm: bool = False,
             old = info["abs_path"]
             _, root = _validate_path(old)
             is_dir = os.path.isdir(long_path(old))
-            sidecars = [] if is_dir else _sidecars(old)
+            sidecars = [] if is_dir else _sidecars(old, info["kind"])
             if mode == "permanent":
                 if is_dir:
                     shutil.rmtree(long_path(old), ignore_errors=False)
