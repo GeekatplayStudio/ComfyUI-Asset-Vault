@@ -26,7 +26,13 @@ from typing import Any
 
 from ..core import config_service, progress
 from ..core import db as dbmod
-from ..core.errors import AppError, ConflictError, NotConfigured, ValidationError
+from ..core.errors import (
+    AppError,
+    ConflictError,
+    FeatureUnavailable,
+    NotConfigured,
+    ValidationError,
+)
 from . import download, git_fetch, plan, report
 
 log = logging.getLogger(__name__)
@@ -62,6 +68,11 @@ class EnableService:
             raise NotConfigured(
                 "ComfyUI path is not configured, so there is nowhere to put "
                 "anything. Run the setup wizard first.")
+        if not cfg.online_enabled:
+            raise FeatureUnavailable(
+                "Outbound lookups are disabled, so nothing can be downloaded.",
+                details={"reason": "online_disabled",
+                         "hint": "Settings -> Search -> Allow outbound lookups at all"})
         if not confirm:
             raise ValidationError(
                 "Fetching downloads files from the internet into your ComfyUI "
@@ -364,6 +375,10 @@ class EnableService:
         touched: set[str] = set()
         placed = 0
         while not self._cancel.is_set() and not self._stopping:
+            # Re-read every job: switching outbound lookups off stops a running
+            # batch, and keeps a batch resumed at startup queued, not fetched.
+            if not config_service.get_config().online_enabled:
+                break
             job = self._claim()
             if job is None:
                 break

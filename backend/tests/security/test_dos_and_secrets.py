@@ -100,7 +100,7 @@ def tolerant_client(sec_vault):
 
     from app.main import app
 
-    with TestClient(app, raise_server_exceptions=False) as c:
+    with TestClient(app, base_url="http://127.0.0.1", raise_server_exceptions=False) as c:
         c.headers.update({"X-Vault-Request": "1"})
         yield c
 

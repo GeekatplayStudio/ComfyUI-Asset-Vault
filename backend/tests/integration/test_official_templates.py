@@ -264,7 +264,7 @@ def test_download_endpoint_serves_the_template_json(templated):
 
     from app.main import app
 
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         r = client.get("/api/v1/files/download", params={"uid": f"workflow:{_template_id()}"})
         assert r.status_code == 200
         assert json.loads(r.content)["id"] == TPL_UUID

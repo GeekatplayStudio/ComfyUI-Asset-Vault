@@ -223,3 +223,32 @@ def test_identity_fields_exist_on_every_table():
         fields = file_ops._identity_fields(kind, __file__, str(BACKEND))
         stray = sorted(set(fields) - columns)
         assert not stray, f"{kind} identity fields absent from {table}: {stray}"
+
+
+def test_a_bare_image_is_a_sidecar_only_for_a_model(tmp_path):
+    """``clip.png`` next to ``clip.mp4`` is a second output, not a preview."""
+    for name in ("clip.mp4", "clip.png", "clip.preview.png", "clip.json"):
+        (tmp_path / name).write_bytes(b"x")
+
+    def names(kind: str) -> list[str]:
+        found = file_ops._sidecars(str(tmp_path / "clip.mp4"), kind)
+        return sorted(os.path.basename(p) for p in found)
+
+    assert names("output") == ["clip.json", "clip.preview.png"]
+    assert names("model") == ["clip.json", "clip.png", "clip.preview.png"]
+
+
+def test_rename_never_overwrites_a_file_with_a_sidecar(vault):
+    uid = _first_uid("model")
+    loras = vault / "models" / "loras"
+    (loras / "roundtrip.preview.png").write_bytes(b"own preview")
+    (loras / "taken.preview.png").write_bytes(b"another file")
+    try:
+        assert file_ops.rename(uid, "taken").ok
+        assert (loras / "taken.safetensors").is_file()
+        assert (loras / "taken.preview.png").read_bytes() == b"another file"
+        assert (loras / "roundtrip.preview.png").read_bytes() == b"own preview"
+    finally:
+        file_ops.rename(uid, "roundtrip", rename_sidecars=False)
+        for name in ("roundtrip.preview.png", "taken.preview.png"):
+            (loras / name).unlink(missing_ok=True)
