@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import config as buildcfg
 from .api import middleware as api_middleware
@@ -108,6 +109,16 @@ app = FastAPI(
 )
 
 api_middleware.install(app)
+
+# DNS rebinding: once a hostile name resolves to 127.0.0.1, its page is
+# same-origin with the vault and can send X-Vault-Request, so the CSRF header
+# alone does not protect a loopback server.  Only loopback names may address
+# it.  ALLOW_LAN=1 already means "reachable from the network with no
+# authentication", and the LAN name is unknown here, so it skips the check.
+LOOPBACK_HOSTS = ["127.0.0.1", "localhost", "[::1]"]
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["*"] if os.environ.get("ALLOW_LAN") == "1" else LOOPBACK_HOSTS)
 
 # CORS is for the Vite dev server only.  When the built SPA is served from this
 # same origin there is nothing cross-origin left to allow (ARCHITECTURE 8.4).

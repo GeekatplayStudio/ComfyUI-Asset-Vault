@@ -222,7 +222,7 @@ def hermetic_client(temp_vault):
 
     from app.main import app
 
-    with TestClient(app) as c:
+    with TestClient(app, base_url="http://127.0.0.1") as c:
         yield c
 
 

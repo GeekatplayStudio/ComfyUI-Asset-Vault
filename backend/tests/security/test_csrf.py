@@ -60,7 +60,7 @@ def test_the_header_value_must_be_exactly_one(sec_vault):
 
     from app.main import app
 
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         for value in ("", "0", "true", "yes", "2"):
             response = client.post("/api/v1/index/start", json={},
                                    headers={"X-Vault-Request": value})
@@ -78,6 +78,20 @@ def test_reveal_is_a_get_but_still_demands_the_header(naked_client):
     response = naked_client.get("/api/v1/files/reveal", params={"uid": "model:1"})
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "CSRF_HEADER_MISSING"
+
+
+def test_a_rebound_host_name_is_refused(naked_client):
+    """DNS rebinding makes a hostile page same-origin, so it *can* send
+    X-Vault-Request.  The Host header is what still gives it away."""
+    for host in ("evil.example", "evil.example:8127", "127.0.0.1.evil.example"):
+        response = naked_client.get("/api/v1/ping", headers={"Host": host})
+        assert response.status_code == 400, host
+        response = naked_client.post("/api/v1/index/start", json={},
+                                     headers={"Host": host, "X-Vault-Request": "1"})
+        assert response.status_code == 400, host
+    for host in ("127.0.0.1:8127", "localhost:8127", "[::1]:8127"):
+        assert naked_client.get("/api/v1/ping",
+                                headers={"Host": host}).status_code == 200, host
 
 
 # ---------------------------------------------------------------------------

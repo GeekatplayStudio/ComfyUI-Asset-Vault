@@ -158,7 +158,7 @@ def test_the_api_stays_responsive_during_a_scan(large_synthetic):
     samples: list[float] = []
     stop = threading.Event()
 
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         def poll():
             while not stop.is_set():
                 t0 = time.perf_counter()

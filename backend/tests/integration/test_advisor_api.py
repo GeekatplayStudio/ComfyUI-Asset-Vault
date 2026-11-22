@@ -248,7 +248,7 @@ def client(advisor):
 
     from app.main import app
 
-    with TestClient(app) as c:
+    with TestClient(app, base_url="http://127.0.0.1") as c:
         c.headers.update(CSRF)
         yield c
 
@@ -319,7 +319,7 @@ def test_read_routes_need_no_csrf_header(advisor):
 
     from app.main import app
 
-    with TestClient(app) as naked:
+    with TestClient(app, base_url="http://127.0.0.1") as naked:
         for path in ("/overview", "/hardware", "/catalog", "/settings", "/sources"):
             assert naked.get(API + path).status_code == 200, path
 
@@ -751,7 +751,7 @@ def test_patch_settings_requires_the_csrf_header(advisor):
 
     from app.main import app
 
-    with TestClient(app) as naked:
+    with TestClient(app, base_url="http://127.0.0.1") as naked:
         response = naked.patch(API + "/settings", json={"vram_headroom_pct": 40})
         assert_envelope(response, 400, "CSRF_HEADER_MISSING")
         assert naked.get(API + "/settings").json()["vram_headroom_pct"] == 15
@@ -771,7 +771,7 @@ def test_every_mutating_advisor_route_requires_the_csrf_header(advisor, method, 
 
     from app.main import app
 
-    with TestClient(app) as naked:
+    with TestClient(app, base_url="http://127.0.0.1") as naked:
         response = naked.request(method, API + path, json=body)
         assert_envelope(response, 400, "CSRF_HEADER_MISSING")
 
@@ -1760,7 +1760,7 @@ def test_an_auto_update_request_still_needs_the_csrf_header_and_a_boolean(adviso
 
     from app.main import app
 
-    with TestClient(app) as naked:
+    with TestClient(app, base_url="http://127.0.0.1") as naked:
         assert_envelope(naked.post(API + "/update", json={"auto": True}), 400,
                         "CSRF_HEADER_MISSING")
         assert_envelope(naked.post(API + "/update", json={"auto": "perhaps"},
